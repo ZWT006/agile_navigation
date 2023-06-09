@@ -1,0 +1,91 @@
+<launch>
+
+    <!--stand ros unit m | m/s | rad-->
+    <!-- <arg name="map_size_x" default="10.0"/>
+<arg name="map_size_y" default="10.0"/>
+<arg name="map_size_z" default=" 0.2"/> -->
+
+    <!--map origin default = 1/2 map size-->
+    <!-- <arg name="map_orign_x" default="5.0"/>
+<arg name="map_orign_y" default="5.0"/>
+<arg name="map_orign_z" default=" 0.1"/> -->
+
+    <!--stand ros unit m | m/s | rad-->
+    <arg name="map_size_x" default="20.0"/>
+    <arg name="map_size_y" default="20.0"/>
+    <arg name="map_size_z" default=" 0.05"/>
+
+    <!--map origin default = 1/2 map size-->
+    <arg name="map_orign_x" default="10.0"/>
+    <arg name="map_orign_y" default="10.0"/>
+    <arg name="map_orign_z" default=" 0.1"/>
+
+
+    <arg name="start_x" default=" 0.0"/>
+    <arg name="start_y" default=" 0.0"/>
+    <arg name="start_z" default=" 0.0"/>
+
+    <arg name="start_vx" default=" 0.2"/>
+    <arg name="start_vy" default=" 0.2"/>
+    <arg name="start_vz" default=" 0.0"/>
+
+    <arg name="map_name" default="map11.png"/>
+
+    <!-- <node pkg="grid_path_searcher" type="demo_node" name="demo_node" output="screen" required = "true">
+      <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
+      <remap from="~map" to="/random_complex/global_map"/> 
+
+      <param name="map/margin" value="0.0" />
+      <param name="map/resolution" value="0.2" />
+      <param name="map/x_size" value="$(arg map_size_x)"/>
+      <param name="map/y_size" value="$(arg map_size_y)"/>
+      <param name="map/z_size" value="$(arg map_size_z)"/>
+
+      <param name="map/orign_x_size" value="$(arg map_orign_x)"/>
+      <param name="map/orign_y_size" value="$(arg map_orign_y)"/>
+      <param name="map/orign_z_size" value="$(arg map_orign_z)"/>
+
+
+      <param name="planning/start_x" value="$(arg start_x)"/>
+      <param name="planning/start_y" value="$(arg start_y)"/>
+      <param name="planning/start_z" value="$(arg start_z)"/>
+      <param name="planning/start_vx" value="$(arg start_vx)"/>
+      <param name="planning/start_vy" value="$(arg start_vy)"/>
+      <param name="planning/start_vz" value="$(arg start_vz)"/>
+
+  </node> -->
+    <node pkg ="grid_path_searcher" name ="image_map" type ="image_map" output = "screen">
+
+        <remap from="~odom" to="/ground_truth/state"/>
+
+        <param name="init_state_x" value="$(arg start_x)"/>
+        <param name="init_state_y" value="$(arg start_y)"/>
+
+        <param name="map/x_size" value="$(arg map_size_x)" />
+        <param name="map/y_size" value="$(arg map_size_y)" />
+        <param name="map/z_size" value="$(arg map_size_z)" />
+
+        <param name="map/orign_x_size" value="$(arg map_orign_x)"/>
+        <param name="map/orign_y_size" value="$(arg map_orign_y)"/>
+        <param name="map/orign_z_size" value="$(arg map_orign_z)"/>
+
+        <param name="map/local_w" value="2"/>
+        <param name="map/resolution" value="0.05"/>
+
+        <param name="sensing/rate" value="10"/>
+
+        <param name="image_address" value="$(find grid_path_searcher)/map/$(arg map_name) "/>
+    </node>
+
+    <node pkg="waypoint_generator" name="waypoint_generator" type="waypoint_generator" output="screen">
+        <remap from="~goal" to="/goal"/>
+        <param name="waypoint_type" value="manual-lonely-waypoint"/>
+    </node>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/imgmap.rviz"/>
+
+    <!-- <node pkg="tf" type="static_transform_publisher" name="tf_world_to_map" 
+        args="0 0 0 0 0 0 1 odom world 100 " /> -->
+    <!--static_transform_publisher x y z yaw pitch roll frame_id child_frame_id-->
+    <!--static_transform_publisher x y z qx qy qz qw frame_id child_frame_id-->
+</launch>

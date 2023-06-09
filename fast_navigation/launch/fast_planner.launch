@@ -1,0 +1,128 @@
+<launch>
+
+<!--stand ros unit m | m/s | rad-->
+<!--map origin default = 1/2 map size-->
+
+<arg name="map_size_x" default="40.0"/>
+<arg name="map_size_y" default="20.0"/>
+<arg name="map_size_z" default=" 1.0"/>
+
+<!-- <arg name="map_orign_x" default="20.0"/>
+<arg name="map_orign_y" default="10.0"/>
+<arg name="map_orign_z" default=" 0.5"/> -->
+
+
+<arg name="start_x" default=" 0.0"/>
+<arg name="start_y" default=" 0.0"/>
+<arg name="start_z" default=" 0.0"/>
+
+<arg name="start_vx" default=" 0.2"/>
+<arg name="start_vy" default=" 0.2"/>
+<arg name="start_vz" default=" 0.0"/>
+
+<arg name="dir_grid_m"      default="3.0"/>
+<arg name="iter_num_max"    default="900"/>
+<arg name="xy_sample_size"    default="0.3"/>
+<!-- <arg name="q_sample_size"   default="M_PI*2"/> -->
+<arg name="xy_bais"         default="0.2"/>
+<!-- c_angle_ = xy_sample_size_ /M_PI * 1.2 -->
+<!-- c_angle_ = 0.2/ 0.152 -->
+<arg name="c_angle"         default="0.152"/> 
+<arg name="xy_resolution"   default="0.05"/>
+<!-- <arg name="q_resolution"    default="M_PI*2"/> -->
+<arg name="time_interval"   default="0.01"/>
+<arg name="vel_factor"      default="2.0"/>
+<arg name="ome_factor"      default="1.0"/>
+<arg name="weightR"         default="1.0"/>
+<arg name="SAMPLE_RANDOM"   default="true"/>
+<arg name="erode_kernel_size" default="6.0"/>
+
+<arg name="nav_seq_vis"     default="true"/>
+
+
+<node pkg="fast_navigation" type="fast_planner_node" name="fast_planner_node" output="screen" required = "true">
+    <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
+    <remap from="~map" to="/image_map/global_map"/>
+    <remap from="~odom" to="/ground_truth/state"/>
+
+    <param name="search/dir_grid_m"     value="$(arg dir_grid_m)"/>
+    <param name="search/iter_num_max"   value="$(arg iter_num_max)"/>
+    <param name="search/xy_sample_size"   value="$(arg xy_sample_size)"/>
+    <!-- <param name="search/q_sample_size"  value="$(arg q_sample_size)"/> -->
+    <param name="search/xy_bais"        value="$(arg xy_bais)"/>
+    <param name="search/c_angle"        value="$(arg c_angle)"/>
+    <param name="search/xy_resolution"  value="$(arg xy_resolution)"/>
+    <!-- <param name="search/q_resolution"   value="$(arg axi_resolution)"/> -->
+    <param name="search/time_interval"  value="$(arg time_interval)"/>
+    <param name="search/vel_factor"     value="$(arg vel_factor)"/>
+    <param name="search/ome_factor"     value="$(arg ome_factor)"/>
+    <param name="search/weightR"        value="$(arg weightR)"/>
+    <param name="search/SAMPLE_RANDOM"  value="$(arg SAMPLE_RANDOM)"/>
+
+    <param name="map/x_size" value="$(arg map_size_x)" />
+    <param name="map/y_size" value="$(arg map_size_y)" />
+    <param name="map/z_size" value="$(arg map_size_z)" />
+    <param name="map/erode_kernel_size" value="$(arg erode_kernel_size)" />
+
+    <param name="map/local_w" value="2"/>
+    <param name="sensing/rate" value="10"/>
+
+    <param name="planner/nav_seq_vis" value="$(arg nav_seq_vis)"/>
+    <param name="planner/timeHorizon" value="1.0"/> <!-- 1.0 [s]-->
+    <param name="planner/time_step_pursuit" value="5.0"/>
+    <param name="planner/time_step_interval" value="10.0"/>
+    <param name="planner/refer_vel" value="1.5"/>
+    <param name="planner/refer_ome" value="1.0"/>
+    <param name="planner/Kp_x" value="10.0"/>
+    <param name="planner/Kp_y" value="10.0"/>
+    <param name="planner/Kp_q" value="10.0"/>
+    <param name="planner/max_vel_x" value="1.0"/>
+    <param name="planner/max_vel_y" value="0.5"/>
+    <param name="planner/max_vel_q" value="1.57"/>
+
+
+    <!-- <param name="map/orign_x_size" value="$(arg map_orign_x)"/>
+    <param name="map/orign_y_size" value="$(arg map_orign_y)"/>
+    <param name="map/orign_z_size" value="$(arg map_orign_z)"/> -->
+
+
+</node>
+
+  <!-- <node pkg ="grid_path_searcher" name ="image_map" type ="image_map" output = "screen">    
+    
+      <param name="init_state_x"   value="$(arg start_x)"/>
+      <param name="init_state_y"   value="$(arg start_y)"/>
+
+      <param name="map/x_size"     value="$(arg map_size_x)" />
+      <param name="map/y_size"     value="$(arg map_size_y)" />
+      <param name="map/z_size"     value="$(arg map_size_z)" />
+
+      <param name="map/orign_x_size"       value="$(arg map_orign_x)"/>
+      <param name="map/orign_y_size"       value="$(arg map_orign_y)"/>
+      <param name="map/orign_z_size"       value="$(arg map_orign_z)"/>
+
+      <param name="map/circle_num" value="40"/>        
+      <param name="map/obs_num"    value="300"/>        
+      <param name="map/resolution" value="0.05"/>        
+
+      <param name="ObstacleShape/lower_rad" value="0.1"/>
+      <param name="ObstacleShape/upper_rad" value="0.7"/>
+      <param name="ObstacleShape/lower_hei" value="1.0"/>
+      <param name="ObstacleShape/upper_hei" value="3.0"/>
+
+      <param name="CircleShape/lower_circle_rad"   value="0.6"/>        
+      <param name="CircleShape/upper_circle_rad"   value="2.0"/>        
+      
+      <param name="sensing/rate"   value="0.5"/>    
+
+      <param name="image_address"   value="$(find grid_path_searcher)/map/$(arg map_name) "/>   
+  </node> -->
+
+  <!-- <node pkg="waypoint_generator" name="waypoint_generator" type="waypoint_generator" output="screen">
+      <remap from="~goal" to="/goal"/>
+      <param name="waypoint_type" value="manual-lonely-waypoint"/>    
+  </node> -->
+
+  <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/imgmap.rviz"/>  -->
+
+</launch>
