@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-04-12
+ * @LastEditTime: 2023-06-15
  * @Description: 
  * @reference: 
  * 
@@ -149,6 +149,14 @@ struct NodeState
     std::vector<double> xacoeff; //x polynomial coeffs
     std::vector<double> yacoeff; //y polynomial coeffs
     std::vector<double> qacoeff; //q polynomial coeffs
+
+    std::vector<double> xptraj; //xptraj
+    std::vector<double> yptraj; //yptraj
+    std::vector<double> qptraj; //qptraj
+    
+    std::vector<double> xvtraj; //xvtraj
+    std::vector<double> yvtraj; //yvtraj
+    std::vector<double> qvtraj; //qvtraj
     // NodeState(Eigen::Vector3d _Position, Eigen::Vector3d _Velocity, Eigen::Vector3d _Acceleration, double _Trajectory_Cost,double _Trajectory_Length)
     // {
     //   Position = _Position;

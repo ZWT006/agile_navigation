@@ -31,6 +31,9 @@
 
     <arg name="map_name" default="map11.png"/>
 
+    <arg name="erode_kernel_size" default="30.0"/>
+    <arg name="erode_switch" default="true"/>
+
     <!-- <node pkg="grid_path_searcher" type="demo_node" name="demo_node" output="screen" required = "true">
       <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
       <remap from="~map" to="/random_complex/global_map"/> 
@@ -71,6 +74,8 @@
 
         <param name="map/local_w" value="2"/>
         <param name="map/resolution" value="0.05"/>
+        <param name="map/erode_kernel_size" value="$(arg erode_kernel_size)" />
+        <param name="map/erode_switch" value="$(arg erode_switch)" />
 
         <param name="sensing/rate" value="10"/>
 

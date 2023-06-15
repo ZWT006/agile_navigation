@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-05-04
+ * @LastEditTime: 2023-06-15
  * @Description: 
  * @reference: 
  * 
@@ -17,43 +17,34 @@
  * 5. add Trajectory Optimization (可以考虑使用osqp,qpOASES,qpOASES-3.2.1,qpOASES-3.2.1,qpOASES-3.2.1)也许新建一个功能包比较好
  * 6. pref osbmap and esdf ,it's map parts(优化osbmap部分的代码)
 */
-
-#include <iostream>
-#include <fstream>
-#include <math.h>
-#include <angles/angles.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <ros/ros.h>
-#include <ros/console.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/Image.h>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
-#include <cv_bridge/cv_bridge.h>
-
-#include <tf/transform_datatypes.h>
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <visualization_msgs/Marker.h>
-
-
+#include <fast_navigation/navigation.hpp>
 #include <lazykinoprm/LazyKinoPRM.h>
 
 using namespace std;
 using namespace Eigen;
 using namespace cv;
 
+// visualization Navigation Sequences
 #define VIS_NAV_SEQ
-
 #define DEFAULT_HIGH 0.3f
-#define DIST_XY 0.03f
-#define DIST_Q 0.0872646f
 
 #define Q_WEIGHT 0.01f
+
+// visualization_msgs::Marker 可视化的透明度
+#define RGB_ALPHA 0.6
+
+
+// ros related
+ros::Subscriber _map_sub, _pts_sub, _odom_sub;
+ros::Publisher _cmd_vel_pub,_nav_seq_pub,_nav_seq_vis_pub;
+ros::Publisher _obsmap_img_pub,_sdfmap_img_pub;
+ros::Publisher _ptraj_vis_pub,_vtraj_vis_pub;
+ros::Publisher  _grid_map_vis_pub, _path_vis_pub,_robot_vis_pub;
+
+// node parameters
+double _local_w,_sense_rate;
+double robot_width=0.30,robot_length=0.40; //unitree A1 robot size
+double robot_height=0.15;
 
 // simulation param from launch file
 double _resolution, _inv_resolution, _cloud_margin;
@@ -74,8 +65,11 @@ int _odom_cnt_th = 10;
 int _tracking_cnt = 0;
 
 nav_msgs::Odometry::ConstPtr currodom;
+// visualization robot switch 在ros循环中可视化 
 bool _visRobot=false;
 bool _nav_seq_vis_flag=true;
+// 跟踪轨迹的pos可视化
+nav_msgs::Path _nav_seq_vis_msg;
 
 // Integral parameter
 double _max_input_acc     = 1.0;
@@ -97,7 +91,6 @@ double _vel_factor = 1.0;
 // geometry_msgs::Twist _cmd_vel;
 // odom 的频率为10hz _time_interval=0.01s so _time_step_interval=10
 
-
 // close loop for path following
 double _Kp_x, _Kp_y, _Kp_q;
 //最简单的Kp参数, (s_ref - s_get)/_traj_time_interval = Kp_s * (s_ref - s_get)
@@ -107,38 +100,33 @@ double _refer_vel,_refer_ome;
 
 Vector3d _currPose,_localPose,_goalPose;
 
-// node parameters
-double _local_w,_sense_rate;
-double robot_width=0.30,robot_length=0.40; //unitree A1 robot size
-double robot_height=0.15;
 
-// ros related
-ros::Subscriber _map_sub, _pts_sub, _odom_sub;
-ros::Publisher  _grid_map_vis_pub, _path_vis_pub,_robot_vis_pub;
-ros::Publisher _cmd_vel_pub,_nav_seq_pub,_nav_seq_vis_pub;
-ros::Publisher _obsmap_img_pub,_sdfmap_img_pub;
 
-ros::Publisher _ptraj_vis_pub,_vtraj_vis_pub;
-
+// Lazy Kinodynamic Path Searching
 LazyKinoPRM lazykinoPRM;
 
-// 
+// 目标点回调函数，进行路径规划
 void rcvWaypointsCallback(const nav_msgs::Path & wp);
+// 点云回调函数，负责设置障碍地图并更新SDF地图
 void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map);
+// 里程计回调函数，负责设置机器人位置;进行轨迹跟踪
 void rcvOdomCallBack(const nav_msgs::Odometry::ConstPtr& msg);
 
-
-void visTraLibrary();
-void visRobotNode(const nav_msgs::Odometry::ConstPtr& msg);
-void visPtraj();
-void visVtraj();
-void csvPtraj();
-
+// 轨迹跟踪 根据当前odometry计算期望 cmd_vel
 void cmdTracking(const nav_msgs::Odometry::ConstPtr& msg);
+// 轨迹跟踪 根据当前odometry计算期望 trajectory
 void navTracking(const nav_msgs::Odometry::ConstPtr& msg);
 
-inline bool nearPose(Vector2d currPose,Vector2d goalPose,double currq,double goalq);
-double AngleMinDelta(double _start, double _goal);
+// 可视化函数
+void visTraLibrary();
+// visulization robot 
+void visRobotNode(const nav_msgs::Odometry::ConstPtr& msg);
+// visulization position
+void visPtraj();
+// visulization velocity 
+void visVtraj();
+// save trajectory as .csv file
+void csvPtraj();
 
 int main(int argc, char** argv)
 {
@@ -191,11 +179,11 @@ int main(int argc, char** argv)
 
     _vel_factor = double(_time_step_pursuit) / double(_time_step_interval);
 
-    ROS_INFO("[\033[34mNode\033[0m]planner/time_horizon: %2.4f", _time_horizon);
-    ROS_INFO("[\033[34mNode\033[0m]planner/traj_time_interval: %2.4f", _traj_time_interval);
-    ROS_INFO("[\033[34mNode\033[0m]planner/time_step_interval: %d", _time_step_interval);
-    ROS_INFO("[\033[34mNode\033[0m]planner/time_step_pursuit: %d", _time_step_pursuit);
-    ROS_INFO("[\033[34mNode\033[0m]planner/vel_factor: %2.4f", _vel_factor);
+    ROS_INFO("[\033[34mPlanNode\033[0m]planner/time_horizon: %2.4f", _time_horizon);
+    ROS_INFO("[\033[34mPlanNode\033[0m]planner/traj_time_interval: %2.4f", _traj_time_interval);
+    ROS_INFO("[\033[34mPlanNode\033[0m]planner/time_step_interval: %d", _time_step_interval);
+    ROS_INFO("[\033[34mPlanNode\033[0m]planner/time_step_pursuit: %d", _time_step_pursuit);
+    ROS_INFO("[\033[34mPlanNode\033[0m]planner/vel_factor: %2.4f", _vel_factor);
 
     ros::Rate rate(_sense_rate);
     bool status = ros::ok();
@@ -206,6 +194,15 @@ int main(int argc, char** argv)
         {
             visRobotNode(currodom);
             _visRobot=false;
+        }
+            // 机器人控制指令
+        if (_nav_seq_vis_flag)
+        {
+            _nav_seq_vis_pub.publish(_nav_seq_vis_msg);
+            // 发送后就及时清空
+            _nav_seq_vis_msg.poses.clear();
+            // ROS_INFO("[\033[34mPlannerNode\033[0m]_nav_seq_msg size: %d", _nav_seq_msg.poses.size());
+            // ROS_INFO("[\033[34mPlannerNode\033[0m]_nav_seq : %d", _nav_seq);
         }
         status = ros::ok();
         rate.sleep();
@@ -227,8 +224,9 @@ void rcvWaypointsCallback(const nav_msgs::Path & wp)
     target_pt(0) = wp.poses[0].pose.position.x;
     target_pt(1) = wp.poses[0].pose.position.y;
     target_pt(2) = tf::getYaw(wp.poses[0].pose.orientation); // use tf2 library to get yaw from quaternion
+    
     Vector3d zeros_pt(0,0,0);
-    ROS_INFO("[\033[34mNode\033[0m] receive the planning target");
+    ROS_INFO("[\033[34mPlanNode\033[0m] receive the planning target");
     ROS_INFO("[\033[34mTarget\033[0m]: %f, %f, %f", wp.poses[0].pose.position.x, wp.poses[0].pose.position.y, wp.poses[0].pose.position.z);
     ROS_INFO("[\033[34mTarget\033[0m]:orientation %f, %f, %f, %f", wp.poses[0].pose.orientation.x, wp.poses[0].pose.orientation.y, wp.poses[0].pose.orientation.z, wp.poses[0].pose.orientation.w);
     ROS_INFO("[\033[34mTarget\033[0m]: %f, %f, %f", target_pt(0), target_pt(1), target_pt(2));
@@ -238,7 +236,8 @@ void rcvWaypointsCallback(const nav_msgs::Path & wp)
     current_pt = _currPose;
 
     ROS_INFO("[\033[34mTarget\033[0m]:yaw angle %f", yaw_deg);
-    _has_path = ~lazykinoPRM.search(current_pt,zeros_pt,zeros_pt,target_pt,zeros_pt,zeros_pt);
+    _has_path = lazykinoPRM.search(current_pt,zeros_pt,zeros_pt,target_pt,zeros_pt,zeros_pt);
+    _has_path = !_has_path;
     if (_has_path)
     {
         _new_path = true;
@@ -264,12 +263,14 @@ void rcvWaypointsCallback(const nav_msgs::Path & wp)
             trajectory_length += lazykinoPRM.pathstateSets[idx].trajectory_length;
             trajectory_time += lazykinoPRM.pathstateSets[idx].referT;
         }
-        ROS_INFO("[\033[32mNode\033[0m]: trajectory length: %2.4f", trajectory_length);
-        ROS_INFO("[\033[32mNode\033[0m]: trajectory time: %2.4f", trajectory_time);
+        ROS_INFO("[\033[32mPlanNode\033[0m]: trajectory length: %2.4f", trajectory_length);
+        ROS_INFO("[\033[32mPlanNode\033[0m]: trajectory time: %2.4f", trajectory_time);
+        // save trajectory as .CSV
         csvPtraj();
     }
     visTraLibrary();
-    ROS_INFO("[\033[34mNode\033[0m]: reset planning done");
+    // 可视化轨迹后再清空搜索列表
+    ROS_INFO("[\033[34mPlanNode\033[0m]: reset planning done");
     lazykinoPRM.reset();
     _has_map = false;
 }
@@ -298,15 +299,17 @@ void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map)
     // ROS_DEBUG("obsimg.at(%d,%d) = %d", 100,100,obsimg.at<uchar>(100,100));
     // sensor_msgs::ImagePtr image_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", *obsimg).toImageMsg();
     // _obsmap_img_pub.publish(image_msg);
-    cv::Mat* sdf_img = lazykinoPRM.getSdfMap();
+    cv::Mat* sdf_map_ptr = lazykinoPRM.getSdfMap();
+
+    cv::Mat sdf_img = sdf_map_ptr->clone();
     cv::Mat I_norm;
     //########################################################################
     // double minVal, maxVal;
-    // cv::minMaxLoc(*sdf_img, &minVal, &maxVal);
-    // cout << "minVal: " << minVal << " maxVal: " << maxVal << endl;
-    // 手动设置sdf地图显示的阈值 为了好看
-    cv::threshold(*sdf_img, *sdf_img, 2, 2, THRESH_TRUNC);
-    cv::normalize(*sdf_img, I_norm, 0, 255, cv::NORM_MINMAX,CV_8UC1);
+    // cv::minMaxLoc(sdf_img, &minVal, &maxVal);
+    // cout << "after update obsmap" << "minVal: " << minVal << " maxVal: " << maxVal << endl;
+    // 手动设置sdf地图显示的阈值 为了好看 出BUG了,直接操纵cv::Mat的指针导致sdf_map的值被改变
+    // cv::threshold(*sdf_img, *sdf_img, 2, 2, THRESH_TRUNC);
+    cv::normalize(sdf_img, I_norm, 0, 255, cv::NORM_MINMAX,CV_8UC1);
     cv::Mat rgb;
     cv::Mat reverse_I_norm = 255 - I_norm;
     cv::applyColorMap(reverse_I_norm, rgb, COLORMAP_COOL);
@@ -345,22 +348,12 @@ void rcvOdomCallBack(const nav_msgs::Odometry::ConstPtr& msg)
     //cmdTracking(msg);
 }
 
-//判断两个位姿是否相近
-inline bool nearPose(Vector2d currPose,Vector2d goalPose,double currq,double goalq)
-{
-    bool falg=false;
-    double dist = (currPose - goalPose).norm();
-    double qerr = fabs(currq - goalq);
-    if(dist < DIST_XY && qerr < DIST_Q) falg=true;
-    else falg=false;
-    return falg;
-}
+
 
 // 这里要完整的修改,轨迹点的位置与速度信息缩放必须好好考虑清楚
 void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
 {
     // if( _has_path == false ) return;
-    nav_msgs::Path _nav_seq_vis_msg;
     nav_msgs::Path _nav_seq_msg;
     double _x_get, _y_get, _q_get;
     // double _x_ref,_y_ref,_q_ref;
@@ -454,10 +447,10 @@ void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
                 }
                 if (idx >= pqtraj.size())
                 {
-                    ROS_INFO("[\033[33mPlannerNode\033[0m]: idx >=  pqtraj.size() = %d", idx);
-                    ROS_INFO("[\033[33mPlannerNode\033[0m]: currPose:[%2.4f %2.4f %2.4f]",_x_get, _y_get, _q_get);
-                    ROS_INFO("[\033[33mPlannerNode\033[0m]: goalPose:[%2.4f %2.4f %2.4f]",_goalPose(0), _goalPose(1), _goalPose(2));
-                    ROS_INFO("[\033[33mPlannerNode\033[0m]: trajPose:[%2.4f %2.4f %2.4f]",pxtraj.at(_curr_time_step), pytraj.at(_curr_time_step), pqtraj.at(_curr_time_step));
+                    // ROS_INFO("[\033[33mPlannerNode\033[0m]: idx >=  pqtraj.size() = %d", idx);
+                    // ROS_INFO("[\033[33mPlannerNode\033[0m]: currPose:[%2.4f %2.4f %2.4f]",_x_get, _y_get, _q_get);
+                    // ROS_INFO("[\033[33mPlannerNode\033[0m]: goalPose:[%2.4f %2.4f %2.4f]",_goalPose(0), _goalPose(1), _goalPose(2));
+                    // ROS_INFO("[\033[33mPlannerNode\033[0m]: trajPose:[%2.4f %2.4f %2.4f]",pxtraj.at(_curr_time_step), pytraj.at(_curr_time_step), pqtraj.at(_curr_time_step));
                     break;
                 }
                 // 这个距离只是xy的距离，没有考虑航向角
@@ -528,12 +521,12 @@ void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
                         break; // 跳出当前for循环
                 } // 注意这里的_nav_seq可能不够_time_step_interval步长 只填充了偏离轨迹的部分
                 // ####################################################################################
-                ROS_INFO("[\033[33mPlannerNode\033[0m]: odom is far from traj time:%2.4f, delta_q:%2.4f", _dist_time,_dist_q);
+                // ROS_INFO("[\033[33mPlannerNode\033[0m]: odom is far from traj time:%2.4f, delta_q:%2.4f", _dist_time,_dist_q);
                 // ROS_INFO("[\033[33mPlannerNode\033[0m]: local dist x: %2.4f,y: %2.4f,q: %2.4f", _dist_x, _dist_y, _dist_q);
                 // ROS_INFO("[\033[33mPlannerNode\033[0m]: local vel x: %2.4f,y: %2.4f,q: %2.4f", _x_vel, _y_vel, _q_vel);
-                ROS_INFO("[\033[33mPlannerNode\033[0m]: currPose:[%2.4f %2.4f %2.4f]",_x_get, _y_get, _q_get);
-                ROS_INFO("[\033[33mPlannerNode\033[0m]: trajVel :[%2.4f %2.4f %2.4f]",_x_vel, _y_vel, _q_vel);
-                ROS_INFO("[\033[33mPlannerNode\033[0m]: trajPose:[%2.4f %2.4f %2.4f]",pxtraj.at(_curr_time_step), pytraj.at(_curr_time_step), _q_normalize);
+                // ROS_INFO("[\033[33mPlannerNode\033[0m]: currPose:[%2.4f %2.4f %2.4f]",_x_get, _y_get, _q_get);
+                // ROS_INFO("[\033[33mPlannerNode\033[0m]: trajVel :[%2.4f %2.4f %2.4f]",_x_vel, _y_vel, _q_vel);
+                // ROS_INFO("[\033[33mPlannerNode\033[0m]: trajPose:[%2.4f %2.4f %2.4f]",pxtraj.at(_curr_time_step), pytraj.at(_curr_time_step), _q_normalize);
             }
             else // 如果当前的odometry距离轨迹点很近,就正常跟踪
             {
@@ -641,14 +634,6 @@ void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
         }
     }
     // 如果当前位置已经在目标位置附近，就停止
-
-    // 机器人控制指令
-    if (_nav_seq_vis_flag)
-    {
-        _nav_seq_vis_pub.publish(_nav_seq_vis_msg);
-        // ROS_INFO("[\033[34mPlannerNode\033[0m]_nav_seq_msg size: %d", _nav_seq_msg.poses.size());
-        // ROS_INFO("[\033[34mPlannerNode\033[0m]_nav_seq : %d", _nav_seq);
-    }
     _nav_seq_pub.publish(_nav_seq_msg);
 }
 
@@ -808,6 +793,8 @@ void cmdTracking(const nav_msgs::Odometry::ConstPtr &msg)
     _cmd_vel_pub.publish(cmd_vel);
 }
 
+//#####################################################################################################
+// 可视化
 
 void visPtraj()
 {
@@ -849,7 +836,8 @@ void csvPtraj()
     outfile.close();
 }
 
-// 可视化
+
+
 void visTraLibrary()
 {
     double _resolution = 0.02;
@@ -858,17 +846,23 @@ void visTraLibrary()
     visualization_msgs::Marker       Spheres;
     visualization_msgs::Marker       ESpheres;
     visualization_msgs::Marker       OSpheres;
+    visualization_msgs::Marker       GSphere;
 
+    // Path State Sets Visualization
     Spheres.header.frame_id =  Line.header.frame_id = "world";
     Spheres.header.stamp    =  Line.header.stamp    = ros::Time::now();
     Spheres.ns              =  Line.ns              = "planner_node/TraLibrary";
     Spheres.action          =  Line.action          = visualization_msgs::Marker::ADD;
-
+    // Search Tree Visualization
     ESpheres.header.frame_id =  OSpheres.header.frame_id = "world";
     ESpheres.header.stamp    =  OSpheres.header.stamp    = ros::Time::now();
     ESpheres.ns              =  OSpheres.ns              = "planner_node/TraLibrary";
     ESpheres.action          =  OSpheres.action          = visualization_msgs::Marker::ADD;
-
+    // Goal Point Visualization
+    GSphere.header.frame_id = "world";
+    GSphere.header.stamp    = ros::Time::now();
+    GSphere.ns              = "planner_node/TraLibrary";
+    GSphere.action          = visualization_msgs::Marker::ADD;
 
     Line.pose.orientation.w = 1.0;
     Line.type            = visualization_msgs::Marker::LINE_STRIP;
@@ -912,140 +906,168 @@ void visTraLibrary()
     OSpheres.color.g         = 1.0;
     OSpheres.color.b         = 0.0;
     
+    GSphere.pose.orientation.w = 1.0;
+    GSphere.type            = visualization_msgs::Marker::SPHERE;
+    GSphere.scale.x         = _resolution*2;
+    GSphere.scale.y         = _resolution*2;
+    GSphere.scale.z         = _resolution*2;
 
-    int marker_id = 0;
-
-    if(lazykinoPRM.pathstateSets.size() == 0)
-    {
-        ROS_DEBUG("[visTraLibrary]No path found!");
-        return;
-    }
-
-    for (int idx = 0;idx < int(lazykinoPRM.pathstateSets.size());idx++)
-    {
-        vector<double> xtraj,ytraj;
-        xtraj = lazykinoPRM.pathstateSets[idx].polytraj('p','x',_time_interval);
-        ytraj = lazykinoPRM.pathstateSets[idx].polytraj('p','y',_time_interval);
-
-        //#######################################################################################
-        // double xi_pos,yi_pos,qi_pos,xf_pos,yf_pos,qf_pos;
-        // double xi_vel,yi_vel,qi_vel,xf_vel,yf_vel,qf_vel;
-        // double xi_acc,yi_acc,qi_acc,xf_acc,yf_acc,qf_acc;
-        // Vector3d svi,sai,svf,saf,spi,spf;
-        // svi = lazykinoPRM.pathstateSets[idx].PareVelocity;
-        // sai = lazykinoPRM.pathstateSets[idx].PareAcceleration;
-        // svf = lazykinoPRM.pathstateSets[idx].Velocity;
-        // saf = lazykinoPRM.pathstateSets[idx].Acceleration;
-        // spi = lazykinoPRM.pathstateSets[idx].ParePosition;
-        // spf = lazykinoPRM.pathstateSets[idx].Position;
-        
-        // xi_pos = lazykinoPRM.pathstateSets[idx].polytrajStart('p','x');
-        // yi_pos = lazykinoPRM.pathstateSets[idx].polytrajStart('p','y');
-        // qi_pos = lazykinoPRM.pathstateSets[idx].polytrajStart('p','q');
-        // xf_pos = lazykinoPRM.pathstateSets[idx].polytrajEnd('p','x');
-        // yf_pos = lazykinoPRM.pathstateSets[idx].polytrajEnd('p','y');
-        // qf_pos = lazykinoPRM.pathstateSets[idx].polytrajEnd('p','q');
-        // xi_vel = lazykinoPRM.pathstateSets[idx].polytrajStart('v','x');
-        // yi_vel = lazykinoPRM.pathstateSets[idx].polytrajStart('v','y');
-        // qi_vel = lazykinoPRM.pathstateSets[idx].polytrajStart('v','q');
-        // xi_acc = lazykinoPRM.pathstateSets[idx].polytrajStart('a','x');
-        // yi_acc = lazykinoPRM.pathstateSets[idx].polytrajStart('a','y');
-        // qi_acc = lazykinoPRM.pathstateSets[idx].polytrajStart('a','q');
-        // xf_vel = lazykinoPRM.pathstateSets[idx].polytrajEnd('v','x');
-        // yf_vel = lazykinoPRM.pathstateSets[idx].polytrajEnd('v','y');
-        // qf_vel = lazykinoPRM.pathstateSets[idx].polytrajEnd('v','q');
-        // xf_acc = lazykinoPRM.pathstateSets[idx].polytrajEnd('a','x');
-        // yf_acc = lazykinoPRM.pathstateSets[idx].polytrajEnd('a','y');
-        // qf_acc = lazykinoPRM.pathstateSets[idx].polytrajEnd('a','q');
-        //#######################################################################################
-
-        for (int i = 0;i < int(xtraj.size());i++)
-        {
-            geometry_msgs::Point p;
-            p.x = xtraj[i];
-            p.y = ytraj[i];
-            p.z = DEFAULT_HIGH;
-            Line.points.push_back(p);
-            Line.id = marker_id;
-        }
-        // LineArray.markers.push_back(Line);
-        
-        //#######################################################################################
-        // Vector3d _position = lazykinoPRM.pathstateSets[idx].Position; 
-        // cout << GREEN << "<------------------PathNodeState=" << idx << "------------------>" << RESET << endl;
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]pathPosition =[%f,%f,%f]", _position(0), _position(1), _position(2));
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]referT =[%f]", lazykinoPRM.pathstateSets[idx].referT);
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]angledelta =[%f]", lazykinoPRM.pathstateSets[idx].angledelta);
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]distance =[%f]", lazykinoPRM.pathstateSets[idx].distance);
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]angle_cost  =[%f]",lazykinoPRM.pathstateSets[idx].angle_cost);
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]trajectory_cost  =[%f]",lazykinoPRM.pathstateSets[idx].trajectory_cost);
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]trajectory_length  =[%f]",lazykinoPRM.pathstateSets[idx].trajectory_length);
-        // cout << CYAN << "#########################################################################" << RESET << endl;
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]spi_x  = %f, spi_y  = %f, spi_q  = %f", spi(0), spi(1), spi(2));
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]xi_pos = %f, yi_pos = %f, qi_pos = %f", xi_pos, yi_pos, qi_pos);
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]spf_x  = %f, spf_y  = %f, spf_q  = %f", spf(0), spf(1), spf(2));
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]xf_pos = %f, yf_pos = %f, qf_pos = %f", xf_pos, yf_pos, qf_pos);
-        // cout << CYAN << "#########################################################################" << RESET << endl;
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]svi_x  = %f, svi_y  = %f, svi_q  = %f", svi(0), svi(1), svi(2));
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]xi_vel = %f, yi_vel = %f, qi_vel = %f", xi_vel, yi_vel, qi_vel);
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]svf_x  = %f, svf_y  = %f, svf_q  = %f", svf(0), svf(1), svf(2));
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]xf_vel = %f, yf_vel = %f, qf_vel = %f", xf_vel, yf_vel, qf_vel);
-        // cout << CYAN << "#########################################################################" << RESET << endl;
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]sai_x  = %f, sai_y  = %f, sai_q  = %f", sai(0), sai(1), sai(2));
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]xi_acc = %f, yi_acc = %f, qi_acc = %f", xi_acc, yi_acc, qi_acc);
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]saf_x  = %f, saf_y  = %f, saf_q  = %f", saf(0), saf(1), saf(2));
-        // ROS_INFO("[\033[34mvisTraLibrary\033[0m]xf_acc = %f, yf_acc = %f, qf_acc = %f", xf_acc, yf_acc, qf_acc);
-        //#######################################################################################
-    }
-    LineArray.markers.push_back(Line);
-    ++marker_id;
-
-
-    Spheres.id = marker_id;
-    geometry_msgs::Point pt;
-
-    // cout << GREEN << "#########################################################################" << RESET << endl;
-
-    // node of path
+    GSphere.color.a         = 1;
+    GSphere.color.r         = 0.0;
+    GSphere.color.g         = 0.0;
+    GSphere.color.b         = 0.0;
     
-
-    for(int idx = 0; idx < int(lazykinoPRM.pathstateSets.size()); idx++)
+    // #######################################################################################
+    // Goal Point Visualization
+    int marker_id = 0;
+    geometry_msgs::Point pt;
+    GSphere.pose.position.x = lazykinoPRM._goal_pose(0);
+    GSphere.pose.position.y = lazykinoPRM._goal_pose(1);
+    GSphere.pose.position.z = DEFAULT_HIGH;
+    GSphere.id = marker_id;
+    LineArray.markers.push_back(GSphere);
+    marker_id++;
+    
+    // #######################################################################################
+    // Path State Sets Visualization
+    if (lazykinoPRM.pathstateSets.size() == 0)
     {
-        Vector3d coord = lazykinoPRM.pathstateSets[idx].Position;
-        pt.x = coord(0);
-        pt.y = coord(1);
-        pt.z = DEFAULT_HIGH;
-        ROS_INFO("[\033[34mvisTraLibrary\033[0m]Position = [%f, %f, %f]", coord(0), coord(1), coord(2));
-        Spheres.points.push_back(pt);
+        ROS_INFO("[\033[34mvisTraLibrary\033[0m]No path found!");
+        // return;
     }
-    LineArray.markers.push_back(Spheres);
-    ++marker_id;
-
-    OSpheres.id = marker_id;
-    ++marker_id;
-    ESpheres.id = marker_id;
-    ++marker_id;
-    //node of openlist
-    for(int idx = 0; idx < int(lazykinoPRM.astaropenlist.nodestateSets.size());idx++)
+    else
     {
-        GridNodePtr gridnodeptr = lazykinoPRM.astaropenlist.nodestateSets[idx].CurrGridNodePtr;
-        Vector3d coord = lazykinoPRM.astaropenlist.nodestateSets[idx].Position;
-        pt.x = coord(0);
-        pt.y = coord(1);
-        pt.z = DEFAULT_HIGH;
-        if (gridnodeptr->type == Extend)
+        for (int idx = 0; idx < int(lazykinoPRM.pathstateSets.size()); idx++)
         {
-            ESpheres.points.push_back(pt);
+            vector<double> xtraj, ytraj;
+            xtraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'x', _time_interval);
+            ytraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'y', _time_interval);
+
+            // #######################################################################################
+            //  double xi_pos,yi_pos,qi_pos,xf_pos,yf_pos,qf_pos;
+            //  double xi_vel,yi_vel,qi_vel,xf_vel,yf_vel,qf_vel;
+            //  double xi_acc,yi_acc,qi_acc,xf_acc,yf_acc,qf_acc;
+            //  Vector3d svi,sai,svf,saf,spi,spf;
+            //  svi = lazykinoPRM.pathstateSets[idx].PareVelocity;
+            //  sai = lazykinoPRM.pathstateSets[idx].PareAcceleration;
+            //  svf = lazykinoPRM.pathstateSets[idx].Velocity;
+            //  saf = lazykinoPRM.pathstateSets[idx].Acceleration;
+            //  spi = lazykinoPRM.pathstateSets[idx].ParePosition;
+            //  spf = lazykinoPRM.pathstateSets[idx].Position;
+
+            // xi_pos = lazykinoPRM.pathstateSets[idx].polytrajStart('p','x');
+            // yi_pos = lazykinoPRM.pathstateSets[idx].polytrajStart('p','y');
+            // qi_pos = lazykinoPRM.pathstateSets[idx].polytrajStart('p','q');
+            // xf_pos = lazykinoPRM.pathstateSets[idx].polytrajEnd('p','x');
+            // yf_pos = lazykinoPRM.pathstateSets[idx].polytrajEnd('p','y');
+            // qf_pos = lazykinoPRM.pathstateSets[idx].polytrajEnd('p','q');
+            // xi_vel = lazykinoPRM.pathstateSets[idx].polytrajStart('v','x');
+            // yi_vel = lazykinoPRM.pathstateSets[idx].polytrajStart('v','y');
+            // qi_vel = lazykinoPRM.pathstateSets[idx].polytrajStart('v','q');
+            // xi_acc = lazykinoPRM.pathstateSets[idx].polytrajStart('a','x');
+            // yi_acc = lazykinoPRM.pathstateSets[idx].polytrajStart('a','y');
+            // qi_acc = lazykinoPRM.pathstateSets[idx].polytrajStart('a','q');
+            // xf_vel = lazykinoPRM.pathstateSets[idx].polytrajEnd('v','x');
+            // yf_vel = lazykinoPRM.pathstateSets[idx].polytrajEnd('v','y');
+            // qf_vel = lazykinoPRM.pathstateSets[idx].polytrajEnd('v','q');
+            // xf_acc = lazykinoPRM.pathstateSets[idx].polytrajEnd('a','x');
+            // yf_acc = lazykinoPRM.pathstateSets[idx].polytrajEnd('a','y');
+            // qf_acc = lazykinoPRM.pathstateSets[idx].polytrajEnd('a','q');
+            // #######################################################################################
+
+            for (int i = 0; i < int(xtraj.size()); i++)
+            {
+                geometry_msgs::Point p;
+                p.x = xtraj[i];
+                p.y = ytraj[i];
+                p.z = DEFAULT_HIGH;
+                Line.points.push_back(p);
+                Line.id = marker_id;
+            }
+            // LineArray.markers.push_back(Line);
+
+            // #######################################################################################
+            //  Vector3d _position = lazykinoPRM.pathstateSets[idx].Position;
+            //  cout << GREEN << "<------------------PathNodeState=" << idx << "------------------>" << RESET << endl;
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]pathPosition =[%f,%f,%f]", _position(0), _position(1), _position(2));
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]referT =[%f]", lazykinoPRM.pathstateSets[idx].referT);
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]angledelta =[%f]", lazykinoPRM.pathstateSets[idx].angledelta);
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]distance =[%f]", lazykinoPRM.pathstateSets[idx].distance);
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]angle_cost  =[%f]",lazykinoPRM.pathstateSets[idx].angle_cost);
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]trajectory_cost  =[%f]",lazykinoPRM.pathstateSets[idx].trajectory_cost);
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]trajectory_length  =[%f]",lazykinoPRM.pathstateSets[idx].trajectory_length);
+            //  cout << CYAN << "#########################################################################" << RESET << endl;
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]spi_x  = %f, spi_y  = %f, spi_q  = %f", spi(0), spi(1), spi(2));
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]xi_pos = %f, yi_pos = %f, qi_pos = %f", xi_pos, yi_pos, qi_pos);
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]spf_x  = %f, spf_y  = %f, spf_q  = %f", spf(0), spf(1), spf(2));
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]xf_pos = %f, yf_pos = %f, qf_pos = %f", xf_pos, yf_pos, qf_pos);
+            //  cout << CYAN << "#########################################################################" << RESET << endl;
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]svi_x  = %f, svi_y  = %f, svi_q  = %f", svi(0), svi(1), svi(2));
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]xi_vel = %f, yi_vel = %f, qi_vel = %f", xi_vel, yi_vel, qi_vel);
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]svf_x  = %f, svf_y  = %f, svf_q  = %f", svf(0), svf(1), svf(2));
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]xf_vel = %f, yf_vel = %f, qf_vel = %f", xf_vel, yf_vel, qf_vel);
+            //  cout << CYAN << "#########################################################################" << RESET << endl;
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]sai_x  = %f, sai_y  = %f, sai_q  = %f", sai(0), sai(1), sai(2));
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]xi_acc = %f, yi_acc = %f, qi_acc = %f", xi_acc, yi_acc, qi_acc);
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]saf_x  = %f, saf_y  = %f, saf_q  = %f", saf(0), saf(1), saf(2));
+            //  ROS_INFO("[\033[34mvisTraLibrary\033[0m]xf_acc = %f, yf_acc = %f, qf_acc = %f", xf_acc, yf_acc, qf_acc);
+            // #######################################################################################
         }
-        else if(gridnodeptr->type == Mid)
+        LineArray.markers.push_back(Line);
+        ++marker_id;
+
+        Spheres.id = marker_id;
+
+        // cout << GREEN << "#########################################################################" << RESET << endl;
+
+        // node of path
+
+        for (int idx = 0; idx < int(lazykinoPRM.pathstateSets.size()); idx++)
         {
-            OSpheres.points.push_back(pt);
+            Vector3d coord = lazykinoPRM.pathstateSets[idx].Position;
+            pt.x = coord(0);
+            pt.y = coord(1);
+            pt.z = DEFAULT_HIGH;
+            ROS_INFO("[\033[34mvisTraLibrary\033[0m]Position = [%f, %f, %f]", coord(0), coord(1), coord(2));
+            Spheres.points.push_back(pt);
         }
+        LineArray.markers.push_back(Spheres);
+        ++marker_id;
     }
-    LineArray.markers.push_back(OSpheres);
-    LineArray.markers.push_back(ESpheres);
-    ROS_DEBUG("[visTraLibrary]LineArray.size() = %d", (int)LineArray.markers.size());
-    ROS_DEBUG("[visTraLibrary]marker_id = %d", marker_id);
+
+    // #######################################################################################
+    // Search Tree Visualization
+    if (lazykinoPRM.astaropenlist.nodestateSets.size() == 0)
+    {
+        ROS_INFO("[\033[34mvisTraLibrary\033[0m]No OpenList found!");
+    }
+    else // node of openlist
+    {
+        OSpheres.id = marker_id;
+        ++marker_id;
+        ESpheres.id = marker_id;
+        ++marker_id;
+        for (int idx = 0; idx < int(lazykinoPRM.astaropenlist.nodestateSets.size()); idx++)
+        {
+            GridNodePtr gridnodeptr = lazykinoPRM.astaropenlist.nodestateSets[idx].CurrGridNodePtr;
+            Vector3d coord = lazykinoPRM.astaropenlist.nodestateSets[idx].Position;
+            pt.x = coord(0);
+            pt.y = coord(1);
+            pt.z = DEFAULT_HIGH;
+            if (gridnodeptr->type == Extend)
+            {
+                ESpheres.points.push_back(pt);
+            }
+            else if (gridnodeptr->type == Mid)
+            {
+                OSpheres.points.push_back(pt);
+            }
+        }
+        LineArray.markers.push_back(OSpheres);
+        LineArray.markers.push_back(ESpheres);
+        ROS_DEBUG("[visTraLibrary]LineArray.size() = %d", (int)LineArray.markers.size());
+        ROS_DEBUG("[visTraLibrary]marker_id = %d", marker_id);
+    }
     _path_vis_pub.publish(LineArray);
 }
 
@@ -1087,7 +1109,7 @@ void visRobotNode(const nav_msgs::Odometry::ConstPtr& msg)
     Body.scale.y         = robot_width;
     Body.scale.z         = robot_height;
 
-    Body.color.a         = 0.6;
+    Body.color.a         = RGB_ALPHA;
     Body.color.r         = 0.0;
     Body.color.g         = 0.0;
     Body.color.b         = 1.0;
@@ -1099,10 +1121,10 @@ void visRobotNode(const nav_msgs::Odometry::ConstPtr& msg)
     Spheres.scale.y         = _resolution*5;
     Spheres.scale.z         = _resolution*5;
 
-    Spheres.color.a         = 1.0;
     Spheres.color.r         = 0.0;
     Spheres.color.g         = 1.0;
     Spheres.color.b         = 0.0;
+    Spheres.color.a         = 1.0;
 
     // 可视化机器人的感知范围
     geometry_msgs::Point pt;

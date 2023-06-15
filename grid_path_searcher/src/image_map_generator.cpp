@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-03-02
- * @LastEditTime: 2023-04-24
+ * @LastEditTime: 2023-06-15
  * @Description: read picture to generate pointcloudmap
  * @reference: none
  * 
@@ -42,7 +42,7 @@ using namespace Eigen;
 
 using namespace cv;
 
-ros::Publisher _global_map_pub,_local_map_pub;
+ros::Publisher _global_map_pub,_local_map_pub,_erode_map_pub;
 ros::Publisher _odometry_pub;
 ros::Subscriber _odom_sub;
 
@@ -53,23 +53,31 @@ double _local_w;
 string _image_address = string("/home/zwt/catkin_ws/src/grid_path_searcher/map/map1.png");;
 
 bool _has_map  = false;
+bool erode_switch = false;
 
 Mat map_img;
 sensor_msgs::PointCloud2 globalMap_pcd;
 sensor_msgs::PointCloud2 localMap_pcd;
-pcl::PointCloud<pcl::PointXYZ> cloudMap;
+sensor_msgs::PointCloud2 erodeMap_pcd;
+pcl::PointCloud<pcl::PointXYZ> globalMap;
 pcl::PointCloud<pcl::PointXYZ> localMap;
+pcl::PointCloud<pcl::PointXYZ> erodeMap;
+
+Mat erode_img;
+Mat element;            // element for dilate and erode
+int erode_kernel_size_;
 
 pcl::search::KdTree<pcl::PointXYZ> kdtreeMap;
 vector<int>     pointIdxSearch;
 vector<float>   pointSquaredDistance;      
+
 
 nav_msgs::Odometry odom_msg;
 bool _has_odom = false;
 
 void odomCallback(const nav_msgs::Odometry::ConstPtr & odom);
 void LocalMapGenerate();
-void RandomMapGenerate();
+void GlobalMapGenerate();
 
 
 void odomCallback(const nav_msgs::Odometry::ConstPtr & odom)
@@ -148,6 +156,7 @@ int main (int argc, char** argv)
 
    _global_map_pub   = n.advertise<sensor_msgs::PointCloud2>("global_map", 1);
    _local_map_pub    = n.advertise<sensor_msgs::PointCloud2>("local_map", 1);
+   _erode_map_pub    = n.advertise<sensor_msgs::PointCloud2>("erode_map", 1);
    _odometry_pub     = n.advertise<nav_msgs::Odometry>("/odometry", 1);
    _odom_sub         = n.subscribe<nav_msgs::Odometry>("odom", 1, odomCallback);
    // _odom_sub         = n.subscribe<nav_msgs::Odometry>("/ground_truth/state", 1, odomCallback);
@@ -166,6 +175,8 @@ int main (int argc, char** argv)
 
    n.param("map/resolution", _resolution, 0.05);
    n.param("map/local_w", _local_w, 2.0);
+   n.param("map/erode_kernel_size", erode_kernel_size_, 3);
+   n.param("map/erode_switch",erode_switch,false);
 
    n.param("sensing/rate", _sense_rate, 1.0);
 
@@ -173,14 +184,20 @@ int main (int argc, char** argv)
 
    pixe_grid = _resolution*100;
    _local_w_grid = _local_w/0.01;
+   element = getStructuringElement(cv::MORPH_RECT, cv::Size(erode_kernel_size_, erode_kernel_size_));
    ROS_DEBUG("Began picture to pcl");
 
-   RandomMapGenerate();
+   GlobalMapGenerate();
    ros::Rate loop_rate(_sense_rate);
    while (ros::ok())
    {
       globalMap_pcd.header.stamp = ros::Time::now();
       _global_map_pub.publish(globalMap_pcd);
+      if (erode_switch)
+      {
+         erodeMap_pcd.header.stamp = ros::Time::now();
+         _erode_map_pub.publish(erodeMap_pcd);
+      }
       // ROS_INFO("[\033[34mImageNode\033[0m]:global map pub");
       // spinOnce 必须得接收到消息才会继续执行？
       ros::spinOnce();
@@ -266,7 +283,7 @@ void LocalMapGenerate()
 }
 
 
-void RandomMapGenerate()
+void GlobalMapGenerate()
 {  
    pcl::PointXYZ pt_image;
 
@@ -321,7 +338,7 @@ void RandomMapGenerate()
    //          pt_image.x = idx * 0.01 - _x_orign;
    //          pt_image.y = idy * 0.01 - _y_orign;
    //          pt_image.z = 0.01;
-   //          cloudMap.points.push_back(pt_image);
+   //          globalMap.points.push_back(pt_image);
    //       }
    //    }
    // }
@@ -339,25 +356,55 @@ void RandomMapGenerate()
                pt_image.x = idx * 0.01 - _x_orign;
                pt_image.y = idy * 0.01 - _y_orign;
                pt_image.z = DEFAULT_HIGH;
-               cloudMap.points.push_back(pt_image);
+               globalMap.points.push_back(pt_image);
             // }
          }
       }
    }
 
-   ROS_DEBUG("PointClout size: %d",cloudMap.points.size());
+   ROS_DEBUG("PointClout size: %d",globalMap.points.size());
    bool is_kdtree_empty = false;
-   if(cloudMap.points.size() > 0)
-      kdtreeMap.setInputCloud( cloudMap.makeShared() ); 
+   if(globalMap.points.size() > 0)
+      kdtreeMap.setInputCloud( globalMap.makeShared() ); 
    else
       is_kdtree_empty = true;
 
-   cloudMap.width = cloudMap.points.size();
-   cloudMap.height = 1;
-   cloudMap.is_dense = true;
+   globalMap.width = globalMap.points.size();
+   globalMap.height = 1;
+   globalMap.is_dense = true;
 
    _has_map = true;
    
-   pcl::toROSMsg(cloudMap, globalMap_pcd);
+   pcl::toROSMsg(globalMap, globalMap_pcd);
    globalMap_pcd.header.frame_id = "world";
+
+   if (erode_switch)
+   {
+      // erode
+      erode(map_img, erode_img, element);
+      // erode point clouds
+      for (idx = 0; idx < img_x; idx=idx+pixe_grid)
+      {
+         for (idy = 0; idy < img_y; idy=idy+pixe_grid)
+         {
+            // 如果该点有像素值 就是point, 使用Point()函数访问图像的像素值
+            if (erode_img.at<uchar>(Point(idx,idy)) == 0)
+            {
+               // for (int idz = 0; idz < _z_size / _resolution; idz++)
+               // {
+
+                  pt_image.x = idx * 0.01 - _x_orign;
+                  pt_image.y = idy * 0.01 - _y_orign;
+                  pt_image.z = DEFAULT_HIGH;
+                  erodeMap.points.push_back(pt_image);
+               // }
+            }
+         }
+      }
+      erodeMap.width = erodeMap.points.size();
+      erodeMap.height = 1;
+      erodeMap.is_dense = true;
+      pcl::toROSMsg(erodeMap, erodeMap_pcd);
+      erodeMap_pcd.header.frame_id = "world";
+   }
 }

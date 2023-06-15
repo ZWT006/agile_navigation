@@ -38,9 +38,9 @@ message(${OpenCV_INCLUDE_DIRS})
 
 
 
-target_link_libraries(demo_node 
-    ${catkin_LIBRARIES}
-    ${PCL_LIBRARIES})
+# target_link_libraries(demo_node 
+#     ${catkin_LIBRARIES}
+#     ${PCL_LIBRARIES})
 
 
 add_executable ( image_map 

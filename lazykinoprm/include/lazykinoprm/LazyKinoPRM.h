@@ -55,6 +55,7 @@ class LazyKinoPRM {
   Eigen::Vector3d map_origin_,map_size_;
   uint16_t IMG_OBS;
   int erode_kernel_size_;
+  double sdf_th_;
 
   /* search mid datas */
   int32_t iter_num_, iter_num_max_,use_node_num_,abandon_node_num_,search_node_num_;       // iteration number
@@ -75,11 +76,12 @@ class LazyKinoPRM {
     return angle;
   };
   
-
   /* search function */
   double getHeuristic(Eigen::Vector3d _start, Eigen::Vector3d _goal,NodeStatePtr _nodestate);
   bool getPathCost(NodeStatePtr _parnodestate,NodeStatePtr _curnodestate);
   bool isObstacleFree(Eigen::Vector3d _pose);
+  bool isWideObstacleFree(Eigen::Vector3d _pose);
+  double getPoseSDF(Eigen::Vector3d _pose);
   bool setObstacleMap(const double coord_x, const double coord_y, const double coord_z);
   double AngleCost(Eigen::Vector3d _start,Eigen::Vector3d _goal)
   {
@@ -88,17 +90,17 @@ class LazyKinoPRM {
     cost = c_angle_ * angle * angle ;
     return cost;
   };
+  Eigen::Vector3d GoalFeasibleSet(Eigen::Vector3d _goal);
   
-
-
- public:
+  public:
   /*key datas*/
   cv::Mat *obs_map;            // occupancy map as cv::Mat one pixel is pcl map resolution
-  cv::Mat *raw_obs_map;            // occupancy map as cv::Mat one pixel is pcl map resolution
+  cv::Mat *raw_obs_map;        // occupancy map as cv::Mat one pixel is pcl map resolution
   cv::Mat *sdf_map;            // sdf map as cv::Mat one pixel is pcl map resolution
   cv::Mat element;            // element for dilate and erode
   std::vector<NodeState> pathstateSets;    // path state list
   OpenList astaropenlist;            // open list for astar search
+  Eigen::Vector3d _goal_pose;  // goal pose
   LazyKinoPRM(){};
   ~LazyKinoPRM();
 
@@ -114,10 +116,11 @@ class LazyKinoPRM {
   void updataObsMap(pcl::PointCloud<pcl::PointXYZ> cloud);
   cv::Mat* getObsMap();
   cv::Mat* getSdfMap();
-
+  
 
 //check Trajectory is obstacle feasible or not
   bool TrajectoryCheck(std::vector<double> xtraj,std::vector<double> ytraj);
+  bool PathStateSetsCheck();
 
 
   // typedef shared_ptr<LazyKinoPRM> Ptr;

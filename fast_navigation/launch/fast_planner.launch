@@ -21,10 +21,10 @@
 <arg name="start_vz" default=" 0.0"/>
 
 <arg name="dir_grid_m"      default="3.0"/>
-<arg name="iter_num_max"    default="900"/>
-<arg name="xy_sample_size"    default="0.3"/>
+<arg name="iter_num_max"    default="1200"/>
+<arg name="xy_sample_size"    default="0.2"/>
 <!-- <arg name="q_sample_size"   default="M_PI*2"/> -->
-<arg name="xy_bais"         default="0.2"/>
+<arg name="xy_bais"         default="0.1"/>
 <!-- c_angle_ = xy_sample_size_ /M_PI * 1.2 -->
 <!-- c_angle_ = 0.2/ 0.152 -->
 <arg name="c_angle"         default="0.152"/> 
@@ -32,10 +32,11 @@
 <!-- <arg name="q_resolution"    default="M_PI*2"/> -->
 <arg name="time_interval"   default="0.01"/>
 <arg name="vel_factor"      default="2.0"/>
-<arg name="ome_factor"      default="1.0"/>
+<arg name="ome_factor"      default="2.0"/>
 <arg name="weightR"         default="1.0"/>
 <arg name="SAMPLE_RANDOM"   default="true"/>
 <arg name="erode_kernel_size" default="6.0"/>
+<arg name="sdf_th" default="0.1"/>
 
 <arg name="nav_seq_vis"     default="true"/>
 
@@ -63,6 +64,7 @@
     <param name="map/y_size" value="$(arg map_size_y)" />
     <param name="map/z_size" value="$(arg map_size_z)" />
     <param name="map/erode_kernel_size" value="$(arg erode_kernel_size)" />
+    <param name="map/sdf_threshold" value="$(arg sdf_th)"/>
 
     <param name="map/local_w" value="2"/>
     <param name="sensing/rate" value="10"/>
