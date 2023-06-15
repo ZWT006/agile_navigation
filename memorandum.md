@@ -10,3 +10,7 @@ roslaunch grid_path_searcher mapworld.launch
 roslaunch fast_navigation fast_planner.launch
 # terminal·n 启动legged control tracking branch
 ```
+
+2023-6-15
+``: **feat** GoalPoint Obstacle Infeasible Reset;**fix** get Pose SDF;
+在规划过程中，局部地图无法判断Goal的状态，随着地图更新可能造成终点是Obstacle Infeasible，在Search准备阶段进行判断并Reset，在终点附近找一个合适的Goal，搜索一地区域找个距离最近的，但是这样造成问题，距离障碍物太近，搜索轨迹的时候几乎从各个方向都会碰的障碍物，所以使用sdf信息额外考虑一个threshold

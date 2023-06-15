@@ -81,7 +81,7 @@ class LazyKinoPRM {
   bool getPathCost(NodeStatePtr _parnodestate,NodeStatePtr _curnodestate);
   bool isObstacleFree(Eigen::Vector3d _pose);
   bool isWideObstacleFree(Eigen::Vector3d _pose);
-  double getPoseSDF(Eigen::Vector3d _pose);
+  float getPoseSDF(Eigen::Vector3d _pose);
   bool setObstacleMap(const double coord_x, const double coord_y, const double coord_z);
   double AngleCost(Eigen::Vector3d _start,Eigen::Vector3d _goal)
   {

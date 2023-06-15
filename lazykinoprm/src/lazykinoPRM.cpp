@@ -66,6 +66,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
   AccGoal    = goal_acc;
   start_pose_index_ = Pose2Index(start_pos);
   goal_pose_index_  = Pose2Index(goal_pos);
+  float sdf;
 
   mid_node = Pose2PoseNode(goal_pos);
   if(mid_node == NULL)
@@ -75,9 +76,10 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
   }
   // Goal Feasible Manage ##########################################################################
   // 处理机制就是，如果goal点不可行，就在周围找一个可行的点，作为goal点，搜索范围是DIR_GRID_M(找一个距离最近的点)
-  bool goalOBS = isWideObstacleFree(goal_pos);
-  // bool goalOBS = false; Goal is infesible
-  if(!goalOBS)
+  bool goalOBS = isObstacleFree(goal_pos);
+  sdf = getPoseSDF(goal_pos);
+  // bool goalOBS = false or sdf < sdf_th; Goal is infesible
+  if(!goalOBS || sdf < sdf_th_)
   // if (mid_node->type == Invalid)
   {
     cout << "[\033[34mSearchNode\033[0m]" <<YELLOW << "goal node is Invalid(too close to obstacle)" << RESET << endl;
@@ -85,6 +87,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
     cout << "[\033[34mSearchNode\033[0m]" <<YELLOW << "goal_pos:" << goal_pos.transpose() << endl;
     vector<Vector3d> neighbor_nodes_pose;
     vector<double> neighbor_nodes_dist;
+    
     // Goal Pose Reset 的范围是
     for (int dir_row = -DIR_GRID_M;dir_row <= DIR_GRID_M;dir_row++)
     {
@@ -114,11 +117,12 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
             }
           GridNodePtr newGridNodePtr = pose_map[new_row][new_col][new_dep];
           //3.4:check if the node is obstacle free
-          bool neighbour = isWideObstacleFree(newGridNodePtr->pose);
+          bool neighbour = isObstacleFree(newGridNodePtr->pose);
+          sdf = getPoseSDF(newGridNodePtr->pose);
           // double sdf = getPoseSDF(goal_pos);
           // cout << "[\033[34mSearchNode\033[0m]" << YELLOW << "neigubour pose " << RESET << newGridNodePtr->pose.transpose() << endl;
           // cout << "[\033[34mSearchNode\033[0m]" << YELLOW << "neigubour sdf :" << RESET << sdf << RESET << endl;
-          if (neighbour)
+          if (neighbour && sdf > sdf_th_)
           {
             // cout << "[\033[34mSearchNode\033[0m]" << YELLOW << "find a feasible node" << RESET << newGridNodePtr->pose.transpose() << endl;
             // cout << "[\033[34mSearchNode\033[0m]" << YELLOW << "find a feasible node flag :" << RESET << std::boolalpha << neighbour << endl;
@@ -127,8 +131,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
             neighbor_nodes_pose.push_back(newGridNodePtr->pose);
             neighbor_nodes_dist.push_back(_dist);
             newGridNodePtr->setType(Mid);
-            double sdf = getPoseSDF(goal_pos);
-            cout << "[\033[34mSearchNode\033[0m]" << YELLOW << "neigubour sdf :" << RESET << sdf << RESET << endl;
+            // cout << "[\033[34mSearchNode\033[0m]" << YELLOW << "neigubour sdf :" << RESET << sdf << RESET << endl;
           }
           else 
           {
@@ -149,7 +152,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
     int min_dist_index = distance(neighbor_nodes_dist.begin(),min_dist);
     // 3.6: 重置goal点
     goal_pos = neighbor_nodes_pose[min_dist_index];
-    double sdf = getPoseSDF(goal_pos);
+    sdf = getPoseSDF(goal_pos);
     goal_pose_index_ = Pose2Index(goal_pos);
     mid_node = Pose2PoseNode(goal_pos);
     cout << "[\033[34mSearchNode\033[0m]" << CYAN << "nearest neighbour :" << *min_dist << RESET << endl;
@@ -176,7 +179,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
   cout << "[\033[34mSearchNode\033[0m]goal_pos:" << goal_pos.transpose() << endl;
   cout << "[\033[34mSearchNode\033[0m]vel_factor:" << vel_factor_ << endl;
   cout << "[\033[34mSearchNode\033[0m]ome_factor:" << ome_factor_ << endl;
-  cout << "[\033[34mSearchNode\033[0m]DIR_GRID:" << DIR_GRID << endl;
+  cout << "[\033[34mSearchNode\033[0m]DIR_GRID_M:" << DIR_GRID_M << endl;
   cout << "[\033[34mSearchNode\033[0m]c_angle:" << c_angle_ << endl;
   // TODO: check if start and goal are in the same voxel
 
@@ -198,6 +201,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
   astaropenlist.insert(&newNodeState,&newNodeState);
   // mid_node = astarcloselist.insert(mid_node);
   no_path_ = true;
+  DIR_GRID = 1;
   use_node_num_ = 1;
   iter_num_ = 0;
   abandon_node_num_ = 0;
@@ -312,7 +316,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
             continue;
           }
           // 因为有地图更新的因素,所以这里的mid点可能是障碍物
-          bool feasible = isWideObstacleFree(newGridNodePtr->pose);
+          bool feasible = isObstacleFree(newGridNodePtr->pose);
           if (!feasible)
           {
             newGridNodePtr->setType(Invalid);
@@ -608,7 +612,6 @@ inline bool LazyKinoPRM::isWideObstacleFree(Eigen::Vector3d _pose)
   //   return feasible;
   // }
   // SDF threshold Check ##############################################################################
-  double sdf = 0;
   int map_rows = floor((_pose[0]+map_origin_[0])/xy_resolution_); 
   int map_cols = floor((_pose[1]+map_origin_[1])/xy_resolution_);
   //out map or is not free
@@ -619,9 +622,9 @@ inline bool LazyKinoPRM::isWideObstacleFree(Eigen::Vector3d _pose)
   return feasible;
 }
 
-inline double LazyKinoPRM::getPoseSDF(Eigen::Vector3d _pose)
+inline float LazyKinoPRM::getPoseSDF(Eigen::Vector3d _pose)
 {
-  double sdf = 0;
+  float sdf = 0;
   int map_rows = floor((_pose[0]+map_origin_[0])/xy_resolution_); 
   int map_cols = floor((_pose[1]+map_origin_[1])/xy_resolution_);
   sdf = sdf_map->at<float>(cv::Point(map_rows,map_cols));
@@ -813,7 +816,7 @@ void LazyKinoPRM::init()
         rand_pose[1] = pose_y;
         rand_pose[2] = 0.0;
         pose_map[map_rows][map_cols][map_depth]->setPose(rand_pose, rand_pose_index);
-        if (isWideObstacleFree(rand_pose))
+        if (isObstacleFree(rand_pose))
           {// free space is Type=M
             pose_map[map_rows][map_cols][map_depth]->setType(Mid);
             // ROS_INFO("pose_map[%d][%d][%d] is Mid", map_rows, map_cols, map_depth);
@@ -870,7 +873,7 @@ void LazyKinoPRM::sample()
         rand_pose[0] = pose_x;
         rand_pose[1] = pose_y;
         pose_map[map_rows][map_cols][map_depth]->setPose(rand_pose, rand_pose_index);
-        if (isWideObstacleFree(rand_pose))
+        if (isObstacleFree(rand_pose))
           pose_map[map_rows][map_cols][map_depth]->setType(Mid);
         else
           pose_map[map_rows][map_cols][map_depth]->setType(Invalid);
@@ -909,7 +912,7 @@ void LazyKinoPRM::resetsample()
     rand_pose[0] = pose_x;
     rand_pose[1] = pose_y;
     pose_map[map_rows][map_cols][map_depth]->setPose(rand_pose, rand_pose_index);
-    if (isWideObstacleFree(rand_pose))
+    if (isObstacleFree(rand_pose))
       pose_map[map_rows][map_cols][map_depth]->setType(Mid);
     else
       pose_map[map_rows][map_cols][map_depth]->setType(Invalid);
@@ -930,7 +933,7 @@ void LazyKinoPRM::reset()
   for (uint32_t idx = 0; idx < int(astaropenlist.nodestateSets.size()); idx++)
   {
     GridNodePtr gridnodeptr = astaropenlist.nodestateSets[idx].CurrGridNodePtr;
-    bool feasible = isWideObstacleFree(gridnodeptr->pose);
+    bool feasible = isObstacleFree(gridnodeptr->pose);
     if (feasible)
     gridnodeptr->setType(Mid);
     else

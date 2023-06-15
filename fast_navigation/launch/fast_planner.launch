@@ -36,7 +36,7 @@
 <arg name="weightR"         default="1.0"/>
 <arg name="SAMPLE_RANDOM"   default="true"/>
 <arg name="erode_kernel_size" default="6.0"/>
-<arg name="sdf_th" default="0.1"/>
+<arg name="sdf_th" default="0.2"/>
 
 <arg name="nav_seq_vis"     default="true"/>
 
