@@ -11,13 +11,13 @@
 <arg name="map_orign_z" default=" 0.1"/> -->
 
     <!--stand ros unit m | m/s | rad-->
-    <arg name="map_size_x" default="20.0"/>
-    <arg name="map_size_y" default="20.0"/>
-    <arg name="map_size_z" default=" 0.05"/>
+    <arg name="map_size_x" default="40.0"/>
+    <arg name="map_size_y" default="10.0"/>
+    <arg name="map_size_z" default=" 0.2"/>
 
     <!--map origin default = 1/2 map size-->
-    <arg name="map_orign_x" default="10.0"/>
-    <arg name="map_orign_y" default="10.0"/>
+    <arg name="map_orign_x" default="20.0"/>
+    <arg name="map_orign_y" default="50.0"/>
     <arg name="map_orign_z" default=" 0.1"/>
 
 
@@ -29,7 +29,7 @@
     <arg name="start_vy" default=" 0.2"/>
     <arg name="start_vz" default=" 0.0"/>
 
-    <arg name="map_name" default="map11.png"/>
+    <arg name="map_name" default="map6.png"/>
 
     <arg name="erode_kernel_size" default="30.0"/>
     <arg name="erode_switch" default="true"/>

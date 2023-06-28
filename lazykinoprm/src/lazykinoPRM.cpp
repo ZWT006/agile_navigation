@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-06-15
+ * @LastEditTime: 2023-06-28
  * @Description: 
  * @reference: 
  * 
@@ -371,6 +371,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
     }
     //reverse the path
     reverse(pathstateSets.begin(),pathstateSets.end());
+    // 感觉没必要计算出具体的轨迹点存储,貌似这样会占用很多内存且用处感觉也不大 影响: PathStateSetsCheck() 函数的运行时间
     for (int idx = 0; idx < int(pathstateSets.size()); idx++)
     {
       vector<double> _xtraj,_ytraj,_qtraj;
@@ -514,7 +515,7 @@ inline bool LazyKinoPRM::getPathCost(NodeStatePtr _parnodestate,NodeStatePtr _cu
   std::vector<double> xtraj,ytraj;
   xtraj = _curnodestate->polytraj('p','x',time_interval_);
   ytraj = _curnodestate->polytraj('p','y',time_interval_);
-  collision_flag = TrajectoryCheck(xtraj,ytraj);
+  collision_flag = TrajectoryCheck(&xtraj,&ytraj);
   for (int i = 0; i < xtraj.size()-1; i++)
   {
     pathlength += sqrt(pow(xtraj[i] - xtraj[i+1],2) + pow(ytraj[i] - ytraj[i+1],2));
@@ -641,7 +642,7 @@ Eigen::Vector3d GoalFeasibleSet(Eigen::Vector3d _goal)
 {
 }
 
-/******
+/**********************************************************************************************************************
  * @description:  set LazyKinoPRM param
  * @reference:  
  * @param {NodeHandle&} nh
@@ -919,7 +920,7 @@ void LazyKinoPRM::resetsample()
   }
 }
 
-/*
+/**********************************************************************************************************************
   * @brief: reset the pose map of EXTEND,GOAL, START => MID
   * @param: none
   * @return: none
@@ -951,7 +952,7 @@ void LazyKinoPRM::reset()
   astarcloselist.reset();
 }
 
-/*
+/**********************************************************************************************************************
   * @description:  update the obstacle map
   * @reference: 
   * @param {pcl::PointCloud<pcl::PointXYZ>} cloud
@@ -1005,15 +1006,15 @@ cv::Mat* LazyKinoPRM::getSdfMap()
  * @param {vector<double>} ytraj
  * @return {bool} feasible  yes -> true; no -> false
  */
-bool LazyKinoPRM::TrajectoryCheck(vector<double> xtraj,vector<double> ytraj)
+inline bool LazyKinoPRM::TrajectoryCheck(vector<double> *xtraj,vector<double> *ytraj)
 {
   //输入为xy轨迹和地图信息，若轨迹线不会经过障碍物，则返回true, 碰到障碍物则为返回false
   bool feasible = true;
   Eigen::Vector3d pose;
-  for (int idx = 0;idx < xtraj.size();idx++)
+  for (int idx = 0;idx < xtraj->size();idx++)
   {
-    pose[0] = xtraj[idx];
-    pose[1] = ytraj[idx];
+    pose[0] = xtraj->at(idx);
+    pose[1] = ytraj->at(idx);
     feasible = isObstacleFree(pose);
     if (feasible == false)
       return feasible;
@@ -1022,23 +1023,82 @@ bool LazyKinoPRM::TrajectoryCheck(vector<double> xtraj,vector<double> ytraj)
 }
 
 /**********************************************************************************************************************
- * @description:  check lazykinoPRM PathStateSets is obsticle feasible or not
+ * @description:  check trajectory is obsticle feasible or not
  * @reference: 
- * @param {vector<double>} xtraj
- * @param {vector<double>} ytraj
+ * @param {vector<double>*} xtraj
+ * @param {vector<double>*} ytraj
+ * @param {int *} obs_index the index of start check point or obstacle point
  * @return {bool} feasible  yes -> true; no -> false
  */
-bool LazyKinoPRM::PathStateSetsCheck()
+bool LazyKinoPRM::LongTrajCheck(const vector<double> *xtraj,const vector<double> *ytraj,int *obs_index)
 {
   //输入为xy轨迹和地图信息，若轨迹线不会经过障碍物，则返回true, 碰到障碍物则为返回false
   bool feasible = true;
   Eigen::Vector3d pose;
-  for (int idx = 0; idx < pathstateSets.size(); idx++)
+  int idx = (*obs_index);
+  for (;idx < xtraj->size();idx++)
   {
-    pose = pathstateSets[idx].CurrGridNodePtr->pose;
+    pose[0] = xtraj->at(idx);
+    pose[1] = ytraj->at(idx);
     feasible = isObstacleFree(pose);
-    if (feasible == false)
+    if (feasible == false){
+      (*obs_index) = idx;
       return feasible;
+    }
   }
+  (*obs_index) = idx;
   return feasible;
 }
+
+/**********************************************************************************************************************
+ * @description: check waypoints is obsticle feasible or not
+ * @reference: 
+ * @param {vector<Eigen::Vector3d>} *nodes the waypoints
+ * @param {int} *obs_index the index of start check point or obstacle point
+ * @return {bool} feasible  yes -> true; no -> false
+ */
+bool LazyKinoPRM::PathNodeCheck(vector<Eigen::Vector3d> *nodes,int *obs_index)
+{
+  bool feasible = true;
+  Eigen::Vector3d pose;
+  int idx = (*obs_index);
+  for (;idx < nodes->size();idx++)
+  {
+    pose = nodes->at(idx);
+    feasible = isObstacleFree(pose);
+    if (feasible == false){
+      (*obs_index) = idx;
+      return feasible;
+    }
+  }
+  (*obs_index) = idx;
+  return feasible;
+}
+
+/**********************************************************************************************************************
+ * @description:  check lazykinoPRM PathStateSets is obsticle feasible or not begin from path_index
+ * @reference: 
+ * @param {int} path_index
+ * @return {int} infeasible path_index if all is feasible return -1
+ */
+// int LazyKinoPRM::PathStateSetsCheck(int path_index)
+// {
+//   //输入为检查轨迹的起始点，若轨迹线不会经过障碍物，则返回-1, 碰到障碍物则为返回障碍物点的索引
+//   Eigen::Vector3d path_node_pose;
+//   int obs_index = path_index;
+//   for (int idx = path_index; idx < pathstateSets.size(); idx++)
+//   {
+//     obs_index = idx;
+//     for (int traj_idx = 0; traj_idx < pathstateSets[idx].xptraj.size(); traj_idx++)
+//     {
+//       path_node_pose[0] = pathstateSets[idx].xptraj[traj_idx];
+//       path_node_pose[1] = pathstateSets[idx].yptraj[traj_idx];
+//       if (isObstacleFree(path_node_pose) == false)
+//         return obs_index;
+//     }
+//     if (isObstacleFree(pathstateSets[idx].CurrGridNodePtr->pose) == false)
+//       return obs_index;
+//   }
+//   obs_index = -1;
+//   return obs_index;
+// }

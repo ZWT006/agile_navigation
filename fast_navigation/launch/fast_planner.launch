@@ -4,7 +4,7 @@
 <!--map origin default = 1/2 map size-->
 
 <arg name="map_size_x" default="40.0"/>
-<arg name="map_size_y" default="20.0"/>
+<arg name="map_size_y" default="10.0"/>
 <arg name="map_size_z" default=" 1.0"/>
 
 <!-- <arg name="map_orign_x" default="20.0"/>
@@ -16,8 +16,8 @@
 <arg name="start_y" default=" 0.0"/>
 <arg name="start_z" default=" 0.0"/>
 
-<arg name="start_vx" default=" 0.2"/>
-<arg name="start_vy" default=" 0.2"/>
+<arg name="start_vx" default=" 0.0"/>
+<arg name="start_vy" default=" 0.0"/>
 <arg name="start_vz" default=" 0.0"/>
 
 <arg name="dir_grid_m"      default="3.0"/>
@@ -65,22 +65,16 @@
     <param name="map/z_size" value="$(arg map_size_z)" />
     <param name="map/erode_kernel_size" value="$(arg erode_kernel_size)" />
     <param name="map/sdf_threshold" value="$(arg sdf_th)"/>
+    <param name="map/local_width" value="2"/>
+    <param name="map/resolution" value="0.02"/>
 
-    <param name="map/local_w" value="2"/>
-    <param name="sensing/rate" value="10"/>
-
+    <param name="planner/loop_rate" value="10"/>
     <param name="planner/nav_seq_vis" value="$(arg nav_seq_vis)"/>
     <param name="planner/timeHorizon" value="1.0"/> <!-- 1.0 [s]-->
     <param name="planner/time_step_pursuit" value="5.0"/>
     <param name="planner/time_step_interval" value="10.0"/>
     <param name="planner/refer_vel" value="1.5"/>
-    <param name="planner/refer_ome" value="1.0"/>
-    <param name="planner/Kp_x" value="10.0"/>
-    <param name="planner/Kp_y" value="10.0"/>
-    <param name="planner/Kp_q" value="10.0"/>
-    <param name="planner/max_vel_x" value="1.0"/>
-    <param name="planner/max_vel_y" value="0.5"/>
-    <param name="planner/max_vel_q" value="1.57"/>
+    <param name="planner/time_interval" value="$(arg time_interval)"/>
 
 
     <!-- <param name="map/orign_x_size" value="$(arg map_orign_x)"/>

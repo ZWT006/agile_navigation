@@ -1,3 +1,32 @@
+# TODO List
+
+## Navigation
+### fast_navigation
+
+#### Replanning
+思路：先检查当前Odometry是否安全/根据当前odometry计算1s的轨迹是否安全，危险直接停机；判断当前pose在期望轨迹上的位置，并检查之后的轨迹是否安全，从不安全的Segment开始，重新search，填补到期望轨迹向量中。要将lazykinoprm中的pathStateSets和fast_navigation分离开来，fast_navigation要有自己的一套waypoint数据。
+1. `rcvOdomCallBack` 函数中的重规划判断逻辑
+- [ ] waypoint date struct
+- [ ] safe check and replan
+### lazykinoprm
+- [x] `TrajectoryCheck` 单纯轨迹的位置安全性检查
+- [ ] `PathStatesSetCheck` 轨迹/路点的安全检查并记录检查状态
+
+
+### nontrajopt
+1. Polynomial Trajectory 
+2. OSQP Solver
+#### NLopt Solver
+
+## SLAM
+
+### FIESTA
+- [ ] Local Height PCL Update => `local_update` bool flag
+- [ ] ESDF Update Switch => `esdf_update` bool flag
+
+## legged control
+
+
 # Important Version List
 
 `43ee902`: Virtual Global Map; LazyKinoPRM Search; NMPC Trajectory Tracking;  

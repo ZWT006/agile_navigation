@@ -18,7 +18,7 @@ It's a fast realtime navigation ros package for quadraped robot swaft motion in 
 
 
 ## 安装教程
-除了本项目的源码之外，还有一些与具体实现快速实时导航的子功能模块，并且本功能包的使用依赖于ROS，**安装教程**中涉及的代码需要保存在工作空间的`src`目录下，并且在**Ubuntu20.04/ROS noetic**下进行使用
+除了本项目的源码之外，还有一些与具体实现快速实时导航的子功能模块，并且本功能包的使用依赖于ROS，**安装教程**中涉及的代码需要保存在工作空间的`src`目录下，并且在**Ubuntu20.04/ROS noetic**下进行使用，如果使用其它版本**Ubuntu**有该版本对应的**ROS**请自行修改可能存在的问题。
 
 ### 源码
 
