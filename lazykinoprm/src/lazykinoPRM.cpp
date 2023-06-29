@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-06-28
+ * @LastEditTime: 2023-06-29
  * @Description: 
  * @reference: 
  * 
@@ -48,7 +48,7 @@ LazyKinoPRM::~LazyKinoPRM()
 /** 
  * @description:  LazyKinoPRM search 
  * @reference: 
- * @return {*}
+ * @return {bool} no_path_
  */
 bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
                         Eigen::Vector3d start_acc, Eigen::Vector3d goal_pos,
@@ -622,6 +622,7 @@ inline bool LazyKinoPRM::isWideObstacleFree(Eigen::Vector3d _pose)
     {feasible=false;return feasible;}
   return feasible;
 }
+
 
 inline float LazyKinoPRM::getPoseSDF(Eigen::Vector3d _pose)
 {

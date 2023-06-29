@@ -154,6 +154,17 @@ target_link_libraries(fast_planner_node
     ${PCL_LIBRARIES}
     ${OpenCV_LIBS})
 
+# add_executable( swaft_planner_node 
+#     src/swaft_planner.cpp
+#     )
+
+# target_link_libraries(swaft_planner_node 
+#     ${catkin_LIBRARIES}
+#     ${PCL_LIBRARIES}
+#     ${OpenCV_LIBS})
+
+
+
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-06-28
+ * @LastEditTime: 2023-06-29
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -14,8 +14,6 @@ using namespace std;
 using namespace Eigen;
 using namespace cv;
 
-// visualization Navigation Sequences
-#define VIS_NAV_SEQ
 // robot visulaization param
 //unitree A1 robot size
 #define DEFAULT_HIGH 0.30f
@@ -25,7 +23,7 @@ using namespace cv;
 #define Q_WEIGHT 0.01f
 
 // visualization_msgs::Marker 可视化的透明度
-#define RGB_ALPHA 0.6
+#define RGB_ALPHA 0.6f
 
 // ros related global variables
 ros::Subscriber _map_sub, _pts_sub, _odom_sub;  // 订阅地图;导航点;里程计
@@ -37,7 +35,7 @@ ros::Publisher _obsmap_img_pub,_sdfmap_img_pub; // 地图可视化
 ros::Publisher _ptraj_vis_pub,_vtraj_vis_pub;   // 轨迹可视化
 ros::Publisher _path_vis_pub,_robot_vis_pub;    // 导航可视化
 
-
+////####################################################################################
 // node parameters
 double _local_width;    // local map width
 double _loop_rate;      // node loop rate
@@ -48,12 +46,22 @@ bool _vis_sample = false;
 bool _nav_seq_vis_flag = true;
 double _resolution;
 
-// useful global variables
+////####################################################################################
+// trajectory tracking GLOBAL FLAGS
 bool _HAS_MAP   = false;    // 是否有地图
-bool _HAS_PATH  = false;    // 搜索到路径
-bool _NEW_PATH  = true;     // 是否是新的路径
-bool _FIRST_ODOM = true;    // 是否是第一次接收到里程计信息
-bool _REACH_GOAL = false;   // 是否到达目标点
+bool _HAS_PATH  = false;    // 搜索到路径，每次 lazykinoprm 搜索到路径后，就会置为true; Obstacle check infeasible 会置为false
+bool _NEW_PATH  = true;     // 是否是新的路径 重新设置目标点后,就是新的路径
+bool _FIRST_ODOM= true;     // 是否是第一次接收到里程计信息 
+bool _REACH_GOAL= false;    // 是否到达目标点
+bool _TRACKING  = false;    // 是否正在跟踪轨迹 安全检查不通过就会置为false 原地急刹车trot
+
+////####################################################################################
+// trajectory optimization parameters 
+int _OPT_SEG = 0;           // 优化轨迹的段数 这个参数根据 sample 的 grid size 和 reference velocity 来确定 
+                            // 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度
+double _optHorizon = 1.5;   // 优化轨迹的时间长度
+#define OPT_FACTOR 1.5f
+
 nav_msgs::Odometry::ConstPtr currodometry;
 // visualization robot switch 在ros循环中可视化 
 
@@ -77,9 +85,12 @@ void rcvOdomCallBack(const nav_msgs::Odometry::ConstPtr& msg);
 // 关键功能函数 ############################################################################################################
 // search trajectory checking
 bool TrackTrajCheck();
-// optimal trajectory checking
-bool OptimalTrajCheck();
-
+// 搜索到的 tracksegs 从 lazykinoprm 类 push 到 searchTraj 列表
+void SearchSegPush();
+// 优化后的 tracksegs 从 optimalTraj 列表 pop 到 tracking 类中
+void OptimalSegPop();
+// 待优化的 tracksegs 从 searchTraj 列表 push 到 optimalTraj 列表
+void OptimalSegPush();
 // 可视化函数 ############################################################################################################
 // visulization search trajectory
 void visSearchTraj();
@@ -96,7 +107,7 @@ void csvPtraj();
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "planner_node");
+    ros::init(argc, argv, "swaft_planner_node");
     ros::NodeHandle nh("~");
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
 
@@ -132,11 +143,23 @@ int main(int argc, char** argv)
     // 地图相关参数
     nh.param("map/local_width", _local_width, 2.0);
     nh.param("map/resolution", _resolution, 0.05);
+    // 轨迹跟踪相关参数
     nh.param("planner/loop_rate", _loop_rate, 1.0);
     nh.param("planner/vis_Robot", _vis_Robot, false);
     nh.param("planner/vis_sample", _vis_sample, false);
     nh.param("planner/nav_seq_vis", _nav_seq_vis_flag, true);
-    nh.param("planner/time_interval", _time_interval, 0.1);
+    nh.param("planner/time_interval", _time_interval, 0.1); 
+    nh.param("planner/optHorizon", _optHorizon, 1.5); 
+
+    // 计算优化相关的参数 ################################################################################################################
+    double _opt_seg = 0,xy_sample_size_ = 0;
+    nh.param("planner/opt_seg", _opt_seg, 0.0);
+    nh.param("search/xy_sample_size", xy_sample_size_, 0.4);
+    _OPT_SEG = int(_opt_seg);
+    if (_OPT_SEG > 0){ // 根据采样区间和参考速度计算优化长度
+        double sample_grid_time = xy_sample_size_ / tracking._refer_vel;
+        _OPT_SEG = int(_optHorizon / sample_grid_time * OPT_FACTOR); // 优化轨迹的段数
+    }
 
     // 轨迹跟踪相关参数
     // ROS_INFO("[\033[34mPlanNode\033[0m]planner/time_horizon: %2.4f",        tracking._time_horizon);
@@ -150,19 +173,41 @@ int main(int argc, char** argv)
     while(status) 
     {
         ros::spinOnce();
+        // step 轨迹的安全性检查 ############################################################################################################
+        // 检查接下来需要跟踪的轨迹是否安全
+        bool feasible = TrackTrajCheck();
+        if (tracking.TROT_FLAG){ // 障碍物距离太近,需要急刹车再重新规划
+            _TRACKING = false;
+            tracking.NavSeqFixed(tracking._pursuitPose);
+            tracking.NavSeqPublish();
+            ROS_INFO("[\033[31mPlanNode\033[0m]: track traj is not feasible");
+        }
+        if (!feasible){  // 轨迹上有障碍物
+            ROS_INFO("[\033[31mPlanNode\033[0m]: track traj is not feasible");
+            _HAS_PATH = false;
+            Vector3d goalPose,currPose,currVel,currAcc,zeros_pt(0,0,0);
+            tracking.getReplanState(&currPose,&currVel,&currAcc,&goalPose);
+            _HAS_PATH = !lazykinoPRM.search(currPose,currVel,currAcc,goalPose,zeros_pt,zeros_pt);
+            if (_HAS_PATH){ // 重新规划成功
+                tracking._goalPose = lazykinoPRM._goal_pose;
+                SearchSegPush();
+                tracking.insertSegTraj(tracking._search_seg_index,&searchTraj);
+            }
+            visSearchTraj();
+            // 可视化轨迹后再清空搜索列表
+            ROS_INFO("[\033[34mPlanNode\033[0m]: reset planning done");
+            lazykinoPRM.reset();
+        }
+        // step 轨迹的优化 ##########################################################################################################
+
+        // step 可视化 ############################################################################################################
         // 可视化机器人和感知范围
         if (_vis_Robot){
             visRobot(currodometry);
             _vis_Robot=false;
         }
-        // 可视化机器人 跟踪轨迹
-        if (_nav_seq_vis_flag){
-            // visTrackingTraj();
-            // _nav_seq_vis_flag = false;
-            // ROS_INFO("[\033[34mPlannerNode\033[0m]_nav_seq_msg size: %d", _nav_seq_msg.poses.size());
-            // ROS_INFO("[\033[34mPlannerNode\033[0m]_nav_seq : %d", _nav_seq);
-        }
-        
+
+
         status = ros::ok();
         rate.sleep();
     }
@@ -179,11 +224,11 @@ int main(int argc, char** argv)
 void rcvWaypointsCallback(const nav_msgs::Path & wp)
 {
     double yaw_rad,yaw_deg;
-    Vector3d target_pt,currPose,currVel,currAcc,zeros_pt(0,0,0);
-    target_pt(0) = wp.poses[0].pose.position.x;
-    target_pt(1) = wp.poses[0].pose.position.y;
-    target_pt(2) = tf::getYaw(wp.poses[0].pose.orientation); // use tf2 library to get yaw from quaternion
-    yaw_rad = target_pt(2);
+    Vector3d goalPose,currPose,currVel,currAcc,zeros_pt(0,0,0);
+    goalPose(0) = wp.poses[0].pose.position.x;
+    goalPose(1) = wp.poses[0].pose.position.y;
+    goalPose(2) = tf::getYaw(wp.poses[0].pose.orientation); // use tf2 library to get yaw from quaternion
+    yaw_rad = goalPose(2);
     yaw_deg = yaw_rad * 180 / M_PI;
     tracking.getCurrentState(&currPose,&currVel,&currAcc);
 
@@ -193,47 +238,49 @@ void rcvWaypointsCallback(const nav_msgs::Path & wp)
     ROS_INFO("[\033[34mPlanNode\033[0m]:currAcc:   %2.2f, %2.2f, %2.2f", currAcc(0), currAcc(1), currAcc(2));
     ROS_INFO("[\033[34mTarget\033[0m]:position:    %2.2f, %2.2f, %2.2f", wp.poses[0].pose.position.x, wp.poses[0].pose.position.y, wp.poses[0].pose.position.z);
     ROS_INFO("[\033[34mTarget\033[0m]:orientation: %2.2f, %2.2f, %2.2f, %2.2f", wp.poses[0].pose.orientation.x, wp.poses[0].pose.orientation.y, wp.poses[0].pose.orientation.z, wp.poses[0].pose.orientation.w);
-    ROS_INFO("[\033[34mTarget\033[0m]: x:%2.2f, y:%2.2f, q:%2.2f", target_pt(0), target_pt(1), yaw_deg);
+    ROS_INFO("[\033[34mTarget\033[0m]: x:%2.2f, y:%2.2f, q:%2.2f", goalPose(0), goalPose(1), yaw_deg);
 
     // ####################################################################################
     // ROS_INFO("[\033[34mTarget\033[0m]:yaw angle %f", yaw_deg);
-    _HAS_PATH = lazykinoPRM.search(currPose,currVel,currAcc,target_pt,zeros_pt,zeros_pt);
-    _HAS_PATH = !_HAS_PATH;
+    _HAS_PATH = !lazykinoPRM.search(currPose,currVel,currAcc,goalPose,zeros_pt,zeros_pt);
 
     if (_HAS_PATH)
     {
-        double trajectory_length = 0, trajectory_time = 0;
         _NEW_PATH = true;
-        tracking.initPlanner(target_pt);
-        if (!searchTraj.empty())
-            searchTraj.clear();
+        tracking.initPlanner(goalPose);
+        tracking._goalPose = lazykinoPRM._goal_pose;
+        SearchSegPush();
+        tracking.insertSegTraj(0,&searchTraj);
+        // double trajectory_length = 0, trajectory_time = 0;
+        // if (!searchTraj.empty())
+        //     searchTraj.clear();
 
-        for (int idx = 0; idx < int(lazykinoPRM.pathstateSets.size()); idx++)
-        {
-            TrackSeg _trackseg;
-            _trackseg.pxtraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'x', _time_interval);
-            _trackseg.pytraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'y', _time_interval);
-            _trackseg.pqtraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'q', _time_interval);
-            _trackseg.vxtraj = lazykinoPRM.pathstateSets[idx].polytraj('v', 'x', _time_interval);
-            _trackseg.vytraj = lazykinoPRM.pathstateSets[idx].polytraj('v', 'y', _time_interval);
-            _trackseg.vqtraj = lazykinoPRM.pathstateSets[idx].polytraj('v', 'q', _time_interval);
-            _trackseg.startState << lazykinoPRM.pathstateSets[idx].ParePosition , 
-                                    lazykinoPRM.pathstateSets[idx].PareVelocity , 
-                                    lazykinoPRM.pathstateSets[idx].PareAcceleration;
-            _trackseg.endState   << lazykinoPRM.pathstateSets[idx].Position ,
-                                    lazykinoPRM.pathstateSets[idx].Velocity ,
-                                    lazykinoPRM.pathstateSets[idx].Acceleration;
-            _trackseg.xcoeff = lazykinoPRM.pathstateSets[idx].xpcoeff;
-            _trackseg.ycoeff = lazykinoPRM.pathstateSets[idx].ypcoeff;
-            _trackseg.qcoeff = lazykinoPRM.pathstateSets[idx].qpcoeff;
-            _trackseg.duration = lazykinoPRM.pathstateSets[idx].referT;
+        // for (int idx = 0; idx < int(lazykinoPRM.pathstateSets.size()); idx++)
+        // {
+        //     TrackSeg _trackseg;
+        //     _trackseg.pxtraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'x', _time_interval);
+        //     _trackseg.pytraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'y', _time_interval);
+        //     _trackseg.pqtraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'q', _time_interval);
+        //     _trackseg.vxtraj = lazykinoPRM.pathstateSets[idx].polytraj('v', 'x', _time_interval);
+        //     _trackseg.vytraj = lazykinoPRM.pathstateSets[idx].polytraj('v', 'y', _time_interval);
+        //     _trackseg.vqtraj = lazykinoPRM.pathstateSets[idx].polytraj('v', 'q', _time_interval);
+        //     _trackseg.startState << lazykinoPRM.pathstateSets[idx].ParePosition , 
+        //                             lazykinoPRM.pathstateSets[idx].PareVelocity , 
+        //                             lazykinoPRM.pathstateSets[idx].PareAcceleration;
+        //     _trackseg.endState   << lazykinoPRM.pathstateSets[idx].Position ,
+        //                             lazykinoPRM.pathstateSets[idx].Velocity ,
+        //                             lazykinoPRM.pathstateSets[idx].Acceleration;
+        //     _trackseg.xcoeff = lazykinoPRM.pathstateSets[idx].xpcoeff;
+        //     _trackseg.ycoeff = lazykinoPRM.pathstateSets[idx].ypcoeff;
+        //     _trackseg.qcoeff = lazykinoPRM.pathstateSets[idx].qpcoeff;
+        //     _trackseg.duration = lazykinoPRM.pathstateSets[idx].referT;
 
-            searchTraj.push_back(_trackseg);
-            trajectory_length += lazykinoPRM.pathstateSets[idx].trajectory_length;
-            trajectory_time += lazykinoPRM.pathstateSets[idx].referT;
-        }
-        ROS_INFO("[\033[32mPlanNode\033[0m]: trajectory length: %2.4f", trajectory_length);
-        ROS_INFO("[\033[32mPlanNode\033[0m]: trajectory time: %2.4f", trajectory_time);
+        //     searchTraj.push_back(_trackseg);
+        //     trajectory_length += lazykinoPRM.pathstateSets[idx].trajectory_length;
+        //     trajectory_time += lazykinoPRM.pathstateSets[idx].referT;
+        // }
+        // ROS_INFO("[\033[32mPlanNode\033[0m]: search trajectory length: %2.4f", trajectory_length);
+        // ROS_INFO("[\033[32mPlanNode\033[0m]: search trajectory time: %2.4f", trajectory_time);
         // save trajectory as .CSV
         // csvPtraj();
     }
@@ -272,7 +319,6 @@ void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map)
     // sensor_msgs::ImagePtr image_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", *obsimg).toImageMsg();
     // _obsmap_img_pub.publish(image_msg);
     cv::Mat* sdf_map_ptr = lazykinoPRM.getSdfMap();
-
     cv::Mat sdf_img = sdf_map_ptr->clone();
     cv::Mat I_norm;
     //########################################################################
@@ -307,13 +353,8 @@ void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map)
     _HAS_MAP = true;
 
     // ####################################################################################
-    //// 在点云回调函数中进行轨迹检查感觉比较合理呀 可以减少里程计回调中 轨迹跟踪的计算量
-    bool feasible = TrackTrajCheck();
-    if (!feasible){  // 轨迹上有障碍物
-        ROS_INFO("[\033[31mPlanNode\033[0m]: track traj is not feasible");
-        _HAS_PATH = false;
-        
-    }
+    //// 在点云回调函数中进行轨迹检查感觉比较合理呀,可以减少里程计回调中,轨迹跟踪的计算量
+    //// 还是在主循环中进行轨迹检查比较合理呀,中断回调里面最好不要执行太多的操作
 }
 
 // 里程计回调函数，负责设置机器人位置;进行轨迹跟踪
@@ -607,10 +648,8 @@ void rcvOdomCallBack(const nav_msgs::Odometry::ConstPtr& msg)
     _nav_seq_pub.publish(_nav_seq_msg);
 }
 
-// #######################################################################################
-// 关键功能函数
 
-/*****************************************************************************************
+/*******************************************************************************************
  * @description: 当前点开始检查轨迹是否无障碍
  * @reference: 
  * @return {bool} feasible true if feasible false if not
@@ -625,9 +664,42 @@ bool TrackTrajCheck() // TODO: add BAIS_FLAG for trajectory check NMPC 跟踪效
     return feasible;
 }
 
-bool OptimalTrajCheck()
+void SearchSegPush()
 {
-    
+    double trajectory_length = 0, trajectory_time = 0;
+    if (!searchTraj.empty())
+    searchTraj.clear();
+    for (int idx = 0; idx < int(lazykinoPRM.pathstateSets.size()); idx++)
+    {
+        TrackSeg _trackseg;
+        _trackseg.pxtraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'x', _time_interval);
+        _trackseg.pytraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'y', _time_interval);
+        _trackseg.pqtraj = lazykinoPRM.pathstateSets[idx].polytraj('p', 'q', _time_interval);
+        _trackseg.vxtraj = lazykinoPRM.pathstateSets[idx].polytraj('v', 'x', _time_interval);
+        _trackseg.vytraj = lazykinoPRM.pathstateSets[idx].polytraj('v', 'y', _time_interval);
+        _trackseg.vqtraj = lazykinoPRM.pathstateSets[idx].polytraj('v', 'q', _time_interval);
+        _trackseg.startState << lazykinoPRM.pathstateSets[idx].ParePosition , 
+                                lazykinoPRM.pathstateSets[idx].PareVelocity , 
+                                lazykinoPRM.pathstateSets[idx].PareAcceleration;
+        _trackseg.endState   << lazykinoPRM.pathstateSets[idx].Position ,
+                                lazykinoPRM.pathstateSets[idx].Velocity ,
+                                lazykinoPRM.pathstateSets[idx].Acceleration;
+        _trackseg.xcoeff = lazykinoPRM.pathstateSets[idx].xpcoeff;
+        _trackseg.ycoeff = lazykinoPRM.pathstateSets[idx].ypcoeff;
+        _trackseg.qcoeff = lazykinoPRM.pathstateSets[idx].qpcoeff;
+        _trackseg.duration = lazykinoPRM.pathstateSets[idx].referT;
+
+        searchTraj.push_back(_trackseg);
+        trajectory_length += lazykinoPRM.pathstateSets[idx].trajectory_length;
+        trajectory_time += lazykinoPRM.pathstateSets[idx].referT;
+    }
+    ROS_INFO("[\033[32mPlanNode\033[0m]: search trajectory length: %2.4f", trajectory_length);
+    ROS_INFO("[\033[32mPlanNode\033[0m]: search trajectory time: %2.4f", trajectory_time);
+}
+
+void OptimalSegPop()
+{
+
 }
 
 //########################################################################################
@@ -680,7 +752,11 @@ void csvPtraj()
 }
 
 
-
+/*******************************************************************************************
+ * @description:  可视化搜索到的: 轨迹 采样点 终点
+ * @reference: 
+ * @return {*}
+ */
 void visSearchTraj()
 {
     double _resolution = 0.02;
@@ -849,7 +925,12 @@ void visSearchTraj()
     _path_vis_pub.publish(LineArray);
 }
 
-
+/*******************************************************************************************
+ * @description:  可视化 robot : body | local window | persuit point
+ * @reference: 
+ * @param {ConstPtr&} msg
+ * @return {*}
+ */
 void visRobot(const nav_msgs::Odometry::ConstPtr& msg)
 {   
     // 获取机器人当前位姿
@@ -948,3 +1029,5 @@ void visRobot(const nav_msgs::Odometry::ConstPtr& msg)
 
     _robot_vis_pub.publish(LineArray);
 }
+
+/********************************************************************************/

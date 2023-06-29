@@ -91,7 +91,7 @@ class LazyKinoPRM {
     return cost;
   };
   Eigen::Vector3d GoalFeasibleSet(Eigen::Vector3d _goal);
-  bool TrajectoryCheck(vector<double> *xtraj,vector<double> *ytraj);
+  bool TrajectoryCheck(std::vector<double> *xtraj,std::vector<double> *ytraj);
   
   public:
   /*key datas*/
@@ -121,8 +121,8 @@ class LazyKinoPRM {
 
 //check Trajectory is obstacle feasible or not
   
-  bool LongTrajCheck(const vector<double> *xtraj,const vector<double> *ytraj,int *obs_index);
-  bool PathNodeCheck(vector<Eigen::Vector3d> *nodes,int *obs_index);
+  bool LongTrajCheck(const std::vector<double> *xtraj,const std::vector<double> *ytraj,int *obs_index);
+  bool PathNodeCheck(std::vector<Eigen::Vector3d> *nodes,int *obs_index);
   int PathStateSetsCheck(int path_index);
 
 

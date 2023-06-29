@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-06-28
+ * @LastEditTime: 2023-06-29
  * @Description: 
  * @reference: 
  * 
@@ -93,8 +93,7 @@ class Tracking
     double _time_interval;      // traj的时间离散间隔
     int _time_step_interval; // MPC预测时间长度内有多少个时间步
     int _time_step_pursuit;  // 10Hz的期望轨迹周期 每个周期的期望轨迹步长(缩放与 _time_interval有关)
-    double _vel_factor;         // 速度缩放因子,调整预瞄步长后缩放速度
-    double _refer_vel,_refer_ome;   // 参考速度 线速度 角速度
+
     
     // trajectory param
     int _odom_cnt = 0;
@@ -106,19 +105,21 @@ class Tracking
     std::vector<double> timevector; // 用于存储每段轨迹的时间向量
     // 默认状态下存储的是整个搜索的轨迹，并将优化的部分插入替换
 
-
     // ROS 相关 Publisher/Subscriber/message
     int _nav_seq; // 控制轨迹系列计数
     ros::Publisher _nav_seq_pub; // 发布控制指令
     nav_msgs::Path _nav_seq_msg;    // 控制轨迹序列msgs NMPC的TargetTrajectory
 
-    bool _nav_ser_vis_flag = true; // 是否可视化控制轨迹序列
+    bool _nav_seq_vis_flag = true; // 是否可视化控制轨迹序列
     ros::Publisher _nav_seq_vis_pub; // 发布控制指令
     nav_msgs::Path _nav_seq_vis_msg;    // 控制轨迹序列msgs NMPC的TargetTrajectory
 
 	bool BAIS_FLAG = false;	// 跟踪轨迹是否偏离(较大) 使用NMPC不会有非常大的偏差,这里是作为一个标志用于线段轨迹局部重规划
 
-    public:
+    public: // ##################################################################################################
+
+    double _vel_factor;         // 速度缩放因子,调整预瞄步长后缩放速度
+    double _refer_vel,_refer_ome;   // 参考速度 线速度 角速度
     // Trajectory
 	bool OBS_FLAG = false;	// 轨迹上是否有障碍物
 	bool TROT_FLAG = false;	// 是否急刹车 轨迹上的障碍物距离机器人只有一个node的距离
@@ -141,7 +142,9 @@ class Tracking
     int _curr_seg_points,_curr_traj_points; // 所有段的轨迹离散点数; 当前段的轨迹离散点数
 
 	int _obs_seg_index,_obs_traj_index;	// 障碍物所在的轨迹段
+    int _search_seg_index,_search_traj_index;	// 搜索轨迹所在的轨迹段
 
+    // ##################################################################################################
     void setParam(ros::NodeHandle& nh); // 设置参数
     void initPlanner(Eigen::Vector3d new_goal_odom);
     bool insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets); // 从重规划段插入新轨迹
@@ -156,6 +159,7 @@ class Tracking
 
     // 辅助功能函数
     bool getCurrentState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc);
+    bool getReplanState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc,Eigen::Vector3d *goalPose);
 };
 
 /***********************************************************************************************************************
@@ -169,11 +173,14 @@ void Tracking::setParam(ros::NodeHandle& nh)
     nh.param("planner/time_interval", _time_interval, 0.01);
     nh.param("planner/time_step_interval", _time_step_interval, int(10.0));
     nh.param("planner/time_step_pursuit", _time_step_pursuit, int(5.0));
-    nh.param("planner/refer_vel",_refer_vel,2.0);
-    nh.param("planner/refer_ome", _refer_ome,1.57);
+    
+    // reference vel and ome 用于在局部偏差较大的时候规划局部轨迹 所以需要考虑 _vel_factor
+    nh.param("search/vel_factor",_refer_vel,2.0);
+    nh.param("search/ome_factor", _refer_ome,1.57);
 
     nh.param("planner/nav_seq_vis", _nav_seq_vis_flag, true);
 
+    // _vel_factor 是 persuit 的缩放因子 根据 persuit 的时间步长来缩放速度
     _vel_factor = double(_time_step_pursuit) / double(_time_step_interval);
     _traj_time_interval = _time_horizon / double(_time_step_interval);
 
@@ -196,7 +203,6 @@ void Tracking::setParam(ros::NodeHandle& nh)
 void Tracking::initPlanner(Eigen::Vector3d new_goal_odom)
 {
     _goal_odom = new_goal_odom;
-    _currPose  = new_goal_odom;
     _current_index = Eigen::Vector2i(0,0);
     _pursuit_index = Eigen::Vector2i(0,0);
     _serch_start_seg_index = 0; // 轨迹搜索起始点
@@ -239,7 +245,6 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
         flag = false;
         return flag;
     }
-
     if (segtrajpoints.empty()){
         _pre_traj_num = 0;
     }
@@ -247,17 +252,17 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
         for (int idx = 0; idx < seg_index || idx < segtrajpoints.size(); idx++){
             _pre_traj_num += segtrajpoints.at(idx);
         }
-        if (seg_index <= segtrajpoints.size()){
-            for (int idx = seg_index; idx < _seg_num || idx < segtrajpoints.size(); idx++){
-                _new_traj_num += segtrajpoints.at(idx);
-                _erase_seg_num ++;
-            }
-            segtrajpoints.erase(segtrajpoints.begin() + seg_index, segtrajpoints.begin() + seg_index + _erase_seg_num);
-            timevector.erase(timevector.begin() + seg_index, timevector.begin() + seg_index + _erase_seg_num);
-        }
-
     }
-    // step 2: 将优化段的原本轨迹清除
+    // step 2: 计算插入段的轨迹点数
+    if (seg_index <= segtrajpoints.size()){ // 在原有轨迹的长度范围内计算总的点数
+        for (int idx = seg_index; idx < _seg_num + seg_index || idx < segtrajpoints.size(); idx++){
+            _new_traj_num += segtrajpoints.at(idx);
+            _erase_seg_num ++;
+        }
+        segtrajpoints.erase(segtrajpoints.begin() + seg_index, segtrajpoints.begin() + seg_index + _erase_seg_num);
+        timevector.erase(timevector.begin() + seg_index, timevector.begin() + seg_index + _erase_seg_num);
+    }
+    // step 3: 将插入段的原本轨迹清除
     if (_pre_traj_num + _new_traj_num > pxtraj.size()){
         ROS_ERROR("[\033[34mTrackNode\033[0m]pre_traj_num + new_traj_num is out of range");
         flag = false;
@@ -271,7 +276,7 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
         vytraj.erase(vytraj.begin() + _pre_traj_num, vytraj.begin() + _pre_traj_num + _new_traj_num);
         vqtraj.erase(vqtraj.begin() + _pre_traj_num, vqtraj.begin() + _pre_traj_num + _new_traj_num);
     }
-    // step 3: 将优化段的新轨迹插入跟踪轨迹
+    // step 4: 将优化段的新轨迹插入跟踪轨迹
     std::vector<double> _new_pxtraj,_new_pytraj,_new_pqtraj;
     std::vector<double> _new_vxtraj,_new_vytraj,_new_vqtraj;
     std::vector<int> _new_segtrajpoints;
@@ -362,9 +367,9 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
         double _q_normalize = pqtraj.at(_curr_time_step);
         _q_normalize = angles::normalize_angle(_q_normalize);
         double _dist_xy_time = dists.at(min_idx) / _refer_vel;
-        double _dist_q_time = abs(angles::shortest_angular_distance(_q_get, _q_normalize)) / _refer_ome;
-        double _dist_time = max(_dist_xy_time, _dist_q_time);
-        int _dist_time_step = ceil(_dist_time / _traj_time_interval);
+        double _dist_q_time = std::abs(angles::shortest_angular_distance(_q_get, _q_normalize)) / _refer_ome;
+        double _dist_time = std::max(_dist_xy_time, _dist_q_time);
+        int _dist_time_step = std::ceil(_dist_time / _traj_time_interval);
         double _dist_x = pxtraj.at(_curr_time_step) - _x_get;
         double _dist_y = pytraj.at(_curr_time_step) - _y_get;
         double _dist_q = angles::shortest_angular_distance(_q_get, _q_normalize);
@@ -457,13 +462,16 @@ void Tracking::NavSeqTracking()
 /***********************************************************************************************************************
  * @description: 固定导航控制轨迹序列 急刹车 or 原地踏步
  * @reference: 
+ * @param {Vector3d} TargetPose
  * @return {*}
  */
 void Tracking::NavSeqFixed(Eigen::Vector3d TargetPose)
 {
     geometry_msgs::PoseStamped nav_traj_msg;
     nav_traj_msg.header.frame_id = "world";
-
+    if (!_nav_seq_msg.poses.empty())
+        _nav_seq_msg.poses.clear();
+    // 计算一个从 _current_odom 到 TargetPose 的轨迹 最快刹车? 感觉很难计算这个刹车轨迹
     // 如果轨迹点不够_time_step_interval步长,就从 pursuit_step 开始补充轨迹点
     if (_nav_seq < _time_step_interval)
     {
@@ -551,13 +559,31 @@ bool Tracking::getCurrentState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVe
     else
     {
         (*currPose) = _currPose;
-        (*currVel) = Eigen::Vector3d(vxtraj.at(_curr_time_step),vytraj.at(_curr_time_step),vqtraj.at(_curr_time_step));
-        (*currAcc) = Eigen::Vector3d(0,0,0);
+        (*currVel)  = Eigen::Vector3d(vxtraj.at(_curr_time_step),vytraj.at(_curr_time_step),vqtraj.at(_curr_time_step));
+        (*currAcc)  = Eigen::Vector3d(0,0,0);
         flag = true;
     }
     return flag;
 }
 
+/***********************************************************************************************************************
+ * @description: 获取重规划点的状态
+ * @reference: 
+ * @param {Vector3d} *currPose
+ * @param {Vector3d} *currVel
+ * @param {Vector3d} *currAcc
+ * @return {bool} 是否成功获取重规划点状态 false 当前无跟踪轨迹,默认初始0状态 true 当前在跟踪轨迹,返回当前轨迹点的状态
+ */
+bool Tracking::getReplanState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc,Eigen::Vector3d *goalPose)
+{
+    bool flag = false;
+    (*currPose) = Eigen::Vector3d(pxtraj.at(_search_traj_index),pytraj.at(_search_traj_index),pqtraj.at(_search_traj_index));
+    (*currVel)  = Eigen::Vector3d(vxtraj.at(_search_traj_index),vytraj.at(_search_traj_index),vqtraj.at(_search_traj_index));
+    (*currAcc)  = Eigen::Vector3d(0,0,0);
+    (*goalPose) = _goal_odom;
+    flag = true;
+    return flag;
+}
 /***********************************************************************************************************************
  * @description: 设置障碍物轨迹点,并返回判断是否危险
  * @reference: 
@@ -570,6 +596,8 @@ bool Tracking::setObsTrajPoint(int obs_index)
 	Eigen::Vector2i _obsIndex = TrajtoIndex(obs_index);
 	_obs_traj_index = obs_index;
 	_obs_seg_index  = _obsIndex(0);
+    _search_seg_index = _obs_seg_index - 1;
+    _search_traj_index = IndextoTraj(Eigen::Vector2i(_search_seg_index,0));
 	if (_obs_seg_index <= _current_index(0)) {// 障碍物挨的太近了
 		TROT_FLAG = true;
 	}else{
@@ -584,7 +612,7 @@ bool Tracking::setObsTrajPoint(int obs_index)
  * @description: 根据轨迹段和轨迹点计算轨迹序号 
  * @reference: 
  * @param {Vector2i} index
- * @return {*}
+ * @return {int} _traj_index
  */
 inline int Tracking::IndextoTraj(Eigen::Vector2i index)
 {
@@ -601,7 +629,7 @@ inline int Tracking::IndextoTraj(Eigen::Vector2i index)
  * @description: 根据轨迹序号计算轨迹段和轨迹点
  * @reference: 
  * @param {int} traj_index
- * @return {*}
+ * @return {Eigen::Vector2i} (_seg_index,_point_index)
  */
 inline Eigen::Vector2i Tracking::TrajtoIndex(int traj_index)
 {

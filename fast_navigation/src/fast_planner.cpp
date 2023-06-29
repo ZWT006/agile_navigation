@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-06-23
+ * @LastEditTime: 2023-06-29
  * @Description: 
  * @reference: 
  * 
@@ -17,7 +17,33 @@
  * 5. add Trajectory Optimization (可以考虑使用osqp,qpOASES,qpOASES-3.2.1,qpOASES-3.2.1,qpOASES-3.2.1)也许新建一个功能包比较好
  * 6. pref osbmap and esdf ,it's map parts(优化osbmap部分的代码)
 */
-#include <fast_navigation/navigation.hpp>
+#include <iostream>
+#include <fstream>
+#include <math.h>
+#include <angles/angles.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <ros/ros.h>
+#include <ros/console.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/Image.h>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <cv_bridge/cv_bridge.h>
+
+#include <tf/transform_datatypes.h>
+#include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseArray.h>
+#include <visualization_msgs/MarkerArray.h>
+#include <visualization_msgs/Marker.h>
+
+#include <Eigen/Eigen>
+#include <vector>
+
+
 #include <lazykinoprm/LazyKinoPRM.h>
 
 using namespace std;
@@ -33,13 +59,17 @@ using namespace cv;
 // visualization_msgs::Marker 可视化的透明度
 #define RGB_ALPHA 0.6
 
+// nearPose judeg threshold
+#define DIST_XY 0.03f
+#define DIST_Q 0.0872646f
+
 
 // ros related
 ros::Subscriber _map_sub, _pts_sub, _odom_sub;
 ros::Publisher _cmd_vel_pub,_nav_seq_pub,_nav_seq_vis_pub;
 ros::Publisher _obsmap_img_pub,_sdfmap_img_pub;
 ros::Publisher _ptraj_vis_pub,_vtraj_vis_pub;
-ros::Publisher  _grid_map_vis_pub, _path_vis_pub,_robot_vis_pub;
+ros::Publisher _grid_map_vis_pub, _path_vis_pub,_robot_vis_pub;
 
 // node parameters
 double _local_w,_sense_rate;
@@ -105,6 +135,8 @@ Vector3d _currPose,_localPose,_goalPose;
 // Lazy Kinodynamic Path Searching
 LazyKinoPRM lazykinoPRM;
 
+// 
+bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double currq,double goalq);
 // 目标点回调函数，进行路径规划
 void rcvWaypointsCallback(const nav_msgs::Path & wp);
 // 点云回调函数，负责设置障碍地图并更新SDF地图
@@ -1171,3 +1203,13 @@ void visRobotNode(const nav_msgs::Odometry::ConstPtr& msg)
     _robot_vis_pub.publish(LineArray);
 }
 
+//判断两个位姿是否相近
+inline bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double currq,double goalq)
+{
+    bool falg=false;
+    double dist = (currPose - goalPose).norm();
+    double qerr = fabs(currq - goalq);
+    if(dist < DIST_XY && qerr < DIST_Q) falg=true;
+    else falg=false;
+    return falg;
+}
