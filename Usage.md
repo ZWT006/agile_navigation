@@ -157,3 +157,15 @@ Mid360网口IP为`192.168.11.156`(可以根据用户手册使用LivoxViewer进�
 3. 
 
 #### 
+
+###
+修改NMPC优化问题权重 提高速度
+task.info
+; standard state weight matrix
+Q
+RH_HFE 权重
+RH_KFE 权重
+
+速度期望是零，所以可以调小来提高速度
+foot velocity relative to base: 
+x 方向

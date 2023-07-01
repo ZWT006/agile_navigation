@@ -68,16 +68,31 @@
     <param name="map/local_width"       value="2"/>
     <param name="map/resolution"        value="0.02"/>
 
+    <param name="optimization/oval_xvel"    value="2"/> <!-- 2 [m/s]--> 
+    <param name="optimization/oval_yvel"    value="2"/> <!-- 2 [m/s]-->
+    <param name="optimization/oval_qvel"    value="2"/> <!-- 2 [rad/s]-->
+    <param name="optimization/oval_xacc"    value="2"/> <!-- 2 [m/s^2]-->
+    <param name="optimization/oval_yacc"    value="2"/> <!-- 2 [m/s^2]-->
+    <param name="optimization/oval_qacc"    value="2"/> <!-- 2 [rad/s^2]-->
+    
+
     <param name="planner/loop_rate"     value="10"/>
     <param name="planner/nav_seq_vis"   value="$(arg nav_seq_vis)"/>
-    <param name="planner/timeHorizon"   value="1.0"/> <!-- 1.0 [s]-->
+    <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
     <param name="planner/optHorizon"    value="3.0"/> <!-- 3.0 [s]-->
     <param name="planner/opt_seg"       value="0.0"/> 
-    <param name="planner/time_step_pursuit"     value="5.0"/>   <!-- 5.0 [step]-->
-    <param name="planner/time_step_interval"    value="10.0"/>  <!-- 10.0 [step]-->
-    <param name="planner/time_interval"         value="$(arg time_interval)"/> <!-- 0.01 [s] discrete time -->
     <!--小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度-->
+    <param name="planner/persuit_factor"    value="1.0"/>
+    
+    <!-- 轨迹跟踪时进行缩放 每个跟踪控制周期 persuit 的距离和速度进行缩放 >1 加速跟踪 <1缓慢跟踪 -->
+    <!-- <param name="planner/time_step_pursuit"     value="5.0"/>    -->
+    <!-- 5.0 [step]-->
+    <!-- <param name="planner/time_step_interval"    value="10.0"/>   -->
+    <!-- 10.0 [step]-->
+    <!-- <param name="planner/time_interval"         value="$(arg time_interval)"/>  -->
+    <!-- 0.01 [s] discrete time -->
     <!-- <param name="planner/traj_time_interval"    value="$(arg traj_time_interval)"/> -->
+
 
 
     <!-- <param name="map/orign_x_size" value="$(arg map_orign_x)"/>
