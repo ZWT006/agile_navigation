@@ -51,11 +51,30 @@ git clone https://gitee.com/hi-zwt/legged_control
 ### Simulation 
 仿真版本可以只安装 `swaft_nav` 和 `legged_control`
 `legged_control` : tracking 分支
-`swaft_nav` : kinodymic replanning
-安装编译无误后
-1.  xxxx
-2.  xxxx
-3.  xxxx
+`swaft_nav` : `f317360`
+安装编译无误后，分别开启以下终端 首先`source ~/motion_ws/devel/setup.bash`(注意工作空间路径)
+# legged control 工作流程
+1. export ROBOT_TYPE=a1
+roslaunch legged_unitree_description empty_world.launch
+
+2. export ROBOT_TYPE=a1
+roslaunch legged_controllers load_controller.launch cheater:=true
+ps:输入步态: flying_trot
+
+3. 开启运动
+rosservice call /controller_manager/switch_controller "start_controllers: ['controllers/legged_controller']
+stop_controllers: ['']
+strictness: 0
+start_asap: false
+timeout: 0.0" 
+
+4. 开启虚拟地图
+roslaunch grid_path_searcher mapworld.launch
+
+5. 开启规划
+roslaunch fast_navigation swaft_planner.launch
+
+PS: 使用 3D goal 设定目标点
 
 ## [备注](./commond.md)
 ## 参与贡献
