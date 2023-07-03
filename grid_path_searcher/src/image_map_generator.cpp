@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-03-02
- * @LastEditTime: 2023-06-15
+ * @LastEditTime: 2023-07-03
  * @Description: read picture to generate pointcloudmap
  * @reference: none
  * 
@@ -214,7 +214,7 @@ int main (int argc, char** argv)
 
 void LocalMapGenerate()
 {
-   uint16_t idx,idy;
+   int idx,idy;
    double img_x,img_y;
    pcl::PointXYZ pt_image;
    
@@ -241,27 +241,29 @@ void LocalMapGenerate()
       // if (img_y_high > map_img.rows)
       //    {img_y_high = map_img.rows;}
       // if ()
-      return;
+      // return;
    }
-   
-   for (idx = floor(img_x - _local_w_grid); idx <= ceil(img_x + _local_w_grid); idx=idx+pixe_grid)
+   localMap.points.clear();
+   // ROS_DEBUG("inage size: %d,%d",map_img.cols,map_img.rows);
+   // ROS_DEBUG("img_x:%f,img_y:%f",img_x,img_y);
+   // ROS_DEBUG("map size: -x:%d,+x:%d,-y:%d,+y%d",floor(img_x - _local_w_grid),ceil(img_x + _local_w_grid),floor(img_y - _local_w_grid),ceil(img_y + _local_w_grid));
+   for (idx = floor(img_x - _local_w_grid); idx <= ceil(img_x + _local_w_grid); idx = idx + pixe_grid)
    {
-      for (idy = floor(img_y - _local_w_grid); idy < ceil(img_y + _local_w_grid); idy=idy+pixe_grid)
+      for (idy = floor(img_y - _local_w_grid); idy < ceil(img_y + _local_w_grid); idy = idy + pixe_grid)
       {
+         if( idx < 0 || idy < 0 || idx > map_img.cols || idy > map_img.rows)
+            continue;
          // 如果该点有像素值 就是point, 使用Point()函数访问图像的像素值
          if (map_img.at<uchar>(Point(idx,idy)) == 0)
          {
-            // for (int idz = 0; idz < _z_size / _resolution; idz++)
-            // {
-
-               pt_image.x = idx * 0.01 - _x_orign;
-               pt_image.y = idy * 0.01 - _y_orign;
-               pt_image.z = DEFAULT_HIGH;
-               localMap.points.push_back(pt_image);
-            // }
+            pt_image.x = idx * 0.01 - _x_orign;
+            pt_image.y = idy * 0.01 - _y_orign;
+            pt_image.z = DEFAULT_HIGH + 0.05;
+            localMap.points.push_back(pt_image);
          }
       }
    }
+   // ROS_DEBUG("idx:%d,idy:%d",idx,idy);
    //odometry from map
    // odom_msg.header.stamp = ros::Time::now();
    // odom_msg.header.frame_id = "world";
@@ -274,9 +276,9 @@ void LocalMapGenerate()
    localMap_pcd.data.clear();
    pcl::toROSMsg(localMap, localMap_pcd);
    localMap_pcd.header.stamp = ros::Time::now();
-   localMap.header.frame_id = "world";
+   localMap_pcd.header.frame_id = "world";
    _local_map_pub.publish(localMap_pcd);
-   ROS_INFO("[\033[34mImageNode\033[0m]:odom:x = %2.4f,y = %2.4f",odom_msg.pose.pose.position.x,odom_msg.pose.pose.position.y);
+   ROS_INFO("[\033[34mImageNode\033[0m]:odom:x = %2.4f,y = %2.4f,pcl = %d",odom_msg.pose.pose.position.x,odom_msg.pose.pose.position.y,localMap.points.size());
    // ROS_INFO("[\033[34mImageNode\033[0m]:point cloud size: %d",localMap.points.size());
    // ROS_INFO("[\033[34mImageNode\033[0m]:-img_x = %d,+img_x = %d,-img_y = %d,+img_y = %d",img_x - _local_w_grid,img_x + _local_w_grid,img_y - _local_w_grid,img_y + _local_w_grid);
    localMap.points.clear();
@@ -395,7 +397,7 @@ void GlobalMapGenerate()
 
                   pt_image.x = idx * 0.01 - _x_orign;
                   pt_image.y = idy * 0.01 - _y_orign;
-                  pt_image.z = DEFAULT_HIGH;
+                  pt_image.z = DEFAULT_HIGH - 0.05;
                   erodeMap.points.push_back(pt_image);
                // }
             }

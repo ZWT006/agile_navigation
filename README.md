@@ -48,6 +48,11 @@ git clone https://gitee.com/hi-zwt/legged_control
 
 ## [使用说明](./Usage.md)
 
+### Simulation 
+仿真版本可以只安装 `swaft_nav` 和 `legged_control`
+`legged_control` : tracking 分支
+`swaft_nav` : kinodymic replanning
+安装编译无误后
 1.  xxxx
 2.  xxxx
 3.  xxxx

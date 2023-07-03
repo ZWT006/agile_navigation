@@ -43,7 +43,7 @@
 
 <node pkg="fast_navigation" type="swaft_planner_node" name="swaft_planner_node" output="screen" required = "true">
     <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
-    <remap from="~map" to="/image_map/global_map"/>
+    <remap from="~map" to="/image_map/local_map"/>
     <remap from="~odom" to="/ground_truth/state"/>
 
     <param name="search/dir_grid_m"     value="$(arg dir_grid_m)"/>
@@ -77,12 +77,16 @@
     
 
     <param name="planner/loop_rate"     value="10"/>
+    <param name="planner/vis_Robot"     value="true"/>
+    <param name="planner/vis_sample"    value="true"/>
+    <param name="planner/vis_traj"      value="false"/>
+    <param name="planner/vis_obspcl"    value="true"/>
     <param name="planner/nav_seq_vis"   value="$(arg nav_seq_vis)"/>
     <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
     <param name="planner/optHorizon"    value="3.0"/> <!-- 3.0 [s]-->
     <param name="planner/opt_seg"       value="0.0"/> 
     <!--小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度-->
-    <param name="planner/persuit_factor"    value="1.0"/>
+    <param name="planner/persuit_factor"    value="0.2"/>
     
     <!-- 轨迹跟踪时进行缩放 每个跟踪控制周期 persuit 的距离和速度进行缩放 >1 加速跟踪 <1缓慢跟踪 -->
     <!-- <param name="planner/time_step_pursuit"     value="5.0"/>    -->

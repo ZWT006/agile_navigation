@@ -8,6 +8,11 @@
 1. `rcvOdomCallBack` 函数中的重规划判断逻辑
 - [ ] waypoint date struct
 - [ ] safe check and replan
+
+BUGs
+- [] start swaft planner 第一个数据会有一个(0,0,0)的期望，让机器人猛地一顿
+- [] replanning 的逻辑有些问题，貌似一直从 currPose 开始重规划不行，或者说得在别的地方一直更新 currPose
+- [] 现在的逻辑是从距离障碍物最近的轨迹点开始重规划,可能造成多走冤枉路的情况出现,这个可以考虑比较一下 障碍物的段索引和当前跟踪的段索引，找一个阈值来确定重规划的段索引
 ### lazykinoprm
 - [x] `TrajectoryCheck` 单纯轨迹的位置安全性检查
 - [ ] `PathStatesSetCheck` 轨迹/路点的安全检查并记录检查状态

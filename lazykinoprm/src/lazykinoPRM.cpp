@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-06-29
+ * @LastEditTime: 2023-07-03
  * @Description: 
  * @reference: 
  * 
@@ -83,8 +83,8 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
   // if (mid_node->type == Invalid)
   {
     cout << "[\033[34mSearchNode\033[0m]" <<YELLOW << "goal node is Invalid(too close to obstacle)" << RESET << endl;
-    cout << "[\033[34mSearchNode\033[0m]" <<YELLOW << "goal_pose_index_ :" << goal_pose_index_.transpose() << endl;
-    cout << "[\033[34mSearchNode\033[0m]" <<YELLOW << "goal_pos:" << goal_pos.transpose() << endl;
+    cout << "[\033[34mSearchNode\033[0m]" <<YELLOW << "goal_pose_index_ :" << goal_pose_index_.transpose() << RESET << endl;
+    cout << "[\033[34mSearchNode\033[0m]" <<YELLOW << "goal_pos:" << goal_pos.transpose() << RESET << endl;
     vector<Vector3d> neighbor_nodes_pose;
     vector<double> neighbor_nodes_dist;
     
@@ -173,14 +173,14 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
   mid_node->setPose(start_pos,start_pose_index_);
   mid_node->setType(Start);
   
-  cout << "[\033[34mSearchNode\033[0m]start_pose_index_:" << start_pose_index_.transpose() << endl;
-  cout << "[\033[34mSearchNode\033[0m]start_pos :" << start_pos.transpose() << endl;
-  cout << "[\033[34mSearchNode\033[0m]goal_pose_index_ :" << goal_pose_index_.transpose() << endl;
-  cout << "[\033[34mSearchNode\033[0m]goal_pos:" << goal_pos.transpose() << endl;
-  cout << "[\033[34mSearchNode\033[0m]vel_factor:" << vel_factor_ << endl;
-  cout << "[\033[34mSearchNode\033[0m]ome_factor:" << ome_factor_ << endl;
-  cout << "[\033[34mSearchNode\033[0m]DIR_GRID_M:" << DIR_GRID_M << endl;
-  cout << "[\033[34mSearchNode\033[0m]c_angle:" << c_angle_ << endl;
+  // cout << "[\033[34mSearchNode\033[0m]start_pose_index_:" << start_pose_index_.transpose() << endl;
+  // cout << "[\033[34mSearchNode\033[0m]start_pos :" << start_pos.transpose() << endl;
+  // cout << "[\033[34mSearchNode\033[0m]goal_pose_index_ :" << goal_pose_index_.transpose() << endl;
+  // cout << "[\033[34mSearchNode\033[0m]goal_pos:" << goal_pos.transpose() << endl;
+  // cout << "[\033[34mSearchNode\033[0m]vel_factor:" << vel_factor_ << endl;
+  // cout << "[\033[34mSearchNode\033[0m]ome_factor:" << ome_factor_ << endl;
+  // cout << "[\033[34mSearchNode\033[0m]DIR_GRID_M:" << DIR_GRID_M << endl;
+  // cout << "[\033[34mSearchNode\033[0m]c_angle:" << c_angle_ << endl;
   // TODO: check if start and goal are in the same voxel
 
   //##################################################################################################################

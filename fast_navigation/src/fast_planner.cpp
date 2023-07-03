@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-07-02
+ * @LastEditTime: 2023-07-03
  * @Description: 
  * @reference: 
  * 
@@ -332,7 +332,7 @@ void rcvPointCloudCallBack(const sensor_msgs::PointCloud2 & pointcloud_map)
     // sensor_msgs::ImagePtr image_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", *obsimg).toImageMsg();
     // _obsmap_img_pub.publish(image_msg);
     cv::Mat* sdf_map_ptr = lazykinoPRM.getSdfMap();
-
+    // ROS_DEBUG("[Node]obsimg.size() = %d, %d", sdf_map_ptr->rows, sdf_map_ptr->cols);
     cv::Mat sdf_img = sdf_map_ptr->clone();
     cv::Mat I_norm;
     //########################################################################

@@ -154,6 +154,7 @@ target_link_libraries(fast_planner_node
     ${PCL_LIBRARIES}
     ${OpenCV_LIBS})
 
+    
 add_executable( swaft_planner_node 
     src/swaft_planner.cpp
     )

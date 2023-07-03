@@ -170,6 +170,9 @@ strictness: 0
 start_asap: false
 timeout: 0.0" 
 
+2D goal legged_control 使用
+3D goal swaft_planner 使用
+
 flying_trot // 会有 Z height的波动
   switchingTimes
   {

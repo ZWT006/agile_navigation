@@ -19,8 +19,8 @@ using namespace cv;
 // robot visulaization param
 //unitree A1 robot size
 #define DEFAULT_HIGH 0.30f
-#define DEFAULT_WIDTH 0.30f
-#define DEFAULT_LENGTH 0.40f
+#define DEFAULT_WIDTH 0.40f
+#define DEFAULT_LENGTH 0.50f
 
 #define Q_WEIGHT 0.01f
 
@@ -37,6 +37,7 @@ ros::Publisher _obsmap_img_pub,_sdfmap_img_pub; // 地图可视化
 ros::Publisher _ptraj_vis_pub,_vtraj_vis_pub;   // 轨迹可视化
 ros::Publisher _path_vis_pub,_robot_vis_pub;    // 导航可视化
 
+ros::Publisher _obs_map_pub;    // 全局障碍物地图
 // 各部分计算的计时 帮助调试,分析代码
 ros::Time _time_opt_start;                // ros 时间
 ros::Time _time_opt_end;                  // ros 时间
@@ -52,6 +53,7 @@ double _time_interval;  // time interval for trajectory
 bool _vis_Robot = false;
 bool _vis_sample = false;
 bool _vis_traj = false;
+bool _vis_obspcl = true;
 bool _nav_seq_vis_flag = true;
 double _vis_resolution = 0.02; // 可视化的分辨率
 double _resolution;     // obs map 分辨率
@@ -65,7 +67,7 @@ bool _HAS_ODOM  = false;    // 是否有里程计信息
 bool _HAS_PATH  = false;    // 搜索到路径，每次 lazykinoprm 搜索到路径后，就会置为true; Obstacle check infeasible 会置为false
 bool _NEW_PATH  = true;     // 是否是新的路径 重新设置目标点后,就是新的路径
 bool _FIRST_ODOM= true;     // 是否是第一次接收到里程计信息 
-bool _REACH_GOAL= false;    // 是否到达目标点
+bool _REACH_GOAL= true;    // 是否到达目标点
 bool _TRACKING  = false;    // 是否正在跟踪轨迹 安全检查不通过就会置为false 原地急刹车trot
 
 ////####################################################################################
@@ -107,11 +109,14 @@ void OptimalSegPop();
 void OptimalSegPush();
 // 轨迹跟踪的安全性检查
 bool NavSeqCheck(const nav_msgs::Path *navseq);
+
 // 可视化函数 ############################################################################################################
 // visulization search trajectory
 void visSearchTraj();
 // visulization tracking trajectory
 // bool visTrackingTraj();
+// visulization obstacle map
+void visObsMap();
 // visulization robot 
 void visRobot(const nav_msgs::Odometry::ConstPtr& msg);
 // visulization position trajectory
@@ -133,16 +138,17 @@ int main(int argc, char** argv)
     _odom_sub = nh.subscribe( "odom",      1, rcvOdomCallback );
 
     // 路径和地图可视化
-    _path_vis_pub             = nh.advertise<visualization_msgs::MarkerArray>("planner_path_vis",1);
+    _path_vis_pub       = nh.advertise<visualization_msgs::MarkerArray>("planner_path_vis",1);
     // _obsmap_img_pub           = nh.advertise<sensor_msgs::Image>("obs_map_img",1);
-    _sdfmap_img_pub           = nh.advertise<sensor_msgs::Image>("sdf_map_img",1);
-    _robot_vis_pub            = nh.advertise<visualization_msgs::MarkerArray>("robot_vis",1);
+    _sdfmap_img_pub     = nh.advertise<sensor_msgs::Image>("sdf_map_img",1);
+    _robot_vis_pub      = nh.advertise<visualization_msgs::MarkerArray>("robot_vis",1);
     // _cmd_vel_pub              = nh.advertise<geometry_msgs::Twist>("/cmd_vel",1);
     // _nav_seq_vis_pub          = nh.advertise<nav_msgs::Path>("/nav_seq_vis",1);
+    _obs_map_pub        = nh.advertise<sensor_msgs::PointCloud2>("obs_map_pcl",1);
 
     // 轨迹可视化
-    _ptraj_vis_pub            = nh.advertise<geometry_msgs::PoseArray>("/ptraj_vis",1);
-    _vtraj_vis_pub            = nh.advertise<geometry_msgs::PoseArray>("/vtraj_vis",1);
+    _ptraj_vis_pub      = nh.advertise<geometry_msgs::PoseArray>("ptraj_vis",1);
+    _vtraj_vis_pub      = nh.advertise<geometry_msgs::PoseArray>("vtraj_vis",1);
 
     // 关键功能类初始化 ############################################################################################################
     ROS_DEBUG("tracking.setParam(nh)");
@@ -166,6 +172,7 @@ int main(int argc, char** argv)
     nh.param("planner/vis_Robot", _vis_Robot, false);
     nh.param("planner/vis_sample", _vis_sample, false);
     nh.param("planner/vis_traj", _vis_traj, false);
+    nh.param("planner/vis_obspcl", _vis_obspcl, true);
     nh.param("planner/nav_seq_vis", _nav_seq_vis_flag, true);
     // nh.param("planner/time_interval", _time_interval, 0.1); 
     nh.param("planner/optHorizon", _optHorizon, 1.5); 
@@ -182,7 +189,7 @@ int main(int argc, char** argv)
         double sample_grid_time = xy_sample_size_ / tracking._refer_vel;
         _OPT_SEG = int(_optHorizon / sample_grid_time * OPT_FACTOR); // 优化轨迹的段数
     }
-
+    tracking._TO_SEG = _OPT_SEG;
     // 轨迹跟踪相关参数
     ROS_INFO("[\033[34mPlanNode\033[0m]_local_width: %2.4f",    _local_width);
     ROS_INFO("[\033[34mPlanNode\033[0m]_resolution : %2.4f",    _resolution);
@@ -190,6 +197,7 @@ int main(int argc, char** argv)
     ROS_INFO("[\033[34mPlanNode\033[0m]_time_interval: %2.4f",  _time_interval);
     ROS_INFO("[\033[34mPlanNode\033[0m]_optHorizon  : %2.4f",   _optHorizon);
     ROS_INFO("[\033[34mPlanNode\033[0m]_opt_seg     : %6d",     _OPT_SEG);
+    ROS_INFO("[\033[34mPlanNode\033[0m]_REACH_GOAL  : %6d",     _REACH_GOAL);
     // ROS_INFO("[\033[34mPlanNode\033[0m]planner/time_horizon: %2.4f",        tracking._time_horizon);
     // ROS_INFO("[\033[34mPlanNode\033[0m]planner/traj_time_interval: %2.4f",  tracking._traj_time_interval);
     // ROS_INFO("[\033[34mPlanNode\033[0m]planner/time_step_interval: %d",     tracking._time_step_interval);
@@ -227,6 +235,7 @@ int main(int argc, char** argv)
                 tracking.NavSeqFixed(tracking._local_odom);
                 tracking.NavSeqPublish();
                 ROS_INFO("[\033[31mPlanNode\033[0m]: too close to obstacle, braking!!!");
+                ROS_INFO("[\033[31mPlanNode\033[0m]:currIndex:%d,obsIndex:%d,searchIndex:%d",tracking._current_index[0],tracking._obs_seg_index,tracking._search_seg_index);
             }
             // step.2 轨迹上有障碍物,正常重规划
             if (!feasible){  // 轨迹上有障碍物
@@ -243,6 +252,7 @@ int main(int argc, char** argv)
                 if (_HAS_PATH){ // 重新规划成功
                     tracking._goalPose = lazykinoPRM._goal_pose;
                     SearchSegPush();
+                    ROS_INFO("[\033[32mPlanNode\033[0m]searchindex:%d,search traj size:%d",tracking._search_seg_index,searchTraj.size());
                     tracking.insertSegTraj(tracking._search_seg_index,&searchTraj);
                     ROS_INFO("[\033[32mPlanNode\033[0m]: replan success");
                     tracking.OBS_FLAG = false;
@@ -252,9 +262,33 @@ int main(int argc, char** argv)
                     // ROS_INFO("[\033[34mPlanNode\033[0m]: reset planning done");
                     lazykinoPRM.reset();
                 }
-                else{ // 重新规划失败
+                else{ // 重新规划失败 再搞近点重新规划
                     // TODO: 重新规划失败解决方案 1.重采样再规划 2.刹车等待摆烂
-                    ROS_INFO("[\033[31mPlanNode\033[0m]: replan failed");
+                    lazykinoPRM.resetsample();
+                    if(tracking.getLocalState(&currPose,&currVel,&currAcc,&goalPose)){
+                        _HAS_PATH = !lazykinoPRM.search(currPose,currVel,currAcc,goalPose,zeros_pt,zeros_pt);
+                    }
+                    else {
+                        ROS_INFO("[\033[31mPlanNode\033[0m]: get re-replan state failed");
+                        continue;
+                    }
+                    if (_HAS_PATH){ // 重新规划成功
+                        tracking._goalPose = lazykinoPRM._goal_pose;
+                        SearchSegPush();
+                        ROS_INFO("[\033[32mPlanNode\033[0m]searchindex:%d,search traj size:%d",tracking._search_seg_index,searchTraj.size());
+                        tracking.insertSegTraj(tracking._search_seg_index,&searchTraj);
+                        ROS_INFO("[\033[32mPlanNode\033[0m]: re-replan success");
+                        tracking.OBS_FLAG = false;
+                        _TRACKING = true;
+                        visSearchTraj(); // 可视化搜索轨迹 感觉就是DEBUG的时候用
+                        // 可视化轨迹后再清空搜索列表
+                        // ROS_INFO("[\033[34mPlanNode\033[0m]: reset planning done");
+                        lazykinoPRM.reset();
+                    }
+                    else {
+                        lazykinoPRM.resetsample();
+                        ROS_INFO("[\033[31mPlanNode\033[0m]: re-replan failed");
+                    }
                 }
             }
         }
@@ -262,7 +296,6 @@ int main(int argc, char** argv)
         if (!_REACH_GOAL){
 
         }
-
         // step 可视化 ############################################################################################################
         // 可视化机器人和感知范围
         if (_vis_Robot){
@@ -270,12 +303,14 @@ int main(int argc, char** argv)
             // ROS_INFO("[\033[32mPlanNode\033[0m]: vis robot");
             _vis_Robot=false;
         }
+        if (_vis_obspcl){
+            visObsMap();
+        }
         if (_vis_traj){
             visPtraj();
             visVtraj();
             _vis_traj=false;
         }
-
         status = ros::ok();
         rate.sleep();
     }
@@ -314,6 +349,7 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
 
     if (_HAS_PATH) {
         _NEW_PATH = true;
+        _REACH_GOAL = false;
         tracking.initPlanner(goalPose);
         tracking._goalPose = lazykinoPRM._goal_pose;
         SearchSegPush();
@@ -395,7 +431,7 @@ void rcvPointCloudCallback(const sensor_msgs::PointCloud2 & pointcloud_map)
     //// 在点云回调函数中进行轨迹检查感觉比较合理呀,可以减少里程计回调中,轨迹跟踪的计算量
     //// 还是在主循环中进行轨迹检查比较合理呀,中断回调里面最好不要执行太多的操作
 }
-
+int info_cnt = 0;
 // 里程计回调函数，负责设置机器人位置;进行轨迹跟踪
 void rcvOdomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
@@ -423,7 +459,8 @@ void rcvOdomCallback(const nav_msgs::Odometry::ConstPtr& msg)
         return;
     }
     if (_FIRST_ODOM) {
-        ROS_INFO("[\033[32mPlannerNode\033[0m]: first odom: %2.2f, %2.2f, %2.2f", _first_pose(0), _first_pose(1), _first_pose(2));
+        tracking._goalPose = _first_pose;
+        ROS_INFO("[\033[32mOdomCallback\033[0m]: first odom: %2.2f, %2.2f, %2.2f", _first_pose(0), _first_pose(1), _first_pose(2));
         _FIRST_ODOM = false;
     }
     // _current_odom(2) 的范围是 -pi ~ pi
@@ -432,27 +469,36 @@ void rcvOdomCallback(const nav_msgs::Odometry::ConstPtr& msg)
         tracking._tracking_cnt++;
         if (tracking.isReachGoal(_current_odom)){
             _REACH_GOAL = true;
-            ROS_INFO("[\033[32mPlannerNode\033[0m]: reach goal");
+            ROS_INFO("[\033[32mOdomCallback\033[0m]: reach goal");
         }
         else {
             _REACH_GOAL = false;
             // 计算当前odometry在轨迹上的位置
             tracking.OdometryIndex(_current_odom);
+
+            info_cnt ++;
+            if (info_cnt > 10){
+                info_cnt = 0;
+                ROS_INFO("[\033[32mOdomCallback\033[0m]: tracking idx: %d", tracking._curr_time_step);
+            }
             // 更新轨迹跟踪的控制序列
             tracking.NavSeqUpdate();
             if (!NavSeqCheck(&tracking._nav_seq_msg)){
-                ROS_INFO("[\033[33mPlannerNode\033[0m]: NavSeqCheck failed!");
+                ROS_INFO("[\033[33mOdomCallback\033[0m]: NavSeqCheck failed!");
                 tracking.NavSeqFixed(tracking._local_odom);
             }
         }
     }
     tracking._current_odom = _current_odom;
-    if (_REACH_GOAL){
-        tracking.NavSeqFixed(tracking._goalPose);
-    }
-    else{
+    if(!_HAS_PATH){
+        // 如果是在跟踪任务执行中,但是没有路径,可以更新当前的 pose
+        if (tracking._tracking_cnt != 0)
+            tracking.OdometryIndex(_current_odom);
         // 如果没有路径,就不进行轨迹跟踪
         tracking.NavSeqFixed(tracking._local_odom);
+    }
+    if (_REACH_GOAL){
+        tracking.NavSeqFixed(tracking._goalPose);
     }
     //DEBUG%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     // tracking.NavSeqFixed(_first_pose);
@@ -653,9 +699,9 @@ void visSearchTraj()
 
     ESpheres.pose.orientation.w = 1.0;
     ESpheres.type            = visualization_msgs::Marker::SPHERE_LIST;
-    ESpheres.scale.x         = _vis_resolution*5;
-    ESpheres.scale.y         = _vis_resolution*5;
-    ESpheres.scale.z         = _vis_resolution*5;
+    ESpheres.scale.x         = _vis_resolution*3;
+    ESpheres.scale.y         = _vis_resolution*3;
+    ESpheres.scale.z         = _vis_resolution*3;
 
     ESpheres.color.a         = 0.6;
     ESpheres.color.r         = 1.0;
@@ -664,9 +710,9 @@ void visSearchTraj()
 
     OSpheres.pose.orientation.w = 1.0;
     OSpheres.type            = visualization_msgs::Marker::SPHERE_LIST;
-    OSpheres.scale.x         = _vis_resolution*5;
-    OSpheres.scale.y         = _vis_resolution*5;
-    OSpheres.scale.z         = _vis_resolution*5;
+    OSpheres.scale.x         = _vis_resolution*3;
+    OSpheres.scale.y         = _vis_resolution*3;
+    OSpheres.scale.z         = _vis_resolution*3;
 
     OSpheres.color.a         = 0.6;
     OSpheres.color.r         = 0.0;
@@ -730,7 +776,7 @@ void visSearchTraj()
             pt.x = coord(0);
             pt.y = coord(1);
             pt.z = DEFAULT_HIGH;
-            ROS_INFO("[\033[34mvisTraLibrary\033[0m]Position = [%f, %f, %f]", coord(0), coord(1), coord(2));
+            // ROS_INFO("[\033[34mvisTraLibrary\033[0m]Position = [%f, %f, %f]", coord(0), coord(1), coord(2));
             Spheres.points.push_back(pt);
         }
         LineArray.markers.push_back(Spheres);
@@ -766,10 +812,53 @@ void visSearchTraj()
         }
         LineArray.markers.push_back(OSpheres);
         LineArray.markers.push_back(ESpheres);
-        ROS_DEBUG("[visSearchTraj]LineArray.size() = %d", static_cast<int>(LineArray.markers.size()));
-        ROS_DEBUG("[visSearchTraj]marker_id = %d", marker_id);
+        ROS_DEBUG("[visSearchTraj]ESpheres.size() = %ld", LineArray.markers[2].points.size());
+        ROS_DEBUG("[visSearchTraj]OSpheres.size() = %ld", LineArray.markers[3].points.size());
+        // ROS_DEBUG("[visSearchTraj]marker_id = %d", marker_id);
     }
     _path_vis_pub.publish(LineArray);
+}
+
+/*******************************************************************************************
+ * @description: 可视化lazykinoPRM中的障碍物地图
+ * @reference: 
+ * @return {*}
+ */
+void visObsMap()
+{
+    pcl::PointXYZ pt_image;
+    cv::Mat* obsimg = lazykinoPRM.getObsMap();
+    if (obsimg == nullptr)
+        return;
+    sensor_msgs::PointCloud2 _obs_map_pcl_msg; // 全局障碍物点云
+    pcl::PointCloud<pcl::PointXYZ> _obs_map_pcl; // 全局障碍物点云
+    uint16_t img_x,img_y,idx,idy;
+    double _x_orign, _y_orign;
+    double _resolution = lazykinoPRM.xy_resolution_;
+    img_x = obsimg->cols;
+    img_y = obsimg->rows;
+   _x_orign = img_x*_resolution/2;
+   _y_orign = img_y*_resolution/2;
+   _obs_map_pcl.points.clear();
+   for (idx = 0; idx < img_x; idx = idx + 1) {
+      for (idy = 0; idy < img_y; idy = idy + 1) {
+         // 如果该点有像素值 就是point, 使用Point()函数访问图像的像素值
+         if (obsimg->at<uchar>(Point(idx,idy)) == 0){
+            pt_image.x = idx * _resolution - _x_orign;
+            pt_image.y = idy * _resolution - _y_orign;
+            pt_image.z = DEFAULT_HIGH;
+            _obs_map_pcl.points.push_back(pt_image);
+         }
+      }
+   }
+    _obs_map_pcl.width = _obs_map_pcl.points.size();
+    _obs_map_pcl.height = 1;
+    _obs_map_pcl.is_dense = true;
+    pcl::toROSMsg(_obs_map_pcl, _obs_map_pcl_msg);
+    _obs_map_pcl_msg.header.stamp = ros::Time::now();
+    _obs_map_pcl_msg.header.frame_id = "world";
+    // ROS_INFO("[\033[34mvisObsMap\033[0m]obs_map_pcl_msg.size() = %ld", _obs_map_pcl_msg.data.size());
+    _obs_map_pub.publish(_obs_map_pcl_msg);
 }
 
 /*******************************************************************************************
@@ -781,6 +870,8 @@ void visSearchTraj()
 void visRobot(const nav_msgs::Odometry::ConstPtr& msg)
 {   
     // 获取机器人当前位姿
+    if (msg == nullptr)
+        return;
     geometry_msgs::Pose pose = msg->pose.pose;
     double _vis_resolution = 0.02;
     visualization_msgs::MarkerArray  LineArray;
@@ -810,7 +901,7 @@ void visRobot(const nav_msgs::Odometry::ConstPtr& msg)
 
     Body.id              = 2;
     Body.pose.orientation.w = 1.0;
-    Body.type            = visualization_msgs::Marker::CUBE;
+    Body.type            = visualization_msgs::Marker::SPHERE;
     Body.scale.x         = DEFAULT_LENGTH;
     Body.scale.y         = DEFAULT_WIDTH;
     Body.scale.z         = DEFAULT_HIGH/2;

@@ -49,7 +49,7 @@ class LazyKinoPRM {
   double weightR_; //weight for R as angle obvp cost
   
   /* map for obsticle*/
-  double xy_resolution_,axi_resolution_;
+  
   // fixd as params set in launch file
   uint32_t MAX_OBS_MAP_COL,MAX_OBS_MAP_ROW;
   Eigen::Vector3d map_origin_,map_size_;
@@ -99,6 +99,7 @@ class LazyKinoPRM {
   cv::Mat *raw_obs_map;        // occupancy map as cv::Mat one pixel is pcl map resolution
   cv::Mat *sdf_map;            // sdf map as cv::Mat one pixel is pcl map resolution
   cv::Mat element;            // element for dilate and erode
+  double xy_resolution_,axi_resolution_;
   std::vector<NodeState> pathstateSets;    // path state list
   OpenList astaropenlist;            // open list for astar search
   Eigen::Vector3d _goal_pose;  // goal pose

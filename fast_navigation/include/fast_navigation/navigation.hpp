@@ -51,6 +51,8 @@
 // max local bias step 这个限度内就正常推进 persuit 前移 
 #define AMX_BIAS_STEP 3
 
+#define REPLAN_BIAS 3 // 重规划偏差阈值 考虑设置的和 TO的长度一致
+
 bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double currq,double goalq);
 
 // judge currend odom is near goal pose
@@ -121,6 +123,8 @@ class Tracking
     // Trajectory
 	bool OBS_FLAG = false;	// 轨迹上是否有障碍物
 	bool TROT_FLAG = false;	// 是否急刹车 轨迹上的障碍物距离机器人只有一个node的距离
+
+    int _TO_SEG = 0; // 轨迹优化段
     
     // trajectory param
     int _odom_cnt = 0;
@@ -164,6 +168,7 @@ class Tracking
     // 辅助功能函数
     bool getCurrentState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc);
     bool getReplanState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc,Eigen::Vector3d *goalPose);
+    bool getLocalState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc,Eigen::Vector3d *goalPose);
     bool isReachGoal(Eigen::Vector3d current_odom);
 };
 
@@ -196,11 +201,12 @@ void Tracking::setParam(ros::NodeHandle& nh)
     _nav_seq_pub        = nh.advertise<nav_msgs::Path>("/nav_seq",1);
     if (_nav_seq_vis_flag) _nav_seq_vis_pub    = nh.advertise<nav_msgs::Path>("/nav_seq_vis",1);
 
-    ROS_INFO("[\033[34mTrackNode\033[0m]planner/mpc_horizon: %2.4f",         _mpcHorizon);
-    ROS_INFO("[\033[34mTrackNode\033[0m]planner/traj_time_interval: %2.4f",  _traj_time_interval);
-    ROS_INFO("[\033[34mTrackNode\033[0m]planner/mpc_step_interval: %d",      _mpc_step_interval);
-    ROS_INFO("[\033[34mTrackNode\033[0m]planner/time_step_pursuit: %d",      _time_step_pursuit);
-    ROS_INFO("[\033[34mTrackNode\033[0m]planner/persuit_factor: %2.4f",          _persuit_factor);
+    ROS_INFO("[\033[34mTrackNode\033[0m]nav_seq_vis_pub   : %4d",    _nav_seq_vis_flag);
+    ROS_INFO("[\033[34mTrackNode\033[0m]mpc_horizon       : %2.2f",  _mpcHorizon);
+    ROS_INFO("[\033[34mTrackNode\033[0m]traj_time_interval: %2.4f",  _traj_time_interval);
+    ROS_INFO("[\033[34mTrackNode\033[0m]mpc_step_interval : %4d",    _mpc_step_interval);
+    ROS_INFO("[\033[34mTrackNode\033[0m]time_step_pursuit : %4d",    _time_step_pursuit);
+    ROS_INFO("[\033[34mTrackNode\033[0m]persuit_factor    : %2.2f",  _persuit_factor);
 }
 
 /***********************************************************************************************************************
@@ -216,8 +222,17 @@ void Tracking::initPlanner(Eigen::Vector3d new_goal_odom)
     _pursuit_index = Eigen::Vector2i(0,0);
     _serch_start_seg_index = 0; // 轨迹搜索起始点
     _opt_start_seg_index   = 0;   // 轨迹优化起始点
+    
+    _curr_time_step = 0;
+    _pursuit_time_step = 0;
     _curr_seg_points  = 0;
     _curr_traj_points = 0;
+
+    _obs_seg_index  = 0;
+    _obs_traj_index = 0;
+    _search_seg_index   = 0;
+    _search_traj_index  = 0;
+
     _tracking_cnt = 0;
     if (!pxtraj.empty())
     {
@@ -256,7 +271,7 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
         _pre_traj_num = 0;
     }
     else{
-        for (int idx = 0; idx < seg_index || idx < static_cast<int>(segtrajpoints.size()); idx++){
+        for (int idx = 0; idx < seg_index && idx < static_cast<int>(segtrajpoints.size()); idx++){
             _pre_traj_num += segtrajpoints.at(idx);
         }
     }
@@ -384,9 +399,9 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
         double _dist_x = pxtraj.at(_curr_time_step) - _x_get;
         double _dist_y = pytraj.at(_curr_time_step) - _y_get;
         double _dist_q = angles::shortest_angular_distance(_q_get, _q_normalize);
-        double _x_vel = _dist_x / (_dist_time_step * _traj_time_interval);
-        double _y_vel = _dist_y / (_dist_time_step * _traj_time_interval);
-        double _q_vel = _dist_q / (_dist_time_step * _traj_time_interval);
+        double _x_vel = _dist_x / (_dist_time_step * _traj_time_interval) * _persuit_factor;
+        double _y_vel = _dist_y / (_dist_time_step * _traj_time_interval) * _persuit_factor;
+        double _q_vel = _dist_q / (_dist_time_step * _traj_time_interval) * _persuit_factor;
         geometry_msgs::PoseStamped nav_traj_msg;
         nav_traj_msg.header.frame_id = "world";
         for (int idx = 1; idx < _dist_time_step + 1; idx++)
@@ -450,9 +465,9 @@ void Tracking::NavSeqUpdate()
             nav_traj_msg.pose.position.x = pxtraj.at(_temp_time_step);
             nav_traj_msg.pose.position.y = pytraj.at(_temp_time_step);
             nav_traj_msg.pose.position.z = pqtraj.at(_temp_time_step);
-            nav_traj_msg.pose.orientation.x = vxtraj.at(_temp_time_step);
-            nav_traj_msg.pose.orientation.y = vytraj.at(_temp_time_step);
-            nav_traj_msg.pose.orientation.z = vqtraj.at(_temp_time_step);
+            nav_traj_msg.pose.orientation.x = vxtraj.at(_temp_time_step) * _persuit_factor;
+            nav_traj_msg.pose.orientation.y = vytraj.at(_temp_time_step) * _persuit_factor;
+            nav_traj_msg.pose.orientation.z = vqtraj.at(_temp_time_step) * _persuit_factor;
             _nav_seq_msg.poses.push_back(nav_traj_msg);
 
             _temp_time_step += _time_step_pursuit; // 应该从 pursuit_step 开始补充轨迹点
@@ -467,6 +482,7 @@ void Tracking::NavSeqUpdate()
     nav_traj_msg.pose.orientation.x = 0;
     nav_traj_msg.pose.orientation.y = 0;
     nav_traj_msg.pose.orientation.z = 0;
+    nav_traj_msg.pose.orientation.w = _traj_time_interval;
     _nav_seq_msg.poses.insert(_nav_seq_msg.poses.begin(),nav_traj_msg);
 }
 
@@ -505,6 +521,7 @@ void Tracking::NavSeqFixed(Eigen::Vector3d TargetPose)
     nav_traj_msg.pose.orientation.x = 0;
     nav_traj_msg.pose.orientation.y = 0;
     nav_traj_msg.pose.orientation.z = 0;
+    nav_traj_msg.pose.orientation.w = _traj_time_interval;
     _nav_seq_msg.poses.insert(_nav_seq_msg.poses.begin(),nav_traj_msg);
 }
 
@@ -534,7 +551,7 @@ void Tracking::NavSeqPublish()
     }
     _nav_seq_msg.header.frame_id = "world";
     _nav_seq_msg.header.stamp = ros::Time::now();
-    // _nav_seq_pub.publish(_nav_seq_msg);
+    _nav_seq_pub.publish(_nav_seq_msg);
     _nav_seq_msg.poses.clear();
     _nav_seq = 0;
 }
@@ -592,6 +609,29 @@ bool Tracking::getReplanState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel
     }
     return flag;
 }
+
+/***********************************************************************************************************************
+ * @description: 
+ * @reference: 
+ * @param {Vector3d*} currPose
+ * @param {Vector3d*} currVel
+ * @param {Vector3d*} currAcc
+ * @param {Vector3d} *goalPose
+ * @return {bool}
+ */
+bool Tracking::getLocalState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc,Eigen::Vector3d *goalPose)
+{
+    bool flag = false;
+    int local_index = _current_index[0];
+    if ( local_index < static_cast<int>(pxtraj.size())){
+        (*currPose) = Eigen::Vector3d(pxtraj.at(local_index),pytraj.at(local_index),pqtraj.at(local_index));
+        (*currVel)  = Eigen::Vector3d(vxtraj.at(local_index),vytraj.at(local_index),vqtraj.at(local_index));
+        (*currAcc)  = Eigen::Vector3d(0,0,0);
+        (*goalPose) = _goal_odom;
+        flag = true;
+    }
+    return flag;
+}
 /***********************************************************************************************************************
  * @description: 设置障碍物轨迹点,并返回判断是否危险
  * @reference: 
@@ -604,7 +644,14 @@ bool Tracking::setObsTrajPoint(int obs_index)
 	Eigen::Vector2i _obsIndex = TrajtoIndex(obs_index);
 	_obs_traj_index = obs_index;
 	_obs_seg_index  = _obsIndex(0);
+    ////&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    // 处理重规划起始点
+    if (_TO_SEG <= 0)
+        _TO_SEG = REPLAN_BIAS;
     _search_seg_index = _obs_seg_index - 1;
+    if (_search_seg_index - _current_index(0) > _TO_SEG)
+        _search_seg_index = _current_index(0) + _TO_SEG;
+    ////&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     _search_traj_index = IndextoTraj(Eigen::Vector2i(_search_seg_index,0));
 	if (_obs_seg_index <= _current_index(0)) {// 障碍物挨的太近了
 		TROT_FLAG = true;
