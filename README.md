@@ -46,12 +46,13 @@ git clone https://gitee.com/hi-zwt/legged_control
 5. livox ros [driver2](https://github.com/Livox-SDK/livox_ros_driver2)
 6. LIdar SLAM [FAST_LIO](https://github.com/hku-mars/FAST_LIO)
 
-## 使用说明
+## [使用说明](./Usage.md)
 
 1.  xxxx
 2.  xxxx
 3.  xxxx
 
+## [备注](./commond.md)
 ## 参与贡献
 
 1.  Fork 本仓库

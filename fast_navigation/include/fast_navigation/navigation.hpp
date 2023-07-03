@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-07-01
+ * @LastEditTime: 2023-07-03
  * @Description: 
  * @reference: 
  * 
@@ -219,7 +219,6 @@ void Tracking::initPlanner(Eigen::Vector3d new_goal_odom)
     _curr_seg_points  = 0;
     _curr_traj_points = 0;
     _tracking_cnt = 0;
-    _odom_cnt = 0;
     if (!pxtraj.empty())
     {
         pxtraj.clear();
@@ -263,7 +262,8 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
     }
     // step 2: 计算插入段的轨迹点数
     if (seg_index <= static_cast<int>(segtrajpoints.size())){ // 在原有轨迹的长度范围内计算总的点数
-        for (int idx = seg_index; idx < _seg_num + seg_index || idx < static_cast<int>(segtrajpoints.size()); idx++){
+        
+        for (int idx = seg_index; idx < _seg_num + seg_index && idx < static_cast<int>(segtrajpoints.size()); idx++){
             _new_traj_num += segtrajpoints.at(idx);
             _erase_seg_num ++;
         }
@@ -308,6 +308,7 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
     vqtraj.insert(vqtraj.begin() + _pre_traj_num , _new_vqtraj.begin(), _new_vqtraj.end());
     segtrajpoints.insert(segtrajpoints.begin() + seg_index , _new_segtrajpoints.begin(), _new_segtrajpoints.end());
     timevector.insert(timevector.begin() + seg_index , _new_timevector.begin(), _new_timevector.end());
+    ROS_DEBUG("[\033[34mTrackNode\033[0m]insertSegTraj: seg_num: %d, traj_num: %d",_seg_num,_new_pxtraj.size());
     return flag;
 }
 
@@ -343,6 +344,7 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
     {
         if (idx < 0)
         {
+            dists.push_back(99.9);
             continue;
         }
         if (idx >= static_cast<int>(pqtraj.size()))
@@ -363,6 +365,7 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
         _curr_time_step = static_cast<int>(pqtraj.size()) - 1;
     }
     _current_index = TrajtoIndex(_curr_time_step);
+    int trajpoint = pxtraj.size();
     _currPose = Eigen::Vector3d(pxtraj.at(_curr_time_step), pytraj.at(_curr_time_step), pqtraj.at(_curr_time_step));
     // step 3: 判断 _curr_time_step 是否在当前轨迹段内
     if (!nearPose(_current_odom.head(2),_currPose.head(2),_current_odom(2),_currPose(2)))
@@ -481,28 +484,18 @@ void Tracking::NavSeqFixed(Eigen::Vector3d TargetPose)
         _nav_seq_msg.poses.clear();
     // 计算一个从 _current_odom 到 TargetPose 的轨迹 最快刹车? 感觉很难计算这个刹车轨迹
     // 如果轨迹点不够_time_step_interval步长,就从 pursuit_step 开始补充轨迹点
-    if (_nav_seq < _mpc_step_interval)
+    // 总之这个for循环可以把 nav 点补充到_time_step_interval步长
+    for (int idx = 0; idx < _mpc_step_interval; idx++)
     {
-        int _temp_time_step = _pursuit_time_step;
-        // 总之这个for循环可以把nav点补充到_time_step_interval步长
-        for (int idx = 0; idx < _mpc_step_interval - _nav_seq; idx++)
-        {
-            if (_temp_time_step >= static_cast<int>(pqtraj.size()))
-            {
-                _temp_time_step = static_cast<int>(pqtraj.size()) - 1;
-            }
-            // ####################################################################################
-            nav_traj_msg.header.stamp = ros::Time::now();
-            nav_traj_msg.pose.position.x = TargetPose(0);
-            nav_traj_msg.pose.position.y = TargetPose(1);
-            nav_traj_msg.pose.position.z = TargetPose(2);
-            nav_traj_msg.pose.orientation.x = 0;
-            nav_traj_msg.pose.orientation.y = 0;
-            nav_traj_msg.pose.orientation.z = 0;
-            _nav_seq_msg.poses.push_back(nav_traj_msg);
-
-            _temp_time_step += _time_step_pursuit; // 应该从 pursuit_step 开始补充轨迹点
-        }
+        // ####################################################################################
+        nav_traj_msg.header.stamp = ros::Time::now();
+        nav_traj_msg.pose.position.x = TargetPose(0);
+        nav_traj_msg.pose.position.y = TargetPose(1);
+        nav_traj_msg.pose.position.z = TargetPose(2);
+        nav_traj_msg.pose.orientation.x = 0;
+        nav_traj_msg.pose.orientation.y = 0;
+        nav_traj_msg.pose.orientation.z = 0;
+        _nav_seq_msg.poses.push_back(nav_traj_msg);
     }
     // 第一个点为当前位姿 ####################################################################
     nav_traj_msg.header.stamp = ros::Time::now();
@@ -541,7 +534,7 @@ void Tracking::NavSeqPublish()
     }
     _nav_seq_msg.header.frame_id = "world";
     _nav_seq_msg.header.stamp = ros::Time::now();
-    _nav_seq_pub.publish(_nav_seq_msg);
+    // _nav_seq_pub.publish(_nav_seq_msg);
     _nav_seq_msg.poses.clear();
     _nav_seq = 0;
 }
@@ -557,17 +550,22 @@ void Tracking::NavSeqPublish()
 bool Tracking::getCurrentState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc)
 {
     bool flag = false;
-    if ( _odom_cnt == 0) // 没有跟踪轨迹
-    {
+    if ( _tracking_cnt == 0) { // 没有跟踪轨迹
         (*currPose) = _current_odom;
         currVel->setZero();
         currAcc->setZero();
         flag = false;
     }
-    else
-    {
-        (*currPose) = _currPose;
-        (*currVel)  = Eigen::Vector3d(vxtraj.at(_curr_time_step),vytraj.at(_curr_time_step),vqtraj.at(_curr_time_step));
+    else{
+        if (pxtraj.empty() || pytraj.empty() || pqtraj.empty())
+            (*currPose) = _current_odom;
+        else
+            (*currPose) = _currPose;        
+        if (vxtraj.empty() || vytraj.empty() || vqtraj.empty())
+            currVel->setZero();
+        else
+            (*currVel)  = Eigen::Vector3d(vxtraj.at(_curr_time_step),vytraj.at(_curr_time_step),vqtraj.at(_curr_time_step));
+
         (*currAcc)  = Eigen::Vector3d(0,0,0);
         flag = true;
     }

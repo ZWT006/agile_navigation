@@ -158,6 +158,27 @@ Mid360网口IP为`192.168.11.156`(可以根据用户手册使用LivoxViewer进�
 
 #### 
 
+## NMPC
+
+```
+source ~/motion_ws/devel/setup.bash
+```
+
+rosservice call /controller_manager/switch_controller "start_controllers: ['controllers/legged_controller']
+stop_controllers: ['']
+strictness: 0
+start_asap: false
+timeout: 0.0" 
+
+flying_trot // 会有 Z height的波动
+  switchingTimes
+  {
+    [0]     0.00
+    [1]     0.10
+    [2]     0.12
+    [3]     0.22
+    [4]     0.24
+
 ###
 修改NMPC优化问题权重 提高速度
 task.info

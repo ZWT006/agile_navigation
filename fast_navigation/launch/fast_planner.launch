@@ -69,7 +69,7 @@
 
     <param name="planner/nav_seq_vis" value="$(arg nav_seq_vis)"/>
     <param name="planner/timeHorizon" value="1.0"/> <!-- 1.0 [s]-->
-    <param name="planner/time_step_pursuit" value="5.0"/>
+    <param name="planner/time_step_pursuit" value="20.0"/>
     <param name="planner/time_step_interval" value="10.0"/>
     <param name="planner/refer_vel" value="1.5"/>
     <param name="planner/refer_ome" value="1.0"/>

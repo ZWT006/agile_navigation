@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-06-29
+ * @LastEditTime: 2023-07-02
  * @Description: 
  * @reference: 
  * 
@@ -493,6 +493,7 @@ void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
             // 还有一种情况是,_curr_time_step 的点距离odometry太远,这时候也需要重新设置轨迹
             // 找到最近的轨迹点 这里如果_curr_time_step > pqtraj.size()就设为最后一个点
             int min_idx = min_element(dists.begin(), dists.end()) - dists.begin();
+            // min_idx 直接添加到了 _curr_time_step上,这里的min_idx是相对于_goal_time_step的
             _curr_time_step = _goal_time_step - _time_step_pursuit / 2 + min_idx;
             // 这里_curr_time_step 是不可能有>= pqtraj.size()的情况？
             if (_curr_time_step >= pqtraj.size())

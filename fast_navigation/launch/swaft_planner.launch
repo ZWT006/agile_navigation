@@ -4,7 +4,7 @@
 <!--map origin default = 1/2 map size-->
 
 <arg name="map_size_x" default="40.0"/>
-<arg name="map_size_y" default="10.0"/>
+<arg name="map_size_y" default="40.0"/>
 <arg name="map_size_z" default=" 1.0"/>
 
 <!-- <arg name="map_orign_x" default="20.0"/>
