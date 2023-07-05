@@ -103,10 +103,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES nontrajopt
-#  CATKIN_DEPENDS roscpp rospy std_msgs
-#  DEPENDS system_lib
+  INCLUDE_DIRS include ${EIGEN3_INCLUDE_DIR}
+  LIBRARIES ${PROJECT_NAME}
+  CATKIN_DEPENDS roscpp
+  DEPENDS EIGEN3
 )
 
 ###########
@@ -116,9 +116,19 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
 )
+
+add_library(${PROJECT_NAME}
+  src/${PROJECT_NAME}_perching.cc
+)
+
+target_link_libraries(${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+)
+
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}

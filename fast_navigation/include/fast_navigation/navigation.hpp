@@ -51,7 +51,7 @@
 // max local bias step 这个限度内就正常推进 persuit 前移 
 #define AMX_BIAS_STEP 3
 
-#define REPLAN_BIAS 3 // 重规划偏差阈值 考虑设置的和 TO的长度一致
+#define REPLAN_BIAS 2 // 重规划偏差阈值 考虑设置的和 TO的长度一致
 
 bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double currq,double goalq);
 
@@ -323,7 +323,7 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
     vqtraj.insert(vqtraj.begin() + _pre_traj_num , _new_vqtraj.begin(), _new_vqtraj.end());
     segtrajpoints.insert(segtrajpoints.begin() + seg_index , _new_segtrajpoints.begin(), _new_segtrajpoints.end());
     timevector.insert(timevector.begin() + seg_index , _new_timevector.begin(), _new_timevector.end());
-    ROS_DEBUG("[\033[34mTrackNode\033[0m]insertSegTraj: seg_num: %d, traj_num: %d",_seg_num,_new_pxtraj.size());
+    ROS_DEBUG("[\033[34mTrackNode\033[0m]insertSegTraj: seg_num: %d, traj_num: %ld",_seg_num,_new_pxtraj.size());
     return flag;
 }
 
@@ -611,7 +611,7 @@ bool Tracking::getReplanState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel
 }
 
 /***********************************************************************************************************************
- * @description: 
+ * @description: 初次重规划无效后就取距离 robot 更近的点来规划
  * @reference: 
  * @param {Vector3d*} currPose
  * @param {Vector3d*} currVel
@@ -622,7 +622,8 @@ bool Tracking::getReplanState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel
 bool Tracking::getLocalState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc,Eigen::Vector3d *goalPose)
 {
     bool flag = false;
-    int local_index = _current_index[0];
+    int local_index = _current_index[0] + 1; // 当前tracking段 + 1
+    local_index = IndextoTraj(Eigen::Vector2i(local_index,0));
     if ( local_index < static_cast<int>(pxtraj.size())){
         (*currPose) = Eigen::Vector3d(pxtraj.at(local_index),pytraj.at(local_index),pqtraj.at(local_index));
         (*currVel)  = Eigen::Vector3d(vxtraj.at(local_index),vytraj.at(local_index),vqtraj.at(local_index));

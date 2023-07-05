@@ -50,10 +50,10 @@ git clone https://gitee.com/hi-zwt/legged_control
 
 ### Simulation 
 仿真版本可以只安装 `swaft_nav` 和 `legged_control`
-`legged_control` : tracking 分支
-`swaft_nav` : `f317360`
-安装编译无误后，分别开启以下终端 首先`source ~/motion_ws/devel/setup.bash`(注意工作空间路径)
-# legged control 工作流程
+`legged_control` : tracking 分支  
+`swaft_nav` : `f317360`分支  
+安装编译无误后，分别开启以下终端 首先`source ~/motion_ws/devel/setup.bash`(注意工作空间路径)  
+#### legged control 工作流程
 1. export ROBOT_TYPE=a1
 roslaunch legged_unitree_description empty_world.launch
 
@@ -76,7 +76,9 @@ roslaunch fast_navigation swaft_planner.launch
 
 PS: 使用 3D goal 设定目标点
 
-## [备注](./commond.md)
+## [备注](./memorandum.md)
+
+## [开发记录](./Changelog.md)
 ## 参与贡献
 
 1.  Fork 本仓库

@@ -1,15 +1,14 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-07-03
+ * @LastEditTime: 2023-07-05
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
  * Copyright (c) 2023 by wentao zhang, All Rights Reserved. 
  */
 
-// #include <>
-
+#include <Eigen/Geometry>
 #include <fast_navigation/navigation.hpp>
 
 using namespace std;
@@ -78,6 +77,7 @@ double _optHorizon = 1.5;   // 优化轨迹的时间长度
 #define OPT_FACTOR 1.5f
 
 nav_msgs::Odometry::ConstPtr currodometry;
+Eigen::Isometry3d Odomtrans; // 坐标系转换
 // visualization robot switch 在ros循环中可视化 
 Vector3d _first_pose;
 
@@ -190,6 +190,24 @@ int main(int argc, char** argv)
         _OPT_SEG = int(_optHorizon / sample_grid_time * OPT_FACTOR); // 优化轨迹的段数
     }
     tracking._TO_SEG = _OPT_SEG;
+
+    // 坐标系转换相关参数 ################################################################################################################
+    // Eigen::Vector3d _pose, _euler;
+    // Eigen::Quaterniond _quat;
+    // nh.param("planner/frame_x", _pose(0), 0.0);
+    // nh.param("planner/frame_y", _pose(1), 0.0);
+    // nh.param("planner/frame_z", _pose(2), 0.0);
+    // nh.param("planner/frame_roll", _euler(0), 0.0);
+    // nh.param("planner/frame_pitch", _euler(1), 0.0);
+    // nh.param("planner/frame_yaw", _euler(2), 0.0);
+    // tf::Quaternion quaternion;
+    // quaternion.setRPY(_euler(0), _euler(1), _euler(2));
+    // _quat.x() = quaternion.x(); _quat.y() = quaternion.y(); _quat.z() = quaternion.z(); _quat.w() = quaternion.w();
+    // Odomtrans = Eigen::Isometry3d(_quat); // 将四元数转换为旋转矩阵
+    // Odomtrans.pretranslate(_pose);
+    // 可能没用 咋感觉这么麻烦呢? 学习使用坐标系转换是非常有必要的 但是这里的坐标系转化不如直接用tf 启动 SLAM 的时候加个偏置就行了
+    // ####################################################################################
+
     // 轨迹跟踪相关参数
     ROS_INFO("[\033[34mPlanNode\033[0m]_local_width: %2.4f",    _local_width);
     ROS_INFO("[\033[34mPlanNode\033[0m]_resolution : %2.4f",    _resolution);
@@ -252,7 +270,7 @@ int main(int argc, char** argv)
                 if (_HAS_PATH){ // 重新规划成功
                     tracking._goalPose = lazykinoPRM._goal_pose;
                     SearchSegPush();
-                    ROS_INFO("[\033[32mPlanNode\033[0m]searchindex:%d,search traj size:%d",tracking._search_seg_index,searchTraj.size());
+                    ROS_INFO("[\033[32mPlanNode\033[0m]searchindex:%d,search traj size:%ld",tracking._search_seg_index,searchTraj.size());
                     tracking.insertSegTraj(tracking._search_seg_index,&searchTraj);
                     ROS_INFO("[\033[32mPlanNode\033[0m]: replan success");
                     tracking.OBS_FLAG = false;
@@ -264,7 +282,7 @@ int main(int argc, char** argv)
                 }
                 else{ // 重新规划失败 再搞近点重新规划
                     // TODO: 重新规划失败解决方案 1.重采样再规划 2.刹车等待摆烂
-                    lazykinoPRM.resetsample();
+                    lazykinoPRM.sample();
                     if(tracking.getLocalState(&currPose,&currVel,&currAcc,&goalPose)){
                         _HAS_PATH = !lazykinoPRM.search(currPose,currVel,currAcc,goalPose,zeros_pt,zeros_pt);
                     }
@@ -275,7 +293,7 @@ int main(int argc, char** argv)
                     if (_HAS_PATH){ // 重新规划成功
                         tracking._goalPose = lazykinoPRM._goal_pose;
                         SearchSegPush();
-                        ROS_INFO("[\033[32mPlanNode\033[0m]searchindex:%d,search traj size:%d",tracking._search_seg_index,searchTraj.size());
+                        ROS_INFO("[\033[32mPlanNode\033[0m]searchindex:%d,search traj size:%ld",tracking._search_seg_index,searchTraj.size());
                         tracking.insertSegTraj(tracking._search_seg_index,&searchTraj);
                         ROS_INFO("[\033[32mPlanNode\033[0m]: re-replan success");
                         tracking.OBS_FLAG = false;
@@ -286,7 +304,7 @@ int main(int argc, char** argv)
                         lazykinoPRM.reset();
                     }
                     else {
-                        lazykinoPRM.resetsample();
+                        lazykinoPRM.sample();
                         ROS_INFO("[\033[31mPlanNode\033[0m]: re-replan failed");
                     }
                 }
@@ -443,7 +461,7 @@ void rcvOdomCallback(const nav_msgs::Odometry::ConstPtr& msg)
     currodometry = msg;
     _vis_Robot = true;
     _HAS_ODOM  = true;
-    tracking._currodometry = msg;
+    tracking._currodometry = currodometry;
 
     // 轨迹控制 跟踪位置/速度
     Vector3d _current_odom;
@@ -476,6 +494,8 @@ void rcvOdomCallback(const nav_msgs::Odometry::ConstPtr& msg)
             // 计算当前odometry在轨迹上的位置
             tracking.OdometryIndex(_current_odom);
 
+            ////&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+            // 轨迹跟踪情况的可视化
             info_cnt ++;
             if (info_cnt > 10){
                 info_cnt = 0;
@@ -512,7 +532,7 @@ void rcvOdomCallback(const nav_msgs::Odometry::ConstPtr& msg)
  * @reference: 
  * @return {bool} feasible true if feasible false if not
  */
-bool TrackTrajCheck() // TODO: add BAIS_FLAG for trajectory check NMPC 跟踪效果很好感觉没啥必要
+inline bool TrackTrajCheck() // TODO: add BAIS_FLAG for trajectory check NMPC 跟踪效果很好感觉没啥必要
 {
     int curr_ser_traj = tracking._curr_time_step;
     bool feasible = lazykinoPRM.LongTrajCheck(&tracking.pxtraj,&tracking.pytraj,&curr_ser_traj);

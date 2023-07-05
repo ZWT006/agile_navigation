@@ -186,6 +186,7 @@ int main (int argc, char** argv)
    _local_w_grid = _local_w/0.01;
    element = getStructuringElement(cv::MORPH_RECT, cv::Size(erode_kernel_size_, erode_kernel_size_));
    ROS_DEBUG("Began picture to pcl");
+   ROS_INFO("[\033[34mImageNode\033[0m]:image size: x = %2.4f,y = %2.4f",_x_size,_y_size);
 
    GlobalMapGenerate();
    ros::Rate loop_rate(_sense_rate);
@@ -211,7 +212,7 @@ int main (int argc, char** argv)
    ros::shutdown();
 }
 
-
+int localmap_cnt = 0;
 void LocalMapGenerate()
 {
    int idx,idy;
@@ -278,7 +279,11 @@ void LocalMapGenerate()
    localMap_pcd.header.stamp = ros::Time::now();
    localMap_pcd.header.frame_id = "world";
    _local_map_pub.publish(localMap_pcd);
-   ROS_INFO("[\033[34mImageNode\033[0m]:odom:x = %2.4f,y = %2.4f,pcl = %d",odom_msg.pose.pose.position.x,odom_msg.pose.pose.position.y,localMap.points.size());
+   localmap_cnt++;
+   if (localmap_cnt > 10){
+      localmap_cnt = 0;
+      ROS_INFO("[\033[34mImageNode\033[0m]:odom:x = %2.4f,y = %2.4f,pcl = %ld",odom_msg.pose.pose.position.x,odom_msg.pose.pose.position.y,localMap.points.size());
+   }
    // ROS_INFO("[\033[34mImageNode\033[0m]:point cloud size: %d",localMap.points.size());
    // ROS_INFO("[\033[34mImageNode\033[0m]:-img_x = %d,+img_x = %d,-img_y = %d,+img_y = %d",img_x - _local_w_grid,img_x + _local_w_grid,img_y - _local_w_grid,img_y + _local_w_grid);
    localMap.points.clear();
@@ -322,6 +327,7 @@ void GlobalMapGenerate()
       waitKey(0);
    }
 
+   
    ROS_DEBUG("image rows: %d",img_y);
    ROS_DEBUG("image cols: %d",img_x);
    ROS_DEBUG("map_orign:x = %f,y = %f",_x_orign,_y_orign);
@@ -364,7 +370,7 @@ void GlobalMapGenerate()
       }
    }
 
-   ROS_DEBUG("PointClout size: %d",globalMap.points.size());
+   ROS_DEBUG("PointClout size: %ld",globalMap.points.size());
    bool is_kdtree_empty = false;
    if(globalMap.points.size() > 0)
       kdtreeMap.setInputCloud( globalMap.makeShared() ); 
