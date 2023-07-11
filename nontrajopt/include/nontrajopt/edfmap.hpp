@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-09
+ * @LastEditTime: 2023-07-11
  * @Description: Euclidean Distance Field Map
  * @reference: 
  * 
@@ -28,6 +28,7 @@ class EDFMap
     cv::Mat* _edfmap;
     cv::Mat _edfmap_A;
     cv::Mat _edfmap_B;
+    cv::Mat element;
     double _map_origin_x;
     double _map_origin_y;
     double _map_size_x;
@@ -38,6 +39,27 @@ class EDFMap
     public:
     EDFMap() = default;
     ~EDFMap(){};
+
+    // 读取地图二值地图 生成EDF地图 用于优化求解的测试
+    void readMap(std::string _image_address, int erode_kernel_size_) {
+        _image_address = std::string("/home/zwt/catkin_ws/src/grid_path_searcher/map/map1.png");
+        cv::Mat orign_img = cv::imread(_image_address,cv::IMREAD_GRAYSCALE);
+        if (orign_img.empty()) {
+            std::cout << "Error opening image" << std::endl;
+            return;        
+        }
+        //读取图像二值化
+        element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(erode_kernel_size_, erode_kernel_size_));
+        cv::erode(orign_img, orign_img, element);
+        cv::Mat map_img;
+        cv::threshold(orign_img, map_img, 128, 255,cv::THRESH_BINARY);
+        cv::distanceTransform(map_img,_edfmap_A,cv::DIST_L2,cv::DIST_MASK_3);
+        _edfmap_A = _edfmap_A * _map_resolution;
+        _map_origin_x = 0.0;
+        _map_origin_y = 0.0;
+        _edfmap = &_edfmap_A;
+    }
+
 
     // 设定地图映射参数 原点 | 尺寸 | 分辨率
     void setMapParam(double map_size_x, double map_size_y, double map_resolution, double mini_dist){

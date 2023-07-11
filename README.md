@@ -1,8 +1,8 @@
-# swaft_nav
+# swift_nav
 
 ## 介绍
 HUST AIA Coralab Aggressive Navigation ROS/C++ Code
-It's a fast realtime navigation ros package for quadraped robot swaft motion in unknow environment.
+It's a fast realtime navigation ros package for quadraped robot swift motion in unknow environment.
 
 ## 软件架构
 
@@ -22,9 +22,9 @@ It's a fast realtime navigation ros package for quadraped robot swaft motion in 
 
 ### 源码
 
-1.  本项目的Gitee地址：[Hi-ZWT/swaft_nav](https://gitee.com/hi-zwt/swaft_nav)
+1.  本项目的Gitee地址：[Hi-ZWT/swift_nav](https://gitee.com/hi-zwt/swift_nav)
 ```
-git clone https://gitee.com/hi-zwt/swaft_nav
+git clone https://gitee.com/hi-zwt/swift_nav
 ```
 2.  源码依赖`nlopt`：`sudo apt-get install ros_noetic_nlopt`
 3.  源码依赖`Eigen`：`sudo apt-get install libeigen3-dev`
@@ -49,9 +49,9 @@ git clone https://gitee.com/hi-zwt/legged_control
 ## [使用说明](./Usage.md)
 
 ### Simulation 
-仿真版本可以只安装 `swaft_nav` 和 `legged_control`
+仿真版本可以只安装 `swift_nav` 和 `legged_control`
 `legged_control` : tracking 分支  
-`swaft_nav` : `f317360`分支  
+`swift_nav` : `f317360`分支  
 安装编译无误后，分别开启以下终端 首先`source ~/motion_ws/devel/setup.bash`(注意工作空间路径)  
 #### legged control 工作流程
 1. export ROBOT_TYPE=a1
@@ -72,7 +72,7 @@ timeout: 0.0"
 roslaunch grid_path_searcher mapworld.launch
 
 5. 开启规划
-roslaunch fast_navigation swaft_planner.launch
+roslaunch fast_navigation swift_planner.launch
 
 PS: 使用 3D goal 设定目标点
 

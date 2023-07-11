@@ -3,7 +3,7 @@
 ## Navigation
 ### fast_navigation
 
-使用MATLAB优化出来的轨迹，保存在`.csv`中，读入`swaft_planner`中进行跟踪
+使用MATLAB优化出来的轨迹，保存在`.csv`中，读入`swift_planner`中进行跟踪
 - [x] 轨迹的读入`Readcsv`类
 - [ ] 离线轨迹的可视化
 - [ ] 如何解决跟踪误差偏大造成失控翻车
@@ -21,14 +21,14 @@
 
 ### nontrajopt
 - [x] Polynomial Trajectory as `segment.hpp`
-- [ ] 优化问题降维需要构建一个线性方程组$Ax=b$并且求解，其中的系数矩阵$A$是一个带状矩阵,确定这个矩阵的上下界`lowerBd`和`upperBd`,可以使用带状矩阵的LU分解快速求解方程组
+- [x] 优化问题降维需要构建一个线性方程组$Ax=b$并且求解，其中的系数矩阵$A$是一个带状矩阵,确定这个矩阵的上下界`lowerBd`和`upperBd`,可以使用带状矩阵的LU分解快速求解方程组
 
 2. OSQP Solver
 #### NLopt Solver
 
 ### BUGs
 #### Big!!!
-- [x] start swaft planner 第一个数据会有一个(0,0,0)的期望，让机器人猛地一顿  
+- [x] start swift planner 第一个数据会有一个(0,0,0)的期望，让机器人猛地一顿  
 修改`_REACH_GOAL`初始就跟踪一个平均期望点
 - [ ] `tracking.NavSeqFixed(tracking._local_odom);` 造成机器人原地偏移, Odometry根据机器人的踏步在漂
 - [ ] replanning 的逻辑有些问题，貌似一直从 currPose 开始重规划不行，或者说得在别的地方一直更新 currPose

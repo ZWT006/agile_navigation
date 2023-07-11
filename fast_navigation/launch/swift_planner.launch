@@ -41,7 +41,7 @@
 <arg name="nav_seq_vis"     default="true"/>
 
 
-<node pkg="fast_navigation" type="swaft_planner_node" name="swaft_planner_node" output="screen" required = "true">
+<node pkg="fast_navigation" type="swift_planner_node" name="swift_planner_node" output="screen" required = "true">
     <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
     <remap from="~map" to="/image_map/local_map"/>
     <remap from="~odom" to="/ground_truth/state"/>

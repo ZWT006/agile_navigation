@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-06
+ * @LastEditTime: 2023-07-11
  * @Description: read trajectory from csv file
  * @reference: 
  * 
@@ -35,10 +35,8 @@ class ReadCSV
         _filename = filename;
     }
 
-    void setOrign(double res, double biasx, double biasy) {
+    void setOrign(double res) {
         _resolution = res;
-        _biasx = biasx;
-        _biasy = biasy;
     }
     bool readFile(std::vector<double> &pxtraj, std::vector<double> &pytraj, std::vector<double> &pqtraj, 
                 std::vector<double> &vxtraj, std::vector<double> &vytraj, std::vector<double> &vqtraj){
@@ -52,6 +50,7 @@ class ReadCSV
             return false;
         }
         std::string lineStr;
+        bool FIRSTLINE = true;
         // bool PRINT = true;
         while(std::getline(_file, lineStr)){
             std::string px, py, pq, vx, vy, vq;
@@ -62,6 +61,12 @@ class ReadCSV
             std::getline(ss, vx, ',');
             std::getline(ss, vy, ',');
             std::getline(ss, vq, ',');
+            if (FIRSTLINE){
+                FIRSTLINE = false;
+                _biasx = -std::stod(px) * _resolution;
+                _biasy = -std::stod(py) * _resolution;
+                continue;
+            }
             pxtraj.push_back(std::stod(px) * _resolution + _biasx);
             pytraj.push_back(std::stod(py) * _resolution + _biasy);
             pqtraj.push_back(std::stod(pq));

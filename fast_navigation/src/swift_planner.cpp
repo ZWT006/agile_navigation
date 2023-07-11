@@ -82,7 +82,7 @@ double _optHorizon = 1.5;   // 优化轨迹的时间长度
 nav_msgs::Odometry::ConstPtr currodometry;
 Eigen::Isometry3d Odomtrans; // 坐标系转换
 double biasx = 0.0, biasy = 0.0,biasq = 0.0; // 坐标系转换偏置 [x,y,q] q:rad
-double cosq,sinq; // 坐标系转换偏置 [x,y,q] q:rad
+double cosyaw,sinyaw; // 坐标系转换偏置 [x,y,q] q:rad
 // visualization robot switch 在ros循环中可视化 
 Vector3d _first_pose;
 
@@ -206,10 +206,10 @@ int main(int argc, char** argv)
         nh.param("planner/orign_biasx",biasx,0.0);
         nh.param("planner/orign_biasy",biasy,0.0);
         nh.param("planner/orign_biasq",biasq,0.0);
-        cosq = std::cos(biasq);
-        sinq = std::sin(biasq);
-        readcsv.setFileName("/media/zwt/UbuntuFiles/datas/Swaft/Trajectory/TRAJ_DATA_LONG.csv");
-        readcsv.setOrign(0.01,biasx,biasy);
+        cosyaw = std::cos(biasq);
+        sinyaw = std::sin(biasq);
+        readcsv.setFileName("/media/zwt/UbuntuFiles/datas/Swift/Trajectory/TRAJ_DATA_LONG.csv");
+        readcsv.setOrign(0.01);
         TrackSeg _trackseg;
         cout << BLUE << "====================================================================" << RESET << endl;
         if (readcsv.readFile(_trackseg.pxtraj,_trackseg.pytraj,_trackseg.pqtraj,_trackseg.vxtraj,_trackseg.vytraj,_trackseg.vqtraj))
@@ -516,8 +516,8 @@ void rcvOdomCallback(const nav_msgs::Odometry::ConstPtr& msg)
     double tempy  = msg->pose.pose.position.y + biasy;
     _current_odom(2) = tf::getYaw(msg->pose.pose.orientation); // use tf2 library to get yaw from quaternion
     // TODO: test the odom transform
-    _current_odom(0) = tempx * cosq - tempy * sinq;
-    _current_odom(1) = tempx * sinq + tempy * cosq;
+    _current_odom(0) = tempx * cosyaw - tempy * sinyaw;
+    _current_odom(1) = tempx * sinyaw + tempy * cosyaw;
     // 这里注意一点, local_odom 是上次里程计的位置, current_odom 是当前接收到里程计 会在下边的轨迹跟踪中更新
     // WARN: 这样处理可能造成机器人原地踏步定位的漂移 
     tracking._local_odom = tracking._current_odom;
