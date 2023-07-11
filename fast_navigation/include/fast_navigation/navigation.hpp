@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-07-03
+ * @LastEditTime: 2023-07-06
  * @Description: 
  * @reference: 
  * 
@@ -49,7 +49,9 @@
 #define STAND_HIGH 0.30f
 
 // max local bias step 这个限度内就正常推进 persuit 前移 
-#define AMX_BIAS_STEP 3
+#define AMX_BIAS_STEP 2
+
+#define PURSET_STEP_BACK_BIAS 3 // persuit 在轨迹上的定位后退步长
 
 #define REPLAN_BIAS 2 // 重规划偏差阈值 考虑设置的和 TO的长度一致
 
@@ -193,6 +195,7 @@ void Tracking::setParam(ros::NodeHandle& nh)
     nh.param("planner/persuit_factor", _persuit_factor, 1.0);
 
     // _persuit_factor 是 persuit 的缩放因子 根据 persuit 的时间步长来缩放速度
+    if (_persuit_factor > 2.0) _persuit_factor = 2.0;
     _traj_time_interval = 1.0 / _loop_rate;                     // tracking 的周期
     _mpc_step_interval  = _mpcHorizon / _traj_time_interval;    // MPC预测时间长度内有多少tracking周期
     _time_step_pursuit  = _traj_time_interval / _time_interval; // 一个tracking周期内有多少个离散的状态点
@@ -355,7 +358,7 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
     }
     // step 2: 如果不是紧密跟踪，计算当前 odometry 所在的轨迹段和轨迹点
     std::vector<double> dists;
-    for (int idx = _pursuit_time_step - _time_step_pursuit / 2; idx <= _pursuit_time_step + _mpc_step_interval; idx++)
+    for (int idx = _pursuit_time_step - (_time_step_pursuit - PURSET_STEP_BACK_BIAS); idx <= _pursuit_time_step + _mpc_step_interval; idx++)
     {
         if (idx < 0)
         {

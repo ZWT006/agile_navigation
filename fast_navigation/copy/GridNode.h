@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-05-04
+ * @LastEditTime: 2023-07-06
  * @Description: 
  * @reference: 
  * 
@@ -18,6 +18,17 @@
 #include "Polynomial.h"
 
 #define Naf 9999
+
+
+// #define INFO_K \033[30m
+// #define INFO_R \033[31m
+// #define INFO_G \033[32m
+// #define INFO_Y \033[33m
+// #define INFO_B \033[34m
+// #define INFO_P \033[35m
+// #define INFO_C \033[36m
+// #define INFO_H \033[1m
+// #define INFO_END \033[0m
 
 // typedef struct Score 
 // {

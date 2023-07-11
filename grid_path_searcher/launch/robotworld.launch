@@ -1,55 +1,56 @@
 <launch>
 
-    <!--stand ros unit m | m/s | rad-->
-    <arg name="map_size_x" default="80.0"/>
-    <arg name="map_size_y" default="80.0"/>
-    <arg name="map_size_z" default=" 0.2"/>
+<!--stand ros unit m | m/s | rad-->
+<arg name="map_size_x" default="80.0"/>
+<arg name="map_size_y" default="80.0"/>
+<arg name="map_size_z" default=" 0.2"/>
 
-    <!--map origin default = 1/2 map size-->
-    <arg name="map_orign_x" default="40.0"/>
-    <arg name="map_orign_y" default="40.0"/>
-    <arg name="map_orign_z" default=" 0.1"/>
+<!--map origin default = 1/2 map size-->
+<arg name="map_orign_x" default="40.0"/>
+<arg name="map_orign_y" default="40.0"/>
+<arg name="map_orign_z" default=" 0.1"/>
 
-    <arg name="map_name" default="map11.png"/>
+<arg name="map_name" default="map11.png"/>
 
-    <arg name="erode_kernel_size" default="30.0"/>
-    <arg name="erode_switch" default="true"/>
+<arg name="erode_kernel_size" default="30.0"/>
+<arg name="erode_switch" default="true"/>
 
-    <node pkg ="grid_path_searcher" name ="image_map" type ="image_map" output = "screen">
+<node pkg ="grid_path_searcher" name ="image_map" type ="image_map" output = "screen">
 
-        <remap from="~odom" to="/ground_truth/state"/>
+    <remap from="~odom" to="/ground_truth/state"/>
 
-        <param name="init_state_x" value="$(arg start_x)"/>
-        <param name="init_state_y" value="$(arg start_y)"/>
+    <!-- <param name="init_state_x" value="$(arg start_x)"/>
+    <param name="init_state_y" value="$(arg start_y)"/> -->
 
-        <param name="map/x_size" value="$(arg map_size_x)" />
-        <param name="map/y_size" value="$(arg map_size_y)" />
-        <param name="map/z_size" value="$(arg map_size_z)" />
+    <!-- size 和 orign 的设置无效,会根据导入地图的大小自行计算 -->
+    <param name="map/x_size" value="$(arg map_size_x)" />
+    <param name="map/y_size" value="$(arg map_size_y)" />
+    <param name="map/z_size" value="$(arg map_size_z)" />
 
-        <param name="map/orign_x_size" value="$(arg map_orign_x)"/>
-        <param name="map/orign_y_size" value="$(arg map_orign_y)"/>
-        <param name="map/orign_z_size" value="$(arg map_orign_z)"/>
+    <param name="map/orign_x_size" value="$(arg map_orign_x)"/>
+    <param name="map/orign_y_size" value="$(arg map_orign_y)"/>
+    <param name="map/orign_z_size" value="$(arg map_orign_z)"/>
 
-        <param name="map/local_w" value="3"/>
-        <param name="map/resolution" value="0.05"/>
-        <param name="map/erode_kernel_size" value="$(arg erode_kernel_size)" />
-        <param name="map/erode_switch" value="$(arg erode_switch)" />
+    <param name="map/local_w" value="3"/>
+    <param name="map/resolution" value="0.05"/>
+    <param name="map/erode_kernel_size" value="$(arg erode_kernel_size)" />
+    <param name="map/erode_switch" value="$(arg erode_switch)" />
 
-        <param name="sensing/rate" value="10"/>
+    <param name="sensing/rate" value="10"/>
 
-        <param name="image_address" value="$(find grid_path_searcher)/map/$(arg map_name) "/>
-    </node>
+    <param name="image_address" value="$(find grid_path_searcher)/map/$(arg map_name) "/>
+</node>
 
-    <node pkg="waypoint_generator" name="waypoint_generator" type="waypoint_generator" output="screen">
-        <remap from="~goal" to="/goal"/>
-        <param name="waypoint_type" value="manual-lonely-waypoint"/>
-    </node>
+<node pkg="waypoint_generator" name="waypoint_generator" type="waypoint_generator" output="screen">
+    <remap from="~goal" to="/goal"/>
+    <param name="waypoint_type" value="manual-lonely-waypoint"/>
+</node>
 
-    <node name="robot_rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/swaft_rviz.rviz"/>
+<node name="robot_rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/swaft_rviz.rviz"/>
 
-    <!-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 添加SLAM等的坐标系转化关系 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
-    <node pkg="tf" type="static_transform_publisher" name="tf_world_to_odom" 
-        args="0 0 0 0 0 0 1 world odom 100 " />
-    <!--static_transform_publisher x y z yaw pitch roll frame_id child_frame_id-->
-    <!--static_transform_publisher x y z qx qy qz qw frame_id child_frame_id-->
+<!-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 添加SLAM等的坐标系转化关系 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
+<node pkg="tf" type="static_transform_publisher" name="tf_world_to_odom" 
+    args="0 0 0 0 0 0 1 world odom 100 " />
+<!--static_transform_publisher x y z yaw pitch roll frame_id child_frame_id-->
+<!--static_transform_publisher x y z qx qy qz qw frame_id child_frame_id-->
 </launch>

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-07-03
+ * @LastEditTime: 2023-07-06
  * @Description: 
  * @reference: 
  * 
@@ -461,7 +461,7 @@ void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
             _new_path = false;
             _curr_time_step = 0;
             _goal_time_step = _time_step_pursuit;
-            ROS_INFO("[\033[34mPlannerNode\033[0m]: new path traj.size() = %d", xtraj.size());
+            ROS_INFO("[\033[34mPlannerNode\033[0m]: new path traj.size() = %ld", xtraj.size());
         }
         else
         {
@@ -477,7 +477,7 @@ void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
                     ROS_INFO("[\033[33mPlannerNode\033[0m]: idx = %d", idx);
                     continue;
                 }
-                if (idx >= pqtraj.size())
+                if (idx >= static_cast<int>(pqtraj.size()))
                 {
                     // ROS_INFO("[\033[33mPlannerNode\033[0m]: idx >=  pqtraj.size() = %d", idx);
                     // ROS_INFO("[\033[33mPlannerNode\033[0m]: currPose:[%2.4f %2.4f %2.4f]",_x_get, _y_get, _q_get);
@@ -496,7 +496,7 @@ void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
             // min_idx 直接添加到了 _curr_time_step上,这里的min_idx是相对于_goal_time_step的
             _curr_time_step = _goal_time_step - _time_step_pursuit / 2 + min_idx;
             // 这里_curr_time_step 是不可能有>= pqtraj.size()的情况？
-            if (_curr_time_step >= pqtraj.size())
+            if (_curr_time_step >= static_cast<int>(pqtraj.size()))
             {
                  _curr_time_step = pqtraj.size() - 1;
                  ROS_WARN("[\033[33mPlannerNode\033[0m]: _curr_time_step >= pqtraj.size() = %d", _curr_time_step);
@@ -508,7 +508,7 @@ void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
             if (!nearPose(Vector2d(_x_get, _y_get), Vector2d(pxtraj.at(_curr_time_step), pytraj.at(_curr_time_step)), _q_get, pqtraj.at(_curr_time_step)))
             {
                 _goal_time_step = _curr_time_step + _time_step_pursuit;
-                if (_goal_time_step >= pqtraj.size())
+                if (_goal_time_step >= static_cast<int>(pqtraj.size()))
                     _goal_time_step = pqtraj.size() - 1;
                 double _q_normalize = pqtraj.at(_curr_time_step);
                 _q_normalize = angles::normalize_angle(_q_normalize);
@@ -565,7 +565,7 @@ void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
             {
                 // 从当前的轨迹点开始,向后推_time_horizon时间的轨迹,下一时刻的目标点是_time_step_pursuit步长的点
                 _goal_time_step = _curr_time_step + _time_step_pursuit;
-                if (_goal_time_step >= pqtraj.size())
+                if (_goal_time_step >= static_cast<int>(pqtraj.size()))
                     _goal_time_step = pqtraj.size() - 1;
             } 
         }     // 这里的else是if (_new_path)的else
@@ -575,7 +575,7 @@ void navTracking(const nav_msgs::Odometry::ConstPtr &msg)
         {
             for (int idx = 1; idx < _time_step_interval + 1; idx++)
             {
-                if (_curr_time_step + idx * _time_step_pursuit >= pqtraj.size())
+                if (_curr_time_step + idx * _time_step_pursuit >= static_cast<int>(pqtraj.size()))
                     break;
                 // 注意这里的_nav_seq可能不够_time_step_interval步长
                 double _q_ref = pqtraj.at(_curr_time_step + idx * _time_step_pursuit);
@@ -715,13 +715,13 @@ void cmdTracking(const nav_msgs::Odometry::ConstPtr &msg)
         else
         {
             // 当前轨迹跟踪的时间步还在轨迹内
-            if (_goal_time_step + _time_step_pursuit < pqtraj.size())
+            if (_goal_time_step + _time_step_pursuit < static_cast<int>(pqtraj.size()))
             {
                 vector<double> dists;
                 // 在_time_step_interval步长范围内，搜索当前/odometry最近的轨迹点
                 for (int idx = _goal_time_step - _time_step_interval / 2; idx <= _goal_time_step + _time_step_interval / 2; idx++)
                 {
-                    if (idx < 0 || idx >= pqtraj.size())
+                    if (idx < 0 || idx >= static_cast<int>(pqtraj.size()))
                     {
                         ROS_INFO("[\033[33mPlannerNode\033[0m]: idx = %d", idx);
                         continue;
@@ -736,7 +736,7 @@ void cmdTracking(const nav_msgs::Odometry::ConstPtr &msg)
                 // 还有一种情况是,_curr_time_step 的点距离odometry太远,这时候也需要重新设置轨迹
                 // 设置当前轨迹跟踪的时间步 = 当前时间步 + 跟踪步长
                 _goal_time_step = _curr_time_step + _time_step_pursuit;
-                if (_goal_time_step >= pqtraj.size())
+                if (_goal_time_step >= static_cast<int>(pqtraj.size()))
                     _goal_time_step = pqtraj.size() - 1;
                 _x_ref = pxtraj.at(_goal_time_step);
                 _y_ref = pytraj.at(_goal_time_step);
@@ -835,7 +835,7 @@ void visPtraj()
     path.header.frame_id = "world";
     path.header.stamp = ros::Time::now();
     path.poses.resize(pqtraj.size()/5);
-    for (int i = 0; i < pqtraj.size(); i=i+5)
+    for (int i = 0; i < static_cast<int>(pqtraj.size()); i=i+5)
     {
         path.poses[i].pose.position.x = pxtraj.at(i);
         path.poses[i].pose.position.y = pytraj.at(i);
@@ -860,8 +860,8 @@ void csvPtraj()
         outfile.open("/home/zwt/catkin_ws/src/navigation/fast_navigation/datas/ptraj.csv", ios_base::out | ios_base::trunc);
     }
     outfile << "px,py,pq,vx,vy,vq" << endl;
-    ROS_INFO("[\033[35mNodeCSV\033[0m] datas.size() = %d", pxtraj.size());
-    for (int i = 0; i < pqtraj.size(); i++)
+    ROS_INFO("[\033[35mNodeCSV\033[0m] datas.size() = %ld", pxtraj.size());
+    for (int i = 0; i < static_cast<int>(pqtraj.size()); i++)
     {
         outfile << pxtraj.at(i) << "," << pytraj.at(i) << "," << pqtraj.at(i) << ","
              << vxtraj.at(i) << "," << vytraj.at(i) << "," << vqtraj.at(i) << endl;

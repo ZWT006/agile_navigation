@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-16
- * @LastEditTime: 2023-07-05
+ * @LastEditTime: 2023-07-09
  * @Description: polynomial trajectory segment
  * @reference: 
  * 
@@ -54,10 +54,6 @@ private:
     timeCoefficientMat qcoefftimeMat;
     timeCoefficientMat timeMat;
 
-    Eigen::Matrix3Xd posVector;
-    Eigen::Matrix3Xd velVector;
-    Eigen::Matrix3Xd accVector;
-
     // std::vector<Eigen::Vector3d> posVector;
     // std::vector<Eigen::Vector3d> velVector;
     // std::vector<Eigen::Vector3d> accVector;
@@ -88,30 +84,56 @@ private:
             accVector.col(idx) = acc;
         }
     }
+    inline void updateJerVector() {
+        jerVector.setZero();
+        Eigen::Vector3d jer(0.0, 0.0, 0.0);
+        for (int idx = 0; idx <= discreteNum; idx++) {
+            jer = getJer(idx * dt);
+            jerVector.col(idx) = jer;
+        }
+    }
 
+    //################################################################################################
+    //// get coefficients of normalized polynomial in time [t] 类似计算
+    /*
+    % coffeicents matrixs 的形式为 [A] //💥 形式B不好 因为不是主对角线元素都不为0 操作有点麻烦
+    % q0 q1 q2 q3 q4 q5 q6 q7
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % A   coeff = [1,  1*t,  1*t^2,  1*t^3,  1*t^4,  1*t^5,  1*t^6,  1*t^7;
+    %              0,  1,    2*t,    3*t^2,  4*t^3,  5*t^4,  6*t^5,  7*t^6;
+    %              0,  0,    2,      6*t,    12*t^2, 20*t^3, 30*t^4, 42*t^5;
+    %              0,  0,    0,      6,      24*t,   60*t^2, 120*t^3,210*t^4];
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % B   =  左右翻转A
+    % B   coeff = [1*t^7, 1*t^6,  1*t^5,  1*t^4,  1*t^3,  1*t^2,  1*t,   1     ]
+    %             [7*t^6, 6*t^5,  5*t^4,  4*t^3,  3*t^2,  2*t,    1,     0     ]
+    %             [42*t^5,30*t^4, 20*t^3, 12*t^2, 6*t,    2,      0,     0     ]
+    %             [210*t^4,120*t^3,60*t^2,24*t,    6,     0,      0,     0     ]
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    */
     ////#############################################################################################
     inline void updateTimeMat() {
         timeMat.setZero();
         double t = 1.0;
-        for (int i = 7; i >= 0; i--) {
+        for (int i = 0; i <= 7; i++) {
             timeMat.row(0)(i) = t;
             t *= duration;
         }
         t = 1.0;    double n = 1.0;
-        for (int i = 6; i >= 0; i--) {
+        for (int i = 1; i <= 7; i++) {
             timeMat.row(1)(i) = n * t;
             t *= duration;
             n++;
         }
         t = 1.0;    n = 2.0;    double m = 1.0;
-        for (int i = 5; i >= 0; i--) {
+        for (int i = 2; i <= 7; i++) {
             timeMat.row(2)(i) = n * m * t;
             t *= duration;
             n++;
             m++;
         }
         t = 1.0;    n = 3.0;    m = 2.0;    double l = 1.0;
-        for (int i = 4; i >= 0; i--) {
+        for (int i = 3; i <= 7; i++) {
             timeMat.row(3)(i) = n * m * l * t;
             t *= duration;
             n++;
@@ -123,6 +145,11 @@ private:
 
 public:
     Piece() = default;
+
+    Eigen::Matrix3Xd posVector;
+    Eigen::Matrix3Xd velVector;
+    Eigen::Matrix3Xd accVector;
+    Eigen::Matrix3Xd jerVector;
 
     // 这里的用法是 *类的初始化列表* 一定要搞清楚先构造的是哪一个，是按照成员声明顺序进行构造的！
     Piece(double dur, int disNum,const CoefficientMat &cMat)
@@ -210,7 +237,7 @@ public:
     inline Eigen::Vector3d getPos(const double &t) const {
         Eigen::Vector3d pos(0.0, 0.0, 0.0);
         double tn = 1.0;
-        for (int i = 7; i >= 0; i--) {
+        for (int i = 0; i <= 7; i++) {
             pos += tn * coeffMat.col(i);
             tn *= t;
         }
@@ -221,7 +248,7 @@ public:
         Eigen::Vector3d vel(0.0, 0.0, 0.0);
         double tn = 1.0;
         int n = 1;
-        for (int i = 6; i >= 0; i--) {
+        for (int i = 1; i <= 7; i++) {
             vel += n * tn * coeffMat.col(i);
             tn *= t;
             n++;
@@ -234,7 +261,7 @@ public:
         double tn = 1.0;
         int m = 1;
         int n = 2;
-        for (int i = 5; i >= 0; i--) {
+        for (int i = 2; i <= 7; i++) {
             acc += m * n * tn * coeffMat.col(i);
             tn *= t;
             m++;
@@ -249,7 +276,7 @@ public:
         int l = 1;
         int m = 2;
         int n = 3;
-        for (int i = 4; i >= 0; i--) {
+        for (int i = 3; i <= 7; i++) {
             jer += l * m * n * tn * coeffMat.col(i);
             tn *= t;
             l++;
@@ -337,30 +364,16 @@ public:
     //     accVector.push_back(acc);
     //     }
     // }
-    //################################################################################################
-    //// get coefficients of normalized polynomial in time [t] 类似计算
-    /*
-    % coffeicents matrixs 的形式为 [B]
-    % q0 q1 q2 q3 q4 q5 q6 q7
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % A   coeff = [1,  1*t,  1*t^2,  1*t^3,  1*t^4,  1*t^5,  1*t^6,  1*t^7;
-    %              0,  1,    2*t,    3*t^2,  4*t^3,  5*t^4,  6*t^5,  7*t^6;
-    %              0,  0,    2,      6*t,    12*t^2, 20*t^3, 30*t^4, 42*t^5;
-    %              0,  0,    0,      6,      24*t,   60*t^2, 120*t^3,210*t^4];
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % B   =  左右翻转A
-    % B   coeff = [1*t^7, 1*t^6,  1*t^5,  1*t^4,  1*t^3,  1*t^2,  1*t,   1     ]
-    %             [7*t^6, 6*t^5,  5*t^4,  4*t^3,  3*t^2,  2*t,    1,     0     ]
-    %             [42*t^5,30*t^4, 20*t^3, 12*t^2, 6*t,    2,      0,     0     ]
-    %             [210*t^4,120*t^3,60*t^2,24*t,    6,     0,      0,     0     ]
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    */
 
     //// get coefficients of normalized polynomial in time [t] 类似计算
     inline void updateCoeffTimeMat() {
-        xcoefftimeMat = timeMat * coeffMat.row(0);
-        ycoefftimeMat = timeMat * coeffMat.row(1);
-        qcoefftimeMat = timeMat * coeffMat.row(2);
+        for (int i = 0; i < 4; i++){
+            // 将每行的元素进行逐元素乘法，存入xcoefftimeMat
+            xcoefftimeMat.row(i) = timeMat.row(i).cwiseProduct(coeffMat.row(0));
+            ycoefftimeMat.row(i) = timeMat.row(i).cwiseProduct(coeffMat.row(1));
+            qcoefftimeMat.row(i) = timeMat.row(i).cwiseProduct(coeffMat.row(2));
+        }
+        // xcoefftimeMat = timeMat.array() * coeffMat.row(0).array();
     }
     // inline void updateCoeffTimeMat() {
     //     CoefficientMat CoeffsVector;
@@ -420,12 +433,12 @@ class Trajectory {
  public:
     Trajectory() = default;
 
-    Trajectory(const std::vector<double> &durs,
+    Trajectory(const std::vector<double> &durs,const std::vector<int> &disNums,
                const std::vector<CoefficientMat> &cMats) {
         int N = std::min(durs.size(), cMats.size());
         pieces.reserve(N);
         for (int i = 0; i < N; i++) {
-            pieces.emplace_back(durs[i], cMats[i]);
+            pieces.emplace_back(durs[i], disNums[i], cMats[i]);
         }
     }
 
@@ -546,9 +559,9 @@ class Trajectory {
         pieces.emplace_back(piece);
         return;
     }
-    inline void emplace_back(const double &dur,
+    inline void emplace_back(const double &dur, const int &disNum,
                             const CoefficientMat &cMat) {
-        pieces.emplace_back(dur, cMat);
+        pieces.emplace_back(dur, disNum, cMat);
         return;
     }
     inline void append(const Trajectory &traj) {

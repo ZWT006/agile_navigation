@@ -4,7 +4,7 @@
 <!--map origin default = 1/2 map size-->
 
 <arg name="map_size_x" default="80.0"/>
-<arg name="map_size_y" default="80.0"/>
+<arg name="map_size_y" default="40.0"/>
 <arg name="map_size_z" default=" 1.0"/>
 
 <!-- <arg name="map_orign_x" default="20.0"/>
@@ -61,7 +61,7 @@
     <param name="search/weightR"        value="$(arg weightR)"/>
     <param name="search/SAMPLE_RANDOM"  value="$(arg SAMPLE_RANDOM)"/>
 
-    <!-- %%%%%%%%%%%%%% map parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
+    <!-- %%%%%%%%%%%%%% map parameters size 是预设定的地图范围 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
     <param name="map/x_size" value="$(arg map_size_x)" />
     <param name="map/y_size" value="$(arg map_size_y)" />
     <param name="map/z_size" value="$(arg map_size_z)" />
@@ -95,10 +95,13 @@
     <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
     <param name="planner/optHorizon"    value="3.0"/> <!-- 3.0 [s]-->
     <param name="planner/opt_seg"       value="0.0"/> 
-    <!--小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度-->
+    <!-- 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度 -->
     <param name="planner/persuit_factor"    value="1.0"/>
-    
-
+    <!-- 是否使用预先设计的轨迹进行跟踪 用于测试 -->
+    <param name="planner/pure_tracking"     value="true"/>
+    <param name="planner/orign_biasx"       value="-0.5"/>
+    <param name="planner/orign_biasy"       value="-0.5"/>
+    <param name="planner/orign_biasq"       value="3.1415926"/>
 
 </node>
 

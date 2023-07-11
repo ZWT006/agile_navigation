@@ -400,6 +400,10 @@ bool TrajOpt::generate_traj(const Eigen::MatrixXd& iniState,
   tictoc_integral_ = 0;
 
   iter_times_ = 0;
+    // 在 TrajOpt 类中使用 lbfgs 优化器求解,其中的 objectiveFunc 为目标函数,earlyExit 为提前退出函数
+    // 这两个函数都定义在 TrajOpt 类外部,但是这两个函数中都有使用到 TrajOpt 类的指针 那这个指针是怎么传进去的呢
+    // 答案是在调用 lbfgs_optimize 函数时,将 TrajOpt 类 this 就是当前对象的指针 传进去了,然后在 lbfgs_optimize 函数中调用，就是 @param  instance
+    // 在 lbfgs 中使用 objectiveFunc 函数时,将 instance 指针作为第一个参数传入,这样就可以在 objectiveFunc 函数中使用 TrajOpt 类的成员函数了
   opt_ret = lbfgs::lbfgs_optimize(dim_t_ + 3 * dim_p_ + 1 + 2, x_, &minObjective,
                                   &objectiveFunc, nullptr,
                                   &earlyExit, this, &lbfgs_params);

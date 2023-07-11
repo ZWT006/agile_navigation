@@ -3,7 +3,7 @@
 
 #include <chrono>
 #include <thread>
-#include <vis_utils/vis_utils.hpp>
+#include <nontrajopt/vis_utils.hpp>
 
 #include "minco.hpp"
 

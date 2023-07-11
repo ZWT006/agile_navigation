@@ -3,6 +3,11 @@
 ## Navigation
 ### fast_navigation
 
+使用MATLAB优化出来的轨迹，保存在`.csv`中，读入`swaft_planner`中进行跟踪
+- [x] 轨迹的读入`Readcsv`类
+- [ ] 离线轨迹的可视化
+- [ ] 如何解决跟踪误差偏大造成失控翻车
+
 #### Replanning
 思路：先检查当前Odometry是否安全/根据当前odometry计算1s的轨迹是否安全，危险直接停机；判断当前pose在期望轨迹上的位置，并检查之后的轨迹是否安全，从不安全的Segment开始，重新search，填补到期望轨迹向量中。要将lazykinoprm中的pathStateSets和fast_navigation分离开来，fast_navigation要有自己的一套waypoint数据。
 1. `rcvOdomCallBack` 函数中的重规划判断逻辑
@@ -15,7 +20,9 @@
 
 
 ### nontrajopt
-1. Polynomial Trajectory 
+- [x] Polynomial Trajectory as `segment.hpp`
+- [ ] 优化问题降维需要构建一个线性方程组$Ax=b$并且求解，其中的系数矩阵$A$是一个带状矩阵,确定这个矩阵的上下界`lowerBd`和`upperBd`,可以使用带状矩阵的LU分解快速求解方程组
+
 2. OSQP Solver
 #### NLopt Solver
 
@@ -41,6 +48,20 @@
 
 ## legged control
 
+### Target Trajectory
+- [ ] timestate 序列变成可调,由轨迹跟踪的`nav_seq`控制
+
+### NMPC
+- [ ] Oval Constrain: 添加线速度与方向角的椭圆形约束
+- [ ] Velocity Penalty: 添加机器人线速度与角速度的安全性代价约束
+
+# TEST List
+
+## Search
+
+## Opt
+- [ ] mini jerk smoothcost ?
+## NMPC
 
 # Important Version List
 

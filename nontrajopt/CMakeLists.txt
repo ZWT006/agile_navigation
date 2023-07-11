@@ -11,10 +11,18 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  nlopt
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
+find_package(PCL REQUIRED)
+find_package(OsqpEigen REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(OpenCV REQUIRED)
+## COMPONENTS Development is required for Python3_INCLUDE_DIRS and Python3_LIBRARIES
+## 在寻找python3的时候,一般都还得找到python3的开发包,否则会找不到Python3_INCLUDE_DIRS和Python3_LIBRARIES
+find_package(Python3 REQUIRED COMPONENTS Development)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -103,7 +111,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  INCLUDE_DIRS include ${EIGEN3_INCLUDE_DIR}
+  INCLUDE_DIRS include #${EIGEN3_INCLUDE_DIR}
   LIBRARIES ${PROJECT_NAME}
   CATKIN_DEPENDS roscpp
   DEPENDS EIGEN3
@@ -116,18 +124,34 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
+  /usr/local/include/osqp
   include
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
+  ${PCL_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+  ${Python3_INCLUDE_DIRS}
 )
 
-add_library(${PROJECT_NAME}
-  src/${PROJECT_NAME}_perching.cc
+add_library(nontrajopt
+  src/traj_opt_perching.cc
 )
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(nontrajopt
   ${catkin_LIBRARIES}
 )
+# message(SEND_ERROR "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
+# message(SEND_ERROR "Python3_LIBRARIES: ${Python3_LIBRARIES}")
+
+# message(WARNING "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
+# message(WARNING "Python3_LIBRARIES: ${Python3_LIBRARIES}")
+
+add_executable(MPCExample test/MPCExample.cpp)
+target_link_libraries(MPCExample OsqpEigen::OsqpEigen)
+
+add_executable(PlotTest test/PlotTest.cpp)
+target_link_libraries(PlotTest ${Python3_LIBRARIES})
+
 
 
 ## Declare a C++ library
@@ -207,10 +231,18 @@ target_link_libraries(${PROJECT_NAME}
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_nontrajopt.cpp)
-# if(TARGET ${PROJECT_NAME}-test)
-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+# catkin_add_gtest(nontraj_test test/nontraj_test.cpp)
+# if(TARGET nontraj_test)
+#   target_link_libraries(nontraj_test 
+#                         ${PROJECT_NAME}
+#                         ${catkin_LIBRARIES})
 # endif()
+add_executable(nontraj_test test/nontraj_test.cpp)
+target_link_libraries(nontraj_test 
+                      ${PROJECT_NAME}
+                      ${catkin_LIBRARIES}
+                      ${OpenCV_LIBRARIES}
+                      gtest)
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)

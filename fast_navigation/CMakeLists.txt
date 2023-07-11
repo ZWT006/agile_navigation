@@ -155,11 +155,11 @@ target_link_libraries(fast_planner_node
     ${OpenCV_LIBS})
 
     
-add_executable( swaft_planner_node 
-    src/swaft_planner.cpp
+add_executable( swift_planner_node 
+    src/swift_planner.cpp
     )
 
-target_link_libraries(swaft_planner_node 
+target_link_libraries(swift_planner_node 
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
     ${OpenCV_LIBS})

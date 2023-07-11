@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-07-05
+ * @LastEditTime: 2023-07-11
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -10,6 +10,7 @@
 
 #include <Eigen/Geometry>
 #include <fast_navigation/navigation.hpp>
+#include <fast_navigation/readwritecsv.hpp>
 
 using namespace std;
 using namespace Eigen;
@@ -69,6 +70,8 @@ bool _FIRST_ODOM= true;     // 是否是第一次接收到里程计信息
 bool _REACH_GOAL= true;    // 是否到达目标点
 bool _TRACKING  = false;    // 是否正在跟踪轨迹 安全检查不通过就会置为false 原地急刹车trot
 
+bool _PURE_TRACKING = false; // 是否纯跟踪模式
+
 ////####################################################################################
 // trajectory optimization parameters 
 int _OPT_SEG = 0;           // 优化轨迹的段数 这个参数根据 sample 的 grid size 和 reference velocity 来确定 
@@ -78,8 +81,13 @@ double _optHorizon = 1.5;   // 优化轨迹的时间长度
 
 nav_msgs::Odometry::ConstPtr currodometry;
 Eigen::Isometry3d Odomtrans; // 坐标系转换
+double biasx = 0.0, biasy = 0.0,biasq = 0.0; // 坐标系转换偏置 [x,y,q] q:rad
+double cosq,sinq; // 坐标系转换偏置 [x,y,q] q:rad
 // visualization robot switch 在ros循环中可视化 
 Vector3d _first_pose;
+
+// Trajectory Read and Write
+ReadCSV readcsv;
 
 // Trajectory Tracking Manager
 Tracking tracking;
@@ -128,7 +136,7 @@ void csvPtraj();
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "swaft_planner_node");
+    ros::init(argc, argv, "swift_planner_node");
     ros::NodeHandle nh("~");
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug);
 
@@ -191,6 +199,30 @@ int main(int argc, char** argv)
     }
     tracking._TO_SEG = _OPT_SEG;
 
+    // 读取给定轨迹并跟踪 ################################################################################################################
+    nh.param("planner/pure_tracking", _PURE_TRACKING, false);
+    // FileName: TRAJ_DATA_LONG.csv | TRAJ_DATA_SHORT.csv
+    if (_PURE_TRACKING) {
+        nh.param("planner/orign_biasx",biasx,0.0);
+        nh.param("planner/orign_biasy",biasy,0.0);
+        nh.param("planner/orign_biasq",biasq,0.0);
+        cosq = std::cos(biasq);
+        sinq = std::sin(biasq);
+        readcsv.setFileName("/media/zwt/UbuntuFiles/datas/Swaft/Trajectory/TRAJ_DATA_LONG.csv");
+        readcsv.setOrign(0.01,biasx,biasy);
+        TrackSeg _trackseg;
+        cout << BLUE << "====================================================================" << RESET << endl;
+        if (readcsv.readFile(_trackseg.pxtraj,_trackseg.pytraj,_trackseg.pqtraj,_trackseg.vxtraj,_trackseg.vytraj,_trackseg.vqtraj))
+            ROS_INFO("[\033[32mPlanNode\033[0m]: read trajectory success, size: %ld",_trackseg.pxtraj.size());
+        else ROS_INFO("[\033[31mPlanNode\033[0m]: read trajectory failed");
+        cout << BLUE << "====================================================================" << RESET << endl;
+        _trackseg.duration = _trackseg.pxtraj.size() * _time_interval;
+        if (!optimalTraj.empty()) optimalTraj.clear();
+        optimalTraj.push_back(_trackseg);
+        tracking.insertSegTraj(0,&optimalTraj);
+        optimalTraj.clear();
+    }
+    
     // 坐标系转换相关参数 ################################################################################################################
     // Eigen::Vector3d _pose, _euler;
     // Eigen::Quaterniond _quat;
@@ -243,6 +275,12 @@ int main(int argc, char** argv)
             ROS_INFO("[\033[31mPlanNode\033[0m]: !!! don't receive odom !!!");
             _odom_sub_cnt = 5;
         }
+        
+        // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+        // 如果纯跟踪预定义轨迹,就不需要规划了 直接跳过规划 &
+        if (_PURE_TRACKING) goto JMUP_REPLAM; //&&&&&
+        // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+        
         // step 轨迹的安全性检查 ############################################################################################################
         // 检查接下来需要跟踪的轨迹是否安全
         if (!_REACH_GOAL){
@@ -314,6 +352,7 @@ int main(int argc, char** argv)
         if (!_REACH_GOAL){
 
         }
+        JMUP_REPLAM:
         // step 可视化 ############################################################################################################
         // 可视化机器人和感知范围
         if (_vis_Robot){
@@ -344,6 +383,13 @@ int main(int argc, char** argv)
  */
 void rcvWaypointsCallback(const nav_msgs::Path &wp)
 {
+    if (_PURE_TRACKING){
+        
+        _HAS_PATH = true;
+        _NEW_PATH = true;
+        _REACH_GOAL = false;
+        return;
+    }
     double yaw_rad,yaw_deg;
     Vector3d goalPose,currPose,currVel,currAcc,zeros_pt(0,0,0);
     goalPose(0) = wp.poses[0].pose.position.x;
@@ -390,6 +436,7 @@ void rcvPointCloudCallback(const sensor_msgs::PointCloud2 & pointcloud_map)
     if (_map_sub_cnt < 0)
         _map_sub_cnt = 5;
 
+    if (_PURE_TRACKING) return;
     pcl::PointCloud<pcl::PointXYZ> cloud;
     sensor_msgs::PointCloud2 map_vis;
 
@@ -465,9 +512,12 @@ void rcvOdomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
     // 轨迹控制 跟踪位置/速度
     Vector3d _current_odom;
-    _current_odom(0) = msg->pose.pose.position.x;
-    _current_odom(1) = msg->pose.pose.position.y;
+    double tempx = msg->pose.pose.position.x + biasx;
+    double tempy  = msg->pose.pose.position.y + biasy;
     _current_odom(2) = tf::getYaw(msg->pose.pose.orientation); // use tf2 library to get yaw from quaternion
+    // TODO: test the odom transform
+    _current_odom(0) = tempx * cosq - tempy * sinq;
+    _current_odom(1) = tempx * sinq + tempy * cosq;
     // 这里注意一点, local_odom 是上次里程计的位置, current_odom 是当前接收到里程计 会在下边的轨迹跟踪中更新
     // WARN: 这样处理可能造成机器人原地踏步定位的漂移 
     tracking._local_odom = tracking._current_odom;
