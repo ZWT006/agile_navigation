@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-12
+ * @LastEditTime: 2023-07-13
  * @Description: Nonlinear Trajectory Optimization
  * @reference: 
  * 
@@ -220,13 +220,14 @@ class NonTrajOpt
 
 
     /// @brief: Nonlinear Optimization
-    // bound matrix MatA and upper/lower bound
+    // bound matrix MatABS and upper/lower bound
     int lowerBw;
     int upperBw;
     // &&&&&&&&&&&&&&&&& // full odrer Ax=b solve x
-    BandedSystem MatA;
-    Eigen::VectorXd Vecb;
-    Eigen::VectorXd Vecx; 
+    BandedSystem MatABS;      // Ax=b solve x MatDim*MatDim band matrix
+    Eigen::MatrixXd MatA;     // Ax=b solve x MatDim*MatDim full matrix
+    Eigen::VectorXd Vecb;   // Ax=b solve b MatDim*1
+    Eigen::VectorXd Vecx;   // Ax=b solve x MatDim*1
     // &&&&&&&&&&&&&&&&&
     Eigen::VectorXd Optc;   // 优化变量 coefficients
     Eigen::VectorXd Optt;   // 优化变量 time
@@ -273,10 +274,10 @@ class NonTrajOpt
     /// @brief: Quadratic Programming
     /// @reference: argmin 1/2 x^T Q x + f^T x ; s.t. Aeq x = beq
     public:
-    Eigen::MatrixXd MatQ;   
-    Eigen::VectorXd QPx;
-    Eigen::MatrixXd MatAeq;
-    Eigen::VectorXd Vecbeq;
+    Eigen::MatrixXd MatQ;   // QP problem Q
+    Eigen::VectorXd QPx;    // QP problem x
+    Eigen::MatrixXd MatAeq; // QP problem Aeq
+    Eigen::VectorXd Vecbeq; // QP problem beq
     
     private:
     // Temp variables
@@ -342,13 +343,17 @@ class NonTrajOpt
     OPT_METHOD optMethod = LBFGS_RAW;
 
     // for outside use gdopt = [gdcoe; gdtau] 其中 gdcoe 是部分行的梯度
-    Eigen::VectorXi isOpt; // isOpt[i] = true 表示第i个系数是优化变量
+    // Eigen::VectorXi isOpt; // isOpt[i] = true 表示第i个系数是优化变量
     Eigen::VectorXd gdcoe; // gradient of coefficients full size
     Eigen::VectorXd gdtau; // gradient of time
     Eigen::VectorXd gdopt; // gradient of optimization variables
 
+    std::vector<int> isOpt; // isOpt[i]  表示第n个变量是优化变量
+    std::vector<int> noOpt; // noOpt[i]  表示第n个系数不是优化变量
+    std::vector<bool> optFlag; // optFlag[i]  表示第n个系数是否是优化变量
+
     NonTrajOpt(/* args */) = default;
-    ~NonTrajOpt() { MatA.destroy();};
+    ~NonTrajOpt() { MatABS.destroy();};
 
     // fixed parameters for every optimization 
     inline void initParameter(const OptParas &paras);
@@ -468,13 +473,10 @@ inline void NonTrajOpt::getReduceOrder(Eigen::VectorXd &_vec) {
     Eigen::VectorXd re_vec = Eigen::VectorXd::Zero(OptDof);
     // update OptDof equality constraints
     int dof_num = 0;
-    for (int id_seg = 0; id_seg < N -1 && dof_num < OptDof; id_seg++) { // N segments
-        for (int id_ord = E +1 ; id_ord < O && dof_num < OptDof; id_ord++) { // 6~8 orders
-            for (int id_dim = 0; id_dim < D && dof_num < OptDof; id_dim++) { // 3 dimensions
-                int id_num = id_seg*O*D + id_dim*O + id_ord;
-                re_vec(dof_num) = _vec(id_num);
-                dof_num++;
-            }
+    for (int idx = 0; idx < MatDim && dof_num < OptDof; idx++) {
+        if (optFlag[idx]) { // true is optimization variable
+            re_vec(dof_num) = _vec(idx);
+            dof_num++;
         }
     }
     // 这应该就是正常的赋值操作吧?
@@ -517,7 +519,8 @@ inline void NonTrajOpt::reset(const int &pieceNum) {
     EquDim = 2*E*D + E*(N-1)*D + (N-1)*D;
     // opt 问题的自由度 整个自由度 减去 等式约束 (waypoints连续性约束+waypoints固定点约束)
     OptDof = MatDim - EquDim;
-    MatA.create(MatDim, lowerBw, upperBw);
+    MatABS.create(MatDim, lowerBw, upperBw);
+    MatA.resize(MatDim, MatDim);
     Vecb.resize(MatDim);
     Vecx.resize(MatDim);
 
@@ -557,12 +560,28 @@ inline void NonTrajOpt::reset(const int &pieceNum) {
     OSQP_optx.resize(MatDim);
     Non_optx.resize(OptNum);
 
+    if (!isOpt.empty()) isOpt.clear();
+    if (!noOpt.empty()) noOpt.clear();
+    if (!optFlag.empty()) optFlag.clear();
+    optFlag.resize(MatDim,false);
+    ////TODO: 可以在 reset() 的时候就初始化 isOpt 和 noOpt 两个向量 后边少一点点计算量
+    int dof_num = 0; //NOTE: 感觉这里的 第二和第三个循环的顺序不影响问题求解 但是不太好
+    for (int id_seg = 0; id_seg < N  && dof_num < OptDof; id_seg++) { // N segments
+        for (int id_dim = 0; id_dim < D && dof_num < OptDof; id_dim++) { // 3 dimensions
+            for (int id_ord = E +1 ; id_ord < O && dof_num < OptDof; id_ord++) { // 5~7 orders
+                int id_num = id_seg*O*D + id_dim*O + id_ord;
+                optFlag[id_num] = true;
+                dof_num++;
+            }
+        }
+    }
+    
 }
 
 void NonTrajOpt::updateOptAxb() {
     Eigen::MatrixXd TempAeq = Eigen::MatrixXd::Zero(EquDim, MatDim);
     Eigen::VectorXd Tempbeq = Eigen::VectorXd::Zero(EquDim);
-    // update MatA by StartState &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    //// update MatA by StartState &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     Eigen::MatrixXd Aeq_start = Eigen::MatrixXd::Zero(E*D, MatDim);
     Eigen::VectorXd beq_start = Eigen::VectorXd::Zero(E*D);
     for(int i = 0; i < D; i++) {
@@ -574,7 +593,7 @@ void NonTrajOpt::updateOptAxb() {
     Eigen::VectorXd beq_wp = Eigen::VectorXd::Zero(E*(N-1)*D + (N-1)*D);
     Eigen::MatrixXd Matn = -1*getCoeffCons(0.0);
     for (int k = 0; k < N-1; k++) {
-        double ti = Optt(k);
+        double ti = Vect(k);
         Eigen::MatrixXd coeff = getCoeffCons(ti,O,1);
         Eigen::MatrixXd Matp = getCoeffCons(ti);
         for(int i = 0; i < D; i++) {
@@ -587,12 +606,12 @@ void NonTrajOpt::updateOptAxb() {
             Aeq_wp.block((E+1)*KDi + 1, (KDi+D)*O, 4, O) = Matn;
         }
     }
-    // update MatA by EndState &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    //// update MatA by EndState &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     Eigen::MatrixXd Aeq_end = Eigen::MatrixXd::Zero(E*D, MatDim);
     Eigen::VectorXd beq_end = Eigen::VectorXd::Zero(E*D);
-    double te = Optt.tail(1)(0); // last element
+    double te = Vect.tail(1)(0); // last element
     for(int i = 0; i < D; i++) {
-        Aeq_end.block(i*E, (N-1)*D*O+i*O, E, O) = getCoeffCons(1);
+        Aeq_end.block(i*E, (N-1)*D*O+i*O, E, O) = getCoeffCons(te);
         beq_end.segment(i*E, E) = EndStates.row(i).transpose();
     }
 
@@ -603,42 +622,106 @@ void NonTrajOpt::updateOptAxb() {
     Tempbeq.segment(beq_start.rows(), beq_wp.rows()) = beq_wp;
     Tempbeq.segment(beq_start.rows()+beq_wp.rows(), beq_end.rows()) = beq_end;
 
-    // update OptDof equality constraints
-    int dof_num = 0;
-    for (int id_seg = 0; id_seg < N -1 && dof_num < OptDof; id_seg++) { // N segments
-        for (int id_ord = E +1 ; id_ord < O; id_ord++) { // 6~8 orders
-            for (int id_dim = 0; id_dim < D; id_dim++) { // 3 dimensions
+    EigenCSV eigenCSV;
+    //// test TempAeq and Tempbeq = Ok
+    // std::cout << "Write TempAeqRAW.csv" << std::endl;
+    // eigenCSV.WriteMatrix(TempAeq,"/home/zwt/Documents/TempAeqRAW.csv");
+    // eigenCSV.WriteVector(Tempbeq,"/home/zwt/Documents/TempbeqRAW.csv");
+
+    Eigen::MatrixXd TempAeqRE = Eigen::MatrixXd::Zero(MatDim, MatDim);
+    Eigen::VectorXd TempbeqRE = Eigen::VectorXd::Zero(MatDim);
+
+    // int equ_num = 0;
+    // for (int id_seg = 0; id_seg < N && equ_num < EquDim; id_seg++) { // N segments
+    //     for (int id_dim = 0; id_dim < D && equ_num < EquDim; id_dim++) { // 3 dimensions
+    //         for (int id_ord = 0 ; id_ord < E + 1 && equ_num < EquDim; id_ord++) { // 0~4 orders
+    //             int id_num = id_seg*O*D + id_dim*O + id_ord;
+    //             TempAeqRE.row(id_num) = TempAeq.row(equ_num);
+    //             TempbeqRE(id_num) = Tempbeq(equ_num);
+    //             // std::cout << "equ row : " << id_num << " " << TempAeq.row(equ_num) << std::endl;
+    //             std::cout << "equ row : " << id_num  << std::endl;
+    //             equ_num++;
+    //         }
+    //     }
+    // }
+    // std::cout << "equ num : " << equ_num << std::endl;
+
+    //// update OptDof equality constraints
+    int dof_num = 0; //NOTE: 感觉这里的 第二和第三个循环的顺序不影响问题求解 但是不太好
+    for (int id_seg = 0; id_seg < N  && dof_num < OptDof; id_seg++) { // N segments
+        for (int id_dim = 0; id_dim < D && dof_num < OptDof; id_dim++) { // 3 dimensions
+            for (int id_ord = E +1 ; id_ord < O && dof_num < OptDof; id_ord++) { // 5~7 orders
                 int id_num = id_seg*O*D + id_dim*O + id_ord;
-                TempAeq.conservativeResize(TempAeq.rows() + 1, Eigen::NoChange);
-                TempAeq.bottomRows(1) = TempAeq.topRows(TempAeq.rows() - id_num);
-                Eigen::VectorXd tempRow = Eigen::VectorXd::Zero(1, MatDim);
-                tempRow(id_num) = 1;
-                TempAeq.middleRows(id_num, 1) = tempRow.transpose();
-                Tempbeq.conservativeResize(Tempbeq.rows() + 1, Eigen::NoChange);
-                Tempbeq.bottomRows(1) = Tempbeq.topRows(Tempbeq.rows() - id_num);
-                Tempbeq.middleRows(id_num, 1) = Optx.row(dof_num);
+                Eigen::VectorXd tempRow = Eigen::VectorXd::Zero(MatDim);
+                tempRow(id_num) = 1.0;
+                TempAeqRE.row(id_num) = tempRow.transpose();
+                // std::cout << "dof row : " << id_num << " " << tempRow.transpose() << std::endl;
+                TempbeqRE(id_num) = Optx(dof_num);
                 dof_num++;
             }
         }
     }
-    // Debug &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    std::cout << "TempAeq sizes" << TempAeq.rows() << " " << TempAeq.cols() << std::endl;
-    std::cout << "TempAeq rank" << TempAeq.fullPivLu().rank() << std::endl;
-    // 这里可以使用 fullPivLu() 类来求解，也可以使用 colPivHouseholderQr() 类来求解
-    // 但是 GCOPTER 中使用的就是自己写的 BandedSystem 类来求解  可能是因为稀疏矩阵求解效率的原因吧 可与对比对比
-    QPx = TempAeq.fullPivLu().solve(Tempbeq);
-    // 将 TempAeq 和 Tempbeq 赋值给 MatA 和 Vecb
-    Vecb = Tempbeq;
-    for (int i = 0; i < MatDim; i++) {
-        for (int j = 0; j < MatDim; j++) {
-            if ((i - j) <= upperBw && (j - i) <= lowerBw) {
-                MatA(i, j) = TempAeq(i,j);  // 赋值为 1.0，你可以根据需要修改
-            }
+    std::cout << "dof num : " << dof_num << std::endl;
+
+    int equ_num = 0;
+    for (int idx = 0; idx < MatDim && equ_num < EquDim; idx++) {
+        if (!optFlag[idx]) {
+            TempAeqRE.row(idx) = TempAeq.row(equ_num);
+            TempbeqRE(idx) = Tempbeq(equ_num);
+            equ_num++;
         }
     }
-    // TODO 求解线性方程组 Ax=b
+    std::cout << "equ num : " << equ_num << std::endl;
+    
+
+    std::cout << "Write TempAeqRE.csv" << std::endl;
+    eigenCSV.WriteMatrix(TempAeqRE,"/home/zwt/Documents/TempAeqRE.csv");
+    eigenCSV.WriteVector(TempbeqRE,"/home/zwt/Documents/TempbeqRE.csv");
+
+    // Debug &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    std::cout << "TempAeq sizes: " << TempAeq.rows() << " " << TempAeq.cols() << std::endl;
+    std::cout << "TempAeq rank: " << TempAeq.fullPivLu().rank() << std::endl;
+    std::cout << "TempAeqRE sizes: " << TempAeqRE.rows() << " " << TempAeq.cols() << std::endl;
+    std::cout << "TempAeqRE rank: " << TempAeqRE.fullPivLu().rank() << std::endl;
+    // 这里可以使用 fullPivLu() 类来求解，也可以使用 colPivHouseholderQr() 类来求解
+    // 但是 GCOPTER 中使用的就是自己写的 BandedSystem 类来求解  可能是因为稀疏矩阵求解效率的原因吧 可与对比对比
+    // TODO: 求解线性方程组 Ax=b &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    MatA = TempAeqRE;
+    Vecx = TempAeqRE.fullPivLu().solve(TempbeqRE);
+    std::cout << "Vecx sizes: " << Vecx.rows() << " " << Vecx.cols() << std::endl;
+    std::cout << "Vecx: " << Vecx.transpose() << std::endl;
+    // 将 TempAeq 和 Tempbeq 赋值给 MatABS 和 Vecb
+    Vecb = TempbeqRE;
+
+    // for (int i = 0; i < MatDim; i++) {
+    //     for (int j = 0; j < MatDim; j++) {
+    //         if ((i - j) <= lowerBw && (j - i) <= upperBw) {
+    //             MatABS(i, j) = TempAeq(i,j);  // 赋值为 1.0，你可以根据需要修改
+    //         }
+    //     }
+    // }
+    // std::cout << "BandedSystem MatABS GG?" << std::endl;
+    // MatABS.factorizeLU();
+    // MatABS.solve(TempbeqRE);
+    // std::cout << "BandedSystem MatABS GG!" << std::endl;
+    // std::cout << "Solve : " << TempbeqRE.transpose() << std::endl;
+
 }
 
+inline void NonTrajOpt::updateTraj() {
+    std::vector<CoefficientMat> coeffMats;
+    for (int i = 0; i < N; i++){
+        CoefficientMat coeffMat;
+        coeffMat.block(0,0,0,O) = Vecx.segment(i*O*D, O);
+        coeffMat.block(1,0,1,O) = Vecx.segment(i*O*D+O, O);
+        coeffMat.block(2,0,2,O) = Vecx.segment(i*O*D+2*O, O);
+        coeffMats.push_back(coeffMat);
+    }
+    std::vector<double> times(initT.data(), initT.data() + initT.size());
+    std::vector<int> discs(discNums.data(), discNums.data() + discNums.size());
+    Traj.resetTraj(times, discs, coeffMats);
+    Traj.updateTraj(); // update coefficients, time and state vectors of trajectory
+}
 
 // ##############################################################################################################
 /// @description: calculate Q and Aeq/beq matrix by time initT to solve QP problem 
@@ -696,9 +779,10 @@ void NonTrajOpt::updateAeqbeq() {
         beq_end.segment(i*E, E) = EndStates.row(i).transpose();
     }
     // Constraints Matrix &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    std::cout << "MatAeq sizes" << MatAeq.rows() << " " << MatAeq.cols() << std::endl;
-    std::cout << "Aeq row" << Aeq_start.rows()+Aeq_wp.rows()+Aeq_end.rows() << std::endl;
-    std::cout << "beq row" << beq_start.rows()+beq_wp.rows()+beq_end.rows() << std::endl;
+    // std::cout << "MatAeq sizes" << MatAeq.rows() << " " << MatAeq.cols() << std::endl;
+    // std::cout << "Aeq row" << Aeq_start.rows()+Aeq_wp.rows()+Aeq_end.rows() << std::endl;
+    // std::cout << "beq row" << beq_start.rows()+beq_wp.rows()+beq_end.rows() << std::endl;
+    // $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
     MatAeq.block(0, 0, Aeq_start.rows(), MatDim) = Aeq_start;
     MatAeq.block(Aeq_start.rows(), 0, Aeq_wp.rows(), MatDim) = Aeq_wp;
     MatAeq.block(Aeq_start.rows()+Aeq_wp.rows(), 0, Aeq_end.rows(), MatDim) = Aeq_end;
@@ -707,20 +791,7 @@ void NonTrajOpt::updateAeqbeq() {
     Vecbeq.segment(beq_start.rows()+beq_wp.rows(), beq_end.rows()) = beq_end;
 }
 
-inline void NonTrajOpt::updateTraj() {
-    std::vector<CoefficientMat> coeffMats;
-    for (int i = 0; i < N; i++){
-        CoefficientMat coeffMat;
-        coeffMat.block(0,0,0,O) = Vecx.segment(i*O*D, O);
-        coeffMat.block(1,0,1,O) = Vecx.segment(i*O*D+O, O);
-        coeffMat.block(2,0,2,O) = Vecx.segment(i*O*D+2*O, O);
-        coeffMats.push_back(coeffMat);
-    }
-    std::vector<double> times(initT.data(), initT.data() + initT.size());
-    std::vector<int> discs(discNums.data(), discNums.data() + discNums.size());
-    Traj.resetTraj(times, discs, coeffMats);
-    Traj.updateTraj(); // update coefficients, time and state vectors of trajectory
-}
+
 
 // ##############################################################################################################
 // Objective Functions 

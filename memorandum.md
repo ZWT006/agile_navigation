@@ -23,8 +23,20 @@
 - [x] Polynomial Trajectory as `segment.hpp`
 - [x] 优化问题降维需要构建一个线性方程组$Ax=b$并且求解，其中的系数矩阵$A$是一个带状矩阵,确定这个矩阵的上下界`lowerBd`和`upperBd`,可以使用带状矩阵的LU分解快速求解方程组
 
-2. OSQP Solver
+#### OSQP Solver
+- [x] updateQ,updateAeqbeq Debug
+- [ ] ERROR: non-convex 这可怎么办呢，这咋解呀
+```
+ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+ERROR in osqp_setup: KKT matrix factorization.
+The problem seems to be non-convex
+```
 #### NLopt Solver
+- [ ] 减少条件,先用NLopt求解器解相同的QP问题
+    - [x] updateOptAxb Debug
+    - [x] update Ax=b solve Debug
+    - [ ] `NLoptSolve()` Debug
+- [ ] edf map Debug
 
 ### BUGs
 #### Big!!!
