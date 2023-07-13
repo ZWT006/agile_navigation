@@ -139,6 +139,7 @@ add_library(nontrajopt
 
 target_link_libraries(nontrajopt
   ${catkin_LIBRARIES}
+  OsqpEigen::OsqpEigen
 )
 # message(SEND_ERROR "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
 # message(SEND_ERROR "Python3_LIBRARIES: ${Python3_LIBRARIES}")
@@ -151,7 +152,6 @@ target_link_libraries(MPCExample OsqpEigen::OsqpEigen)
 
 add_executable(PlotTest test/PlotTest.cpp)
 target_link_libraries(PlotTest ${Python3_LIBRARIES})
-
 
 
 ## Declare a C++ library
@@ -242,7 +242,8 @@ target_link_libraries(nontraj_test
                       ${PROJECT_NAME}
                       ${catkin_LIBRARIES}
                       ${OpenCV_LIBRARIES}
-                      gtest)
+                      gtest
+                      OsqpEigen::OsqpEigen)
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-11
+ * @LastEditTime: 2023-07-12
  * @Description: Nonlinear Trajectory Optimization
  * @reference: 
  * 
@@ -16,6 +16,8 @@
 #include <Eigen/Eigen>
 #include <opencv2/opencv.hpp>
 
+// osqp-eigen
+#include "OsqpEigen/OsqpEigen.h"
 #include "nlopt.hpp"
 #include "lbfgs_raw.hpp"
 #include "osqp.h"
@@ -23,6 +25,7 @@
 #include <nontrajopt/segment.hpp>
 #include <nontrajopt/edfmap.hpp>
 #include <nontrajopt/vis_utils.hpp>
+#include <nontrajopt/Eigencsv.hpp>
 
 // namespace NonTrajOptSpace
 // {
@@ -176,6 +179,7 @@ struct OptParas {
     double lambda_smo, lambda_obs, lambda_dyn, lambda_tim, lambda_ova;
     double wq; // weight of state.q coefficients 
     double dist_th; // distance threshold of obstacle
+    double discredist; // distance discretization
     double pv_max,pa_max; // max linear velocity, acceleration,
     double wv_max,wa_max; // max angular velocity, acceleration,
     double ORIEN_VEL,VERDIT_VEL; // velocity
@@ -185,6 +189,16 @@ struct OptParas {
     bool DYN_SWITCH;
     bool TIM_SWITCH;
     bool OVA_SWITCH;
+
+    bool TIME_OPTIMIZATION;  // time optimization
+    bool REDUCE_ORDER;
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    int    nlopt_max_iteration_num_;  // stopping criteria that can be used
+    double nlopt_max_iteration_time_;  // stopping criteria that can be used
+    // int    nlopt_max_iteration_num_;  // stopping criteria that can be used
+    // double nlopt_max_iteration_time_;  // stopping criteria that can be used
+    // int    nlopt_max_iteration_num_;  // stopping criteria that can be used
+    // double nlopt_max_iteration_time_;  // stopping criteria that can be used
     OptParas(){};
     ~OptParas(){};
 };
@@ -241,10 +255,14 @@ class NonTrajOpt
     double lambda_smo, lambda_obs, lambda_dyn, lambda_tim, lambda_ova;
     double wq; // weight of state.q coefficients 
     double dist_th; // distance threshold of obstacle
+    double discredist; // distance discretization
     double pv_max,pa_max,wv_max,wa_max; // max velocity, acceleration,
     double ORIEN_VEL,VERDIT_VEL; // velocity
     double ORIEN_VEL2,VERDIT_VEL2; // velocity^2
     double OVAL_TH; // oval cost threshold
+
+    int    nlopt_max_iteration_num_;  // stopping criteria that can be used
+    double nlopt_max_iteration_time_;  // stopping criteria that can be used
 
     bool SMO_SWITCH;
     bool OBS_SWITCH;
@@ -254,12 +272,13 @@ class NonTrajOpt
 
     /// @brief: Quadratic Programming
     /// @reference: argmin 1/2 x^T Q x + f^T x ; s.t. Aeq x = beq
+    public:
     Eigen::MatrixXd MatQ;   
     Eigen::VectorXd QPx;
     Eigen::MatrixXd MatAeq;
     Eigen::VectorXd Vecbeq;
     
-    
+    private:
     // Temp variables
     // Eigen::MatrixXd RawA;   // Raw A matrix 
     Eigen::VectorXd T1;
@@ -277,6 +296,10 @@ class NonTrajOpt
     Eigen::Matrix<double, 3, 4> StartStates; 
     Eigen::Matrix<double, 3, 4> EndStates;
     Eigen::VectorXd initT; // initial time
+    Eigen::VectorXi discNums; // discretization number of each segment
+
+    Eigen::VectorXd OSQP_optx;
+    Eigen::VectorXd Non_optx;
 
     // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     // % coffeicents matrixs 的形式为A
@@ -298,27 +321,28 @@ class NonTrajOpt
     inline void getSegPolyGradc(Eigen::VectorXd &coef,int idx);
     inline double getSegPolyGradt(const Eigen::VectorXd &coef,int idx);
 
-    // void calcuSmoCost();                              // calculate smoothness cost
-    // void calcuObsCost();                              // calculate obstacle cost
-    // void calcuDynCost();                              // calculate dynamic cost
-    // void calcuTimCost();                              // calculate time cost
-    // void calcuOvaCost();                              // calculate overall cost double 
+    // void calcuSmoCost();     // calculate smoothness cost
+    // void calcuObsCost();     // calculate obstacle cost
+    // void calcuDynCost();     // calculate dynamic cost
+    // void calcuTimCost();     // calculate time cost
+    // void calcuOvaCost();     // calculate overall cost double 
 
-    void calcuSmoCost(double &Cost,Eigen::VectorXd gradc, Eigen::VectorXd gradt);                              // calculate smoothness cost
-    void calcuObsCost(double &Cost,Eigen::VectorXd gradc, Eigen::VectorXd gradt);                              // calculate obstacle cost
-    void calcuDynCost(double &Cost,Eigen::VectorXd gradc, Eigen::VectorXd gradt);                              // calculate dynamic cost
-    void calcuTimCost(double &Cost,Eigen::VectorXd gradc, Eigen::VectorXd gradt);                              // calculate time cost
-    void calcuOvaCost(double &Cost,Eigen::VectorXd gradc, Eigen::VectorXd gradt);                              // calculate overall cost
+    void calcuSmoCost(double &Cost,Eigen::VectorXd gradc, Eigen::VectorXd gradt);       // calculate smoothness cost
+    void calcuObsCost(double &Cost,Eigen::VectorXd gradc, Eigen::VectorXd gradt);       // calculate obstacle cost
+    void calcuDynCost(double &Cost,Eigen::VectorXd gradc, Eigen::VectorXd gradt);       // calculate dynamic cost
+    void calcuTimCost(double &Cost,Eigen::VectorXd gradc, Eigen::VectorXd gradt);       // calculate time cost
+    void calcuOvaCost(double &Cost,Eigen::VectorXd gradc, Eigen::VectorXd gradt);       // calculate overall cost
 
     /* data */
     public://##############################################################################################################
     int OptDof; // Degree of freedom of optimization
     int EquDim; // dimension of equality constraints
     int MatDim; // dimension of matrix A
+    int OptNum; // number of optimization variables
     OPT_METHOD optMethod = LBFGS_RAW;
 
     // for outside use gdopt = [gdcoe; gdtau] 其中 gdcoe 是部分行的梯度
-    std::vector<bool> isOpt; // isOpt[i] = true 表示第i个系数是优化变量
+    Eigen::VectorXi isOpt; // isOpt[i] = true 表示第i个系数是优化变量
     Eigen::VectorXd gdcoe; // gradient of coefficients full size
     Eigen::VectorXd gdtau; // gradient of time
     Eigen::VectorXd gdopt; // gradient of optimization variables
@@ -333,14 +357,8 @@ class NonTrajOpt
     inline void reset(const int &pieceNum);
     // init waypoints and start/end states  for polynomial trajectory optimization
     inline void initWaypoints(const Eigen::Matrix3Xd &_waypoints, const Eigen::VectorXd &_initT, 
-        const Eigen::Matrix<double, 3, 4> &_startStates, const Eigen::Matrix<double, 3, 4> &_endStates);
-
-    
-    // inline void setTau(const Eigen::VectorXd &tau);
-    // inline void setTau(const std::vector<double> &tau);
-    // inline void updateOptx();
-    // inline void setOptx(const Eigen::VectorXd &optx);
-    // inline void setOptx(const std::vector<double> &optx);
+                              const Eigen::Matrix<double, 3, 4> &_startStates, const Eigen::Matrix<double, 3, 4> &_endStates);
+    inline void getReduceOrder(Eigen::VectorXd &_vec); // reduce order vector
 
     // key functions &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     inline void updateTime() ;
@@ -351,10 +369,16 @@ class NonTrajOpt
     inline void updateAeqbeq();    // update MatA, Vecb by time initT  
     inline void updateMatQ();      // update MatQ by time initT
     // for Trajectory Traj
-    inline void updateTraj();
+    inline void updateTraj();      // update Traj by Vecx and Vect
     
-
     void calcuOvaConstriants();                       // calculate overall constraints
+
+    static double NLoptobjection(const std::vector<double>& optx, std::vector<double>& grad,void* func_data);
+    double LBFGSobjection(void* ptrObj,const double* optx,double* grad,const int n);
+
+    bool OSQPSolve();
+    bool NLoptSolve();
+    bool LBFGSSolve();
 };
 // ##############################################################################################################
 // private inline auxiliary functions############################################################################
@@ -371,6 +395,7 @@ inline Eigen::MatrixXd NonTrajOpt::getCoeffCons(const double t, const int order,
             coeff(row, col) = factorial(col)/factorial(col-row)*std::pow(t,col-row);
         }
     }
+    return coeff;
 }
 inline Eigen::MatrixXd NonTrajOpt::getCoeffCons(const double t) {
     Eigen::MatrixXd coeff = Eigen::MatrixXd::Zero(E, O);
@@ -397,10 +422,20 @@ inline void NonTrajOpt::initParameter(const OptParas &paras) {
     pa_max     = paras.pa_max;
     wv_max     = paras.wv_max;
     wa_max     = paras.wa_max; // max velocity, acceleration,
+    discredist = paras.discredist; // distance discretization
     ORIEN_VEL  = paras.ORIEN_VEL;
     VERDIT_VEL = paras.VERDIT_VEL; // velocity
     ORIEN_VEL2 = ORIEN_VEL * ORIEN_VEL; // velocity orientaion
     VERDIT_VEL2 = VERDIT_VEL * VERDIT_VEL; // velocity vertical
+
+    TIME_OPTIMIZATION   = paras.TIME_OPTIMIZATION;  // time optimization
+    REDUCE_ORDER        = paras.REDUCE_ORDER;
+
+    //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    // Optimization Solver Parameters
+    nlopt_max_iteration_num_ = paras.nlopt_max_iteration_num_;
+    nlopt_max_iteration_time_ = paras.nlopt_max_iteration_time_;
+
 
     // always fixed parameters
     lowerBw = MAT_A_LOWER_BW;
@@ -418,33 +453,33 @@ inline void NonTrajOpt::initWaypoints(const Eigen::Matrix3Xd &_waypoints, const 
     EndStates = _endStates;
     initT = _initT;
     Vect = initT;
+    double dist = 0.0;
+    for (int i = 0; i < N; i++) {
+        Eigen::Vector2d xypos = Waypoints.row(i).head(2);
+        dist = xypos.norm();
+        discNums(i) = std::ceil(dist/discredist);
+    }
     updateTime();
 }
 // ##############################################################################################################
 // public auxiliary functions for parameters update #############################################################
 // ##############################################################################################################
-// inline void NonTrajOpt::setOptx(const Eigen::VectorXd &optx) {
-//     Optx = optx;
-//     updateOptx();
-// }
-// inline void NonTrajOpt::setOptx(const std::vector<double> &optx) {
-//     Optx = Eigen::Map<const Eigen::VectorXd>(optx.data(), optx.size());
-//     updateOptx();
-// }
-// inline void NonTrajOpt::updateOptx() {
-//     // Vecx = Optx.head(OptDof);
-//     // Vect = Optx.tail(N);
-//     // T1 = Vect.array().exp();
-// }
-// inline void NonTrajOpt::setTau(const Eigen::VectorXd &tau) {
-//     Vect = tau.array().exp(); // 想多了这样赋值应该没有问题
-//     T1 = Vect;
-// }
-// inline void NonTrajOpt::setTau(const std::vector<double> &tau) {
-//     Vect = Eigen::Map<const Eigen::VectorXd>(tau.data(), tau.size());
-//     Vect = Vect.array().exp();
-//     T1 = Vect;
-// }
+inline void NonTrajOpt::getReduceOrder(Eigen::VectorXd &_vec) {
+    Eigen::VectorXd re_vec = Eigen::VectorXd::Zero(OptDof);
+    // update OptDof equality constraints
+    int dof_num = 0;
+    for (int id_seg = 0; id_seg < N -1 && dof_num < OptDof; id_seg++) { // N segments
+        for (int id_ord = E +1 ; id_ord < O && dof_num < OptDof; id_ord++) { // 6~8 orders
+            for (int id_dim = 0; id_dim < D && dof_num < OptDof; id_dim++) { // 3 dimensions
+                int id_num = id_seg*O*D + id_dim*O + id_ord;
+                re_vec(dof_num) = _vec(id_num);
+                dof_num++;
+            }
+        }
+    }
+    // 这应该就是正常的赋值操作吧?
+    _vec = re_vec;
+}
 inline void NonTrajOpt::updateTime() {
     // cwiseProduct() 函数是逐元素相乘
     T1 = Vect;
@@ -495,21 +530,33 @@ inline void NonTrajOpt::reset(const int &pieceNum) {
     if (TIME_OPTIMIZATION)  OptxDof += N;
     Optx.resize(OptxDof);
     
+    OptNum = OptxDof;
+
     Vect.resize(N);
     Equb.resize(EquDim);
 
     if (Traj.getPieceNum()!=0)
         Traj.clear();
-
+    Traj.reserve(N);
     Waypoints.resize(N + 1, D);
     StartStates.setZero();
     EndStates.setZero();
     initT.resize(N);
+    discNums.resize(N);
     // QP problem resize &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     MatQ.resize(MatDim, MatDim);
     QPx.resize(MatDim);
     MatAeq.resize(EquDim, MatDim);
     Vecbeq.resize(EquDim);
+
+    isOpt.resize(MatDim);
+    gdcoe.resize(MatDim); // gradient of coefficients full size
+    gdtau.resize(N); // gradient of time
+    gdopt.resize(OptxDof); // gradient of optimization variables
+
+    OSQP_optx.resize(MatDim);
+    Non_optx.resize(OptNum);
+
 }
 
 void NonTrajOpt::updateOptAxb() {
@@ -526,14 +573,14 @@ void NonTrajOpt::updateOptAxb() {
     Eigen::MatrixXd Aeq_wp = Eigen::MatrixXd::Zero(E*(N-1)*D + (N-1)*D, MatDim);
     Eigen::VectorXd beq_wp = Eigen::VectorXd::Zero(E*(N-1)*D + (N-1)*D);
     Eigen::MatrixXd Matn = -1*getCoeffCons(0.0);
-    for (int k = 0; k < N-2; k++) {
+    for (int k = 0; k < N-1; k++) {
         double ti = Optt(k);
         Eigen::MatrixXd coeff = getCoeffCons(ti,O,1);
         Eigen::MatrixXd Matp = getCoeffCons(ti);
         for(int i = 0; i < D; i++) {
             int KDi = k*D+i;
             // waypoints pose constraints
-            beq_wp((E+1)*KDi,1) = Waypoints(k+1,i);
+            beq_wp((E+1)*KDi,1) = Waypoints(i,k+1);
             // 1:t:t^2:t^3:t^4…… * [p0 p1 p2 p3……]T
             Aeq_wp.block((E+1)*KDi, KDi*O, 1, O) = coeff;
             Aeq_wp.block((E+1)*KDi + 1, KDi*O, 4, O) = Matp;
@@ -545,7 +592,7 @@ void NonTrajOpt::updateOptAxb() {
     Eigen::VectorXd beq_end = Eigen::VectorXd::Zero(E*D);
     double te = Optt.tail(1)(0); // last element
     for(int i = 0; i < D; i++) {
-        Aeq_end.block(i*E, (N-1)*O+i*O, E, O) = getCoeffCons(1);
+        Aeq_end.block(i*E, (N-1)*D*O+i*O, E, O) = getCoeffCons(1);
         beq_end.segment(i*E, E) = EndStates.row(i).transpose();
     }
 
@@ -597,19 +644,20 @@ void NonTrajOpt::updateOptAxb() {
 /// @description: calculate Q and Aeq/beq matrix by time initT to solve QP problem 
 void NonTrajOpt::updateMatQ() {
     // Calculate Q matrix
+    MatQ.setZero();
     for (int n = 0; n < N; n++) {
         Eigen::MatrixXd Qn = Eigen::MatrixXd::Zero(O, O);
         double ts = initT(n);
-        for (int i = C; i < O-1;i++){
-            for (int j = C; j < O-1;j++){
+        for (int i = C; i < O;i++){
+            for (int j = C; j < O;j++){
                 Qn(i,j) = factorial(i)/factorial(i-C)*factorial(j)/factorial(j-C)*pow(ts, i+j-2*C+1)/(i+j-2*C+1);
             }
         }
         int nOD = n*O*D;
         MatQ.block(nOD, nOD, O, O) = Qn;
-        MatQ.block(nOD+O+1, nOD+O+1, O, O) = Qn;
+        MatQ.block(nOD+O, nOD+O, O, O) = Qn;
         Qn.diagonal() *=  wq;
-        MatQ.block(nOD+2*O+2, nOD+2*O+2, O, O) = Qn;
+        MatQ.block(nOD+2*O, nOD+2*O, O, O) = Qn;
     }
 }
 
@@ -625,14 +673,14 @@ void NonTrajOpt::updateAeqbeq() {
     Eigen::MatrixXd Aeq_wp = Eigen::MatrixXd::Zero(E*(N-1)*D + (N-1)*D, MatDim);
     Eigen::VectorXd beq_wp = Eigen::VectorXd::Zero(E*(N-1)*D + (N-1)*D);
     Eigen::MatrixXd Matn = -1*getCoeffCons(0.0);
-    for (int k = 0; k < N-2; k++) {
+    for (int k = 0; k < N-1; k++) {
         double ti = initT(k);
         Eigen::MatrixXd coeff = getCoeffCons(ti,O,1);
         Eigen::MatrixXd Matp = getCoeffCons(ti);
         for(int i = 0; i < D; i++) {
             int KDi = k*D+i;
             // waypoints pose constraints
-            beq_wp((E+1)*KDi,1) = Waypoints(k+1,i);
+            beq_wp((E+1)*KDi,1) = Waypoints(i,k+1);
             // 1:t:t^2:t^3:t^4…… * [p0 p1 p2 p3……]T
             Aeq_wp.block((E+1)*KDi, KDi*O, 1, O) = coeff;
             Aeq_wp.block((E+1)*KDi + 1, KDi*O, E, O) = Matp;
@@ -644,7 +692,7 @@ void NonTrajOpt::updateAeqbeq() {
     Eigen::VectorXd beq_end = Eigen::VectorXd::Zero(E*D);
     double te = initT.tail(1)(0); // last element
     for(int i = 0; i < D; i++) {
-        Aeq_end.block(i*E, (N-1)*O+i*O, E, O) = getCoeffCons(te);
+        Aeq_end.block(i*E, (N-1)*D*O+i*O, E, O) = getCoeffCons(te);
         beq_end.segment(i*E, E) = EndStates.row(i).transpose();
     }
     // Constraints Matrix &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -659,6 +707,284 @@ void NonTrajOpt::updateAeqbeq() {
     Vecbeq.segment(beq_start.rows()+beq_wp.rows(), beq_end.rows()) = beq_end;
 }
 
+inline void NonTrajOpt::updateTraj() {
+    std::vector<CoefficientMat> coeffMats;
+    for (int i = 0; i < N; i++){
+        CoefficientMat coeffMat;
+        coeffMat.block(0,0,0,O) = Vecx.segment(i*O*D, O);
+        coeffMat.block(1,0,1,O) = Vecx.segment(i*O*D+O, O);
+        coeffMat.block(2,0,2,O) = Vecx.segment(i*O*D+2*O, O);
+        coeffMats.push_back(coeffMat);
+    }
+    std::vector<double> times(initT.data(), initT.data() + initT.size());
+    std::vector<int> discs(discNums.data(), discNums.data() + discNums.size());
+    Traj.resetTraj(times, discs, coeffMats);
+    Traj.updateTraj(); // update coefficients, time and state vectors of trajectory
+}
+
+// ##############################################################################################################
+// Objective Functions 
+// ##############################################################################################################
+double NonTrajOpt::NLoptobjection(const std::vector<double>& x, std::vector<double>& grad,
+                                  void* func_data) {
+    NonTrajOpt* OPTptr = reinterpret_cast<NonTrajOpt*>(func_data);
+    double Cost;
+    grad.resize(OPTptr->OptNum);
+    std::fill(grad.begin(), grad.end(), 0.0);
+    Eigen::VectorXd _optx = Eigen::Map<const Eigen::VectorXd>(x.data(), x.size());
+    Eigen::VectorXd _grad = Eigen::Map<Eigen::VectorXd>(grad.data(), grad.size());
+    // 更新优化变量
+    OPTptr->updateOptVars(_optx);
+    // 更新优化变量对应的矩阵 并求解 Ax=b
+    OPTptr->updateOptAxb();
+    // 将求解后的系数放入 Traj 中
+    OPTptr->updateTraj();
+    // 计算 cost
+
+    if (OPTptr->SMO_SWITCH) {
+        double smoCost = 0;
+        Eigen::VectorXd gradc = Eigen::VectorXd::Zero(OPTptr->OptDof);
+        Eigen::VectorXd gradt = Eigen::VectorXd::Zero(OPTptr->N);
+        OPTptr->calcuSmoCost(smoCost,gradc,gradt);
+        Cost += smoCost * OPTptr->lambda_smo;
+        OPTptr->getReduceOrder(gradc);
+        gradc *= OPTptr->lambda_smo;
+        gradt *= OPTptr->lambda_smo;
+        _grad.head(OPTptr->OptDof) += gradc;
+        _grad.tail(OPTptr->N) += gradt;
+    }
+    if (OPTptr->OBS_SWITCH) {
+        double obsCost = 0;
+        Eigen::VectorXd gradc = Eigen::VectorXd::Zero(OPTptr->OptDof);
+        Eigen::VectorXd gradt = Eigen::VectorXd::Zero(OPTptr->N);
+        OPTptr->calcuObsCost(obsCost,gradc,gradt);
+        Cost += obsCost * OPTptr->lambda_obs;
+        OPTptr->getReduceOrder(gradc);
+        gradc *= OPTptr->lambda_obs;
+        gradt *= OPTptr->lambda_obs;
+        _grad.head(OPTptr->OptDof) += gradc;
+        _grad.tail(OPTptr->N) += gradt;
+    }
+    if (OPTptr->DYN_SWITCH) {
+        double dynCost = 0;
+        Eigen::VectorXd gradc = Eigen::VectorXd::Zero(OPTptr->OptDof);
+        Eigen::VectorXd gradt = Eigen::VectorXd::Zero(OPTptr->N);
+        OPTptr->calcuDynCost(dynCost,gradc,gradt);
+        Cost += dynCost * OPTptr->lambda_dyn;
+        OPTptr->getReduceOrder(gradc);
+        gradc *= OPTptr->lambda_dyn;
+        gradt *= OPTptr->lambda_dyn;
+        _grad.head(OPTptr->OptDof) += gradc;
+        _grad.tail(OPTptr->N) += gradt;
+    }
+    if (OPTptr->TIM_SWITCH) {
+        double timCost = 0;
+        Eigen::VectorXd gradc = Eigen::VectorXd::Zero(OPTptr->OptDof);
+        Eigen::VectorXd gradt = Eigen::VectorXd::Zero(OPTptr->N);
+        OPTptr->calcuTimCost(timCost,gradc,gradt);
+        Cost += timCost * OPTptr->lambda_tim;
+        OPTptr->getReduceOrder(gradc);
+        gradc *= OPTptr->lambda_tim;
+        gradt *= OPTptr->lambda_tim;
+        _grad.head(OPTptr->OptDof) += gradc;
+        _grad.tail(OPTptr->N) += gradt;
+    }
+    if (OPTptr->OVA_SWITCH) {
+        double Ovacost = 0;
+        Eigen::VectorXd gradc = Eigen::VectorXd::Zero(OPTptr->OptDof);
+        Eigen::VectorXd gradt = Eigen::VectorXd::Zero(OPTptr->N);
+        OPTptr->calcuOvaCost(Ovacost,gradc,gradt);
+        Cost += Ovacost * OPTptr->lambda_ova;
+        OPTptr->getReduceOrder(gradc);
+        gradc *= OPTptr->lambda_ova;
+        gradt *= OPTptr->lambda_ova;
+        _grad.head(OPTptr->OptDof) += gradc;
+        _grad.tail(OPTptr->N) += gradt;
+    }
+    // 将 Eigen::VectorXd _grad 赋值给 std::vector<double> grad
+    grad.assign(_grad.data(), _grad.data() + _grad.size());
+    return Cost;
+}
+
+double NonTrajOpt::LBFGSobjection(void* ptrObj,const double* optx,double* grad,const int n) {
+    // NonTrajOpt& obj = *(NonTrajOpt*)ptrObj;
+    NonTrajOpt* OPTptr = reinterpret_cast<NonTrajOpt*>(ptrObj);
+    double Cost;
+    std::fill(grad, grad + n, 0.0);
+    Eigen::VectorXd _optx = Eigen::Map<const Eigen::VectorXd>(optx, n);
+    Eigen::VectorXd _grad = Eigen::Map<Eigen::VectorXd>(grad, n);
+    // 更新优化变量
+    OPTptr->updateOptVars(_optx);
+    // 更新优化变量对应的矩阵 并求解 Ax=b
+    OPTptr->updateOptAxb();
+    // 将求解后的系数放入 Traj 中
+    OPTptr->updateTraj();
+    // 计算 cost
+
+    if (OPTptr->SMO_SWITCH) {
+        double smoCost = 0;
+        Eigen::VectorXd gradc = Eigen::VectorXd::Zero(OPTptr->OptDof);
+        Eigen::VectorXd gradt = Eigen::VectorXd::Zero(OPTptr->N);
+        OPTptr->calcuSmoCost(smoCost,gradc,gradt);
+        Cost += smoCost * OPTptr->lambda_smo;
+        OPTptr->getReduceOrder(gradc);
+        gradc *= OPTptr->lambda_smo;
+        gradt *= OPTptr->lambda_smo;
+        _grad.head(OPTptr->OptDof) += gradc;
+        _grad.tail(OPTptr->N) += gradt;
+    }
+    if (OPTptr->OBS_SWITCH) {
+        double obsCost = 0;
+        Eigen::VectorXd gradc = Eigen::VectorXd::Zero(OPTptr->OptDof);
+        Eigen::VectorXd gradt = Eigen::VectorXd::Zero(OPTptr->N);
+        OPTptr->calcuObsCost(obsCost,gradc,gradt);
+        Cost += obsCost * OPTptr->lambda_obs;
+        OPTptr->getReduceOrder(gradc);
+        gradc *= OPTptr->lambda_obs;
+        gradt *= OPTptr->lambda_obs;
+        _grad.head(OPTptr->OptDof) += gradc;
+        _grad.tail(OPTptr->N) += gradt;
+    }
+    if (OPTptr->DYN_SWITCH) {
+        double dynCost = 0;
+        Eigen::VectorXd gradc = Eigen::VectorXd::Zero(OPTptr->OptDof);
+        Eigen::VectorXd gradt = Eigen::VectorXd::Zero(OPTptr->N);
+        OPTptr->calcuDynCost(dynCost,gradc,gradt);
+        Cost += dynCost * OPTptr->lambda_dyn;
+        OPTptr->getReduceOrder(gradc);
+        gradc *= OPTptr->lambda_dyn;
+        gradt *= OPTptr->lambda_dyn;
+        _grad.head(OPTptr->OptDof) += gradc;
+        _grad.tail(OPTptr->N) += gradt;
+    }
+    if (OPTptr->TIM_SWITCH) {
+        double timCost = 0;
+        Eigen::VectorXd gradc = Eigen::VectorXd::Zero(OPTptr->OptDof);
+        Eigen::VectorXd gradt = Eigen::VectorXd::Zero(OPTptr->N);
+        OPTptr->calcuTimCost(timCost,gradc,gradt);
+        Cost += timCost * OPTptr->lambda_tim;
+        OPTptr->getReduceOrder(gradc);
+        gradc *= OPTptr->lambda_tim;
+        gradt *= OPTptr->lambda_tim;
+        _grad.head(OPTptr->OptDof) += gradc;
+        _grad.tail(OPTptr->N) += gradt;
+    }
+    if (OPTptr->OVA_SWITCH) {
+        double Ovacost = 0;
+        Eigen::VectorXd gradc = Eigen::VectorXd::Zero(OPTptr->OptDof);
+        Eigen::VectorXd gradt = Eigen::VectorXd::Zero(OPTptr->N);
+        OPTptr->calcuOvaCost(Ovacost,gradc,gradt);
+        Cost += Ovacost * OPTptr->lambda_ova;
+        OPTptr->getReduceOrder(gradc);
+        gradc *= OPTptr->lambda_ova;
+        gradt *= OPTptr->lambda_ova;
+        _grad.head(OPTptr->OptDof) += gradc;
+        _grad.tail(OPTptr->N) += gradt;
+    }
+    // 更新优化变量 将 Eigen::VectorXd _grad 赋值给 double* grad
+    std::memcpy(grad, _grad.data(), N * sizeof(double));
+    return Cost;
+}
+// ##############################################################################################################
+// Optimization Solvers #########################################################################################
+// ##############################################################################################################
+// OSQP Function
+bool NonTrajOpt::OSQPSolve() {
+    bool falg = false;
+
+    // updateAeqbeq();    // update MatA, Vecb by time initT  
+    // updateMatQ();      // update MatQ by time initT
+
+    Eigen::SparseMatrix<double> Hessian_sparse = MatQ.sparseView();
+
+    Eigen::SparseMatrix<double> MatAeq_sparse = MatAeq.sparseView();
+
+    Eigen::VectorXd gradient = Eigen::VectorXd::Zero(MatDim);
+    Eigen::VectorXd lowerBound = Vecbeq.sparseView();
+    Eigen::VectorXd upperBound = Vecbeq.sparseView();
+    Eigen::VectorXd QPoptx = Eigen::VectorXd::Zero(MatDim);
+
+    lowerBound -= Eigen::VectorXd::Constant(lowerBound.size(), -0.01);
+    upperBound += Eigen::VectorXd::Constant(upperBound.size(), 0.01);
+
+    // instantiate the solver
+    OsqpEigen::Solver solver;
+
+    // settings
+    solver.settings()->setWarmStart(true);
+
+    // set the initial data of the QP solver
+    solver.data()->setNumberOfVariables(MatDim);
+    solver.data()->setNumberOfConstraints(EquDim);
+    if(!solver.data()->setHessianMatrix(Hessian_sparse)) return falg;
+    if(!solver.data()->setGradient(gradient)) return falg;
+    if(!solver.data()->setLinearConstraintsMatrix(MatAeq_sparse)) return falg;
+    if(!solver.data()->setLowerBound(lowerBound)) return falg;
+    if(!solver.data()->setUpperBound(upperBound)) return falg;
+
+    // 数都是正常的呀, 为什么会出现这种情况呢
+    /***********************************************************************************
+    ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+    ERROR in osqp_setup: KKT matrix factorization.
+    The problem seems to be non-convex.
+    [OsqpEigen::Solver::initSolver] Unable to setup the workspace.
+    ***********************************************************************************/
+    // EigenCSV eigen_csv;
+    // eigen_csv.WriteMatrix(Hessian_sparse, "/home/zwt/Documents/Hessian_sparse.csv");
+    // std::cout << "Hessian_sparse" << std::endl;
+    // eigen_csv.WriteMatrix(MatAeq_sparse, "/home/zwt/Documents/MatAeq_sparse.csv");
+    // std::cout << "MatAeq_sparse" << std::endl;
+    // eigen_csv.WriteVector(lowerBound, "/home/zwt/Documents/Bound.csv");
+    // std::cout << "bound: " << std::endl;
+
+    // instantiate the solver
+    if(!solver.initSolver()) return falg;
+
+    if(solver.solveProblem() != OsqpEigen::ErrorExitFlag::NoError) return falg;
+    else {
+        falg = true;
+        QPoptx = solver.getSolution();
+        std::cout << "[\033[32mOptimization\033[0m]: OSQP succeed" << std::endl;
+        std::cout << "OSQP Solver result: " << QPoptx << std::endl;
+    }
+
+    OSQP_optx = QPoptx;
+
+    return falg;
+}
+
+// NLopt Function
+bool NonTrajOpt::NLoptSolve() {
+    bool falg = true;
+    nlopt::opt opt(nlopt::LD_LBFGS, OptNum);
+    // ❗❗❗ NLoptobjection 必须返回 static double 类型的值 且该类型只能生命时候有，定义函数的时候就不能写 static 了
+    opt.set_min_objective(NonTrajOpt::NLoptobjection, this);
+    opt.set_xtol_rel(1e-4);
+    opt.set_maxeval(nlopt_max_iteration_num_);
+    opt.set_maxtime(nlopt_max_iteration_time_);
+    double minf;
+    std::vector<double> optx(OptNum);
+    try {
+        nlopt::result result = opt.optimize(optx, minf);
+        std::cout << "[\033[32mOptimization\033[0m]: nlopt succeed" << std::endl;
+        std::cout << "NLopt result: " << result << std::endl;
+        std::cout << "NLopt minf: " << minf << std::endl;
+    }
+    catch(std::exception& e) {
+        std::cout << "[\033[31mOptimization\033[0m]: nlopt exception" << std::endl;
+        std::cout << "NLopt failed: " << e.what() << std::endl;
+        falg = false; 
+    }
+    Non_optx = Eigen::Map<const Eigen::VectorXd>(optx.data(), optx.size());
+    return falg;
+}
+
+// LBFGS Function
+bool NonTrajOpt::LBFGSSolve() {
+    bool flag = false;
+    
+    return flag;
+}
 // ##############################################################################################################
 // Cost Functions 
 // ##############################################################################################################
@@ -674,6 +1000,7 @@ inline double NonTrajOpt::getSegPolyCost(const Eigen::VectorXd &coef, int idx) {
            40320.0 * coef(5) * (coef(7)) * T5(idx) +
            100800.0 * coef(6) * (coef(7)) * T6(idx) +
            100800.0 * coef(7) * coef(7) * T7(idx);
+    return _cost;
 }
 inline void NonTrajOpt::getSegPolyGradc(Eigen::VectorXd &coef,int idx){
     Eigen::VectorXd _gradc = Eigen::VectorXd::Zero(O);
@@ -696,6 +1023,7 @@ inline double NonTrajOpt::getSegPolyGradt(const Eigen::VectorXd &coef,int idx){
              201600.0 * coef(5) * coef(7)*T4(idx) +
              604800.0 * coef(6) * coef(7)*T5(idx) +
              705600.0 * coef(7) * coef(7)*T6(idx);
+    return _gradt;
 }
 
 /***************************************************************************************************************

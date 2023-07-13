@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-16
- * @LastEditTime: 2023-07-09
+ * @LastEditTime: 2023-07-11
  * @Description: polynomial trajectory segment
  * @reference: 
  * 
@@ -167,6 +167,16 @@ public:
     }
     inline void setCoefficentMat(const CoefficientMat &cMat) {
         coeffMat = cMat;
+        updateStateVector();  // 更新轨迹段的状态
+    }
+    inline void setDisceteNum(const int &disNum) {
+        discreteNum = disNum;
+        dt = duration / discreteNum;
+        // updateCoeffTimeMat(); // 更新时间矩阵
+    }
+    inline void update() {
+        updateTimeMat();      // 更新时间矩阵
+        updateCoeffTimeMat(); // 更新系数矩阵
         updateStateVector();  // 更新轨迹段的状态
     }
     // 内部实现 ################################################################################################
@@ -502,6 +512,15 @@ class Trajectory {
             return true;
         }
     }
+    inline bool setPieceDiscteteNum(const int &idx, const int &disNum) {
+        if (idx < 0 || idx >= getPieceNum()) {
+            return false;
+        }
+        else {
+            pieces[idx].setDisceteNum(disNum);
+            return true;
+        }
+    }
     inline bool setDuration(const std::vector<double> &durs){
         bool flag = true;
         if(static_cast<int>(durs.size()) == getPieceNum()){
@@ -525,6 +544,36 @@ class Trajectory {
             flag = false;
         }
         return flag;
+    }
+    inline bool setDiscteteNum(const std::vector<int> &disNums){
+        bool flag = true;
+        if(static_cast<int>(disNums.size()) == getPieceNum()){
+            for(int idx = 0; idx < getPieceNum(); idx++){
+                flag = flag && setPieceDiscteteNum(idx, disNums[idx]);
+            }
+        }
+        else{
+            flag = false;
+        }
+        return flag;
+    }
+
+    inline bool resetTraj(const std::vector<double> &durs,const std::vector<int> &disNums,
+                        const std::vector<CoefficientMat> &cMats) {
+        int N = std::min(durs.size(), cMats.size());
+        if (!pieces.empty()) pieces.clear();
+            pieces.reserve(N);
+        for (int i = 0; i < N; i++) {
+            pieces.emplace_back(durs[i], disNums[i], cMats[i]);
+        }
+        return true;
+    }
+
+    inline void updateTraj() {
+        int N = getPieceNum();
+        for (int i = 0; i < N; i++) {
+            pieces[i].update();
+        }
     }
 
     ////################################################################################################
