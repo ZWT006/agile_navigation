@@ -1,0 +1,6 @@
+<launch>
+
+    <node pkg="nontrajopt" type="nontraj_test" name="nontraj_test" output="screen" required = "true">
+    </node>
+
+</launch>

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-11
+ * @LastEditTime: 2023-07-14
  * @Description: Euclidean Distance Field Map
  * @reference: 
  * 
@@ -18,6 +18,24 @@
 
 #define DOUBLE_ZERO 1e-6
 
+#define RESET   "\033[0m"       /* Reset */
+#define BLACK   "\033[30m"      /* Black */
+#define RED     "\033[31m"      /* Red */
+#define GREEN   "\033[32m"      /* Green */
+#define YELLOW  "\033[33m"      /* Yellow */
+#define BLUE    "\033[34m"      /* Blue */
+#define MAGENTA "\033[35m"      /* Magenta */
+#define CYAN    "\033[36m"      /* Cyan */
+#define WHITE   "\033[37m"      /* White */
+#define BOLDBLACK   "\033[1m\033[30m"      /* Bold Black */
+#define BOLDRED     "\033[1m\033[31m"      /* Bold Red */
+#define BOLDGREEN   "\033[1m\033[32m"      /* Bold Green */
+#define BOLDYELLOW  "\033[1m\033[33m"      /* Bold Yellow */
+#define BOLDBLUE    "\033[1m\033[34m"      /* Bold Blue */
+#define BOLDMAGENTA "\033[1m\033[35m"      /* Bold Magenta */
+#define BOLDCYAN    "\033[1m\033[36m"      /* Bold Cyan */
+#define BOLDWHITE   "\033[1m\033[37m"      /* Bold White */
+
 /*****************************************************************************************
  * @description: 
  * @reference: 
@@ -25,32 +43,37 @@
 class EDFMap
 {
     private:
+    // cv::Mat* _edfmap;
+    // cv::Mat _edfmap_A;
+    // cv::Mat _edfmap_B;
+    cv::Mat element;        // 用于腐蚀的核
+    double _map_origin_x;   // 地图原点
+    double _map_origin_y;   // 地图原点
+    double _map_size_x;     // 地图尺寸
+    double _map_size_y;     // 地图尺寸
+    double _map_resolution; // 地图分辨率
+    double _mini_dist;      // 用于处理距离场为0的情况
+
+    public:
     cv::Mat* _edfmap;
     cv::Mat _edfmap_A;
     cv::Mat _edfmap_B;
-    cv::Mat element;
-    double _map_origin_x;
-    double _map_origin_y;
-    double _map_size_x;
-    double _map_size_y;
-    double _map_resolution;
-    double _mini_dist;
-
-    public:
     EDFMap() = default;
     ~EDFMap(){};
 
     // 读取地图二值地图 生成EDF地图 用于优化求解的测试
-    void readMap(std::string _image_address, int erode_kernel_size_) {
-        _image_address = std::string("/home/zwt/catkin_ws/src/grid_path_searcher/map/map1.png");
+    bool readMap(std::string _image_address, int erode_kernel_size_) {
+        // _image_address = std::string("/home/zwt/catkin_ws/src/grid_path_searcher/map/map1.png");
         cv::Mat orign_img = cv::imread(_image_address,cv::IMREAD_GRAYSCALE);
         if (orign_img.empty()) {
             std::cout << "Error opening image" << std::endl;
-            return;        
+            return false;        
         }
         //读取图像二值化
-        element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(erode_kernel_size_, erode_kernel_size_));
-        cv::erode(orign_img, orign_img, element);
+        if (erode_kernel_size_ > 0) {
+            element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(erode_kernel_size_, erode_kernel_size_));
+            cv::erode(orign_img, orign_img, element);
+        }
         cv::Mat map_img;
         cv::threshold(orign_img, map_img, 128, 255,cv::THRESH_BINARY);
         cv::distanceTransform(map_img,_edfmap_A,cv::DIST_L2,cv::DIST_MASK_3);
@@ -58,11 +81,12 @@ class EDFMap
         _map_origin_x = 0.0;
         _map_origin_y = 0.0;
         _edfmap = &_edfmap_A;
+        return true;
     }
 
 
-    // 设定地图映射参数 原点 | 尺寸 | 分辨率
-    void setMapParam(double map_size_x, double map_size_y, double map_resolution, double mini_dist){
+    // 设定地图映射参数 原点 | 尺寸 | 分辨率 | 最小距离(用于处理距离场为0的情况)
+    void setMapParam(double map_size_x, double map_size_y, double map_resolution, double mini_dist) {
         _map_origin_x = map_size_x / 2;
         _map_origin_y = map_size_y / 2;
         _map_size_x = map_size_x;
@@ -71,13 +95,13 @@ class EDFMap
         _mini_dist = mini_dist;
         // in opencv Mat :row == heigh == Point.y;col == width == Point.x;Mat::at(Point(x, y)) == Mat::at(y,x)
         int map_col = std::ceil(_map_size_x / _map_resolution);
-        int map_raw = std::ceil(_map_size_y / _map_resolution);
-        _edfmap_A = cv::Mat(map_col, map_raw, CV_32FC1, cv::Scalar(255));
-        _edfmap_B = cv::Mat(map_col, map_raw, CV_32FC1, cv::Scalar(255));
+        int map_row = std::ceil(_map_size_y / _map_resolution);
+        _edfmap_A = cv::Mat(map_col, map_row, CV_32FC1, cv::Scalar(255));
+        _edfmap_B = cv::Mat(map_col, map_row, CV_32FC1, cv::Scalar(255));
         _edfmap = &_edfmap_A;
     }
     // 更新EDF地图
-    void setMap(cv::Mat &map) {
+    void setMap(const cv::Mat &map) {
         if (_edfmap == &_edfmap_A) {
             _edfmap_B = map.clone();
             _edfmap = &_edfmap_B;

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(nontrajopt)
 
+SET(CMAKE_BUILD_TYPE "Debug")
+
+set(CMAKE_CXX_FLAGS "-std=c++14 ${CMAKE_CXX_FLAGS} -O3 -Wall")
+
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
 
@@ -11,7 +15,6 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
-  nlopt
 )
 
 ## System dependencies are found with CMake's conventions
@@ -23,7 +26,16 @@ find_package(OpenCV REQUIRED)
 ## COMPONENTS Development is required for Python3_INCLUDE_DIRS and Python3_LIBRARIES
 ## 在寻找python3的时候,一般都还得找到python3的开发包,否则会找不到Python3_INCLUDE_DIRS和Python3_LIBRARIES
 find_package(Python3 REQUIRED COMPONENTS Development)
-
+set(CMAKE_PREFIX_PATH "/usr/local/lib/cmake/nlopt/" ${CMAKE_PREFIX_PATH})
+find_package(NLopt REQUIRED) # 没啥卵用 还是得靠后边的include_directories
+# if(NLopt_FOUND)
+#     message(WARNING "NLopt found:")
+#     message(WARNING "  Version: ${NLopt_VERSION}")
+#     message(WARNING "  Include directories: ${nlopt_INCLUDE_DIRS}")
+#     message(WARNING "  Libraries: ${nlopt_LIBRARIES}")
+# else()
+#     message(WARNING "NLopt not found") 
+# endif()
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -125,12 +137,14 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
   /usr/local/include/osqp
+  SYSTEM
   include
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
   ${PCL_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${Python3_INCLUDE_DIRS}
+  ${nlopt_INCLUDE_DIRS}
 )
 
 add_library(nontrajopt
@@ -153,6 +167,11 @@ target_link_libraries(MPCExample OsqpEigen::OsqpEigen)
 add_executable(PlotTest test/PlotTest.cpp)
 target_link_libraries(PlotTest ${Python3_LIBRARIES})
 
+add_executable(nlopt_test test/nlopt_test.cpp)
+target_link_libraries(nlopt_test 
+        ${PROJECT_NAME}
+        ${catkin_LIBRARIES}
+        nlopt)
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -243,7 +262,9 @@ target_link_libraries(nontraj_test
                       ${catkin_LIBRARIES}
                       ${OpenCV_LIBRARIES}
                       gtest
-                      OsqpEigen::OsqpEigen)
+                      OsqpEigen::OsqpEigen
+                      ${Python3_LIBRARIES}
+                      nlopt)
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)

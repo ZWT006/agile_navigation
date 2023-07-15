@@ -35,8 +35,9 @@ The problem seems to be non-convex
 - [ ] 减少条件,先用NLopt求解器解相同的QP问题
     - [x] updateOptAxb Debug
     - [x] update Ax=b solve Debug
+    - [x] `set_min_objective` Debug
     - [ ] `NLoptSolve()` Debug
-- [ ] edf map Debug
+- [x] edf map Debug
 
 ### BUGs
 #### Big!!!

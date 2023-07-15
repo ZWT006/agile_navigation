@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-16
- * @LastEditTime: 2023-07-11
+ * @LastEditTime: 2023-07-15
  * @Description: polynomial trajectory segment
  * @reference: 
  * 
@@ -31,7 +31,7 @@ struct Segment
 
 // Polynomial order and trajectory dimension are fixed here
 // 7th order polynomial:     % q0 q1 q2 q3 q4 q5 q6 q7
-// !!! 索引序号越大,次数越低 !!!
+// !!! 索引序号越大,次数越高 ❗❗❗
 typedef Eigen::Matrix<double, 3, 8> CoefficientMat;
 typedef Eigen::Matrix<double, 3, 7> VelCoefficientMat;
 typedef Eigen::Matrix<double, 3, 6> AccCoefficientMat;

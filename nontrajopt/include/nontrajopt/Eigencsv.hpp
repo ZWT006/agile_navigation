@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-12
- * @LastEditTime: 2023-07-12
+ * @LastEditTime: 2023-07-14
  * @Description: Eigen 的 Matrix/Vector 与 csv 文件的转换
  * @reference: 
  * 
@@ -21,9 +21,17 @@
 
 class EigenCSV {
 
+private:
+std::string titles;
+
 public:
     EigenCSV() = default;
     ~EigenCSV() = default;
+    bool FirstLineIsTitles = true;
+    void setTitles(const std::string& _titles) {
+        titles = _titles;
+    }
+
     bool WriteVector(const Eigen::VectorXd& vec, const std::string& _filename) {
         std::ofstream file(_filename);
         if (file) {
@@ -34,6 +42,9 @@ public:
         //     std::cout << "Open file failed!" << std::endl;
         //     return false;
         // }
+        if (FirstLineIsTitles) {
+            file << titles << std::endl;
+        }
         for (int i = 0; i < vec.size(); i++) {
             file << vec(i) << std::endl;
         }
@@ -50,6 +61,9 @@ public:
         //     std::cout << "Open file failed!" << std::endl;
         //     return false;
         // }
+        if (FirstLineIsTitles) {
+            file << titles << std::endl;
+        }
         for (int i = 0; i < mat.rows(); i++) {
             for (int j = 0; j < mat.cols(); j++) {
                 file << mat(i, j) << ",";
@@ -66,6 +80,9 @@ public:
             return false;
         }
         std::string line;
+        if (FirstLineIsTitles) { // 读取标题行 但是 跳过
+            std::getline(file, line);
+        }
         std::vector<double> vec_temp;
         while (std::getline(file, line)) {
             std::stringstream ss(line);
@@ -88,18 +105,27 @@ public:
             return false;
         }
         std::string line;
+        if (FirstLineIsTitles) { // 读取标题行 但是 跳过
+            std::getline(file, line);
+        }
         std::vector<double> mat_temp;
+        bool first_line = true;
+        int cols = 0;
         while (std::getline(file, line)) {
             std::stringstream ss(line);
             std::string str;
             while (std::getline(ss, str, ',')) {
                 mat_temp.push_back(std::stod(str));
+                if (first_line) {
+                    cols++;
+                }
             }
+            first_line = false;
         }
-        mat.resize(mat_temp.size() / 3, 3);
-        for (int i = 0; i < mat_temp.size() / 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                mat(i, j) = mat_temp[i * 3 + j];
+        mat.resize(mat_temp.size() / cols, cols);
+        for (int i = 0; i < mat_temp.size() / cols; i++) {
+            for (int j = 0; j < cols; j++) {
+                mat(i, j) = mat_temp[i * cols + j];
             }
         }
         file.close();
