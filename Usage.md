@@ -43,6 +43,7 @@
     cd ./Livox-SDK2/
     mkdir build
     cd build
+    # Low Memory Warning! 用 cmake .. && make
     cmake .. && make -j
     sudo make install
     ```
@@ -70,6 +71,7 @@
     git clone https://github.com/Livox-SDK/livox_ros_driver2.git
     cd livox_ros_driver2/
     source /opt/ros/noetic/setup.sh
+    # 赋予该文件权限，在终端输入： sudo chmod u+x build.sh
     ./build.sh ROS1
     ```
 4. 安装编译[FAST_LIO](https://github.com/hku-mars/FAST_LIO)，应用修改版
