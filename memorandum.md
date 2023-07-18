@@ -72,6 +72,10 @@ The problem seems to be non-convex
 
 # TEST List
 
+##
+- [ ] CLF-TRO build and roslaunch
+
+
 ## Search
 
 ## Opt
