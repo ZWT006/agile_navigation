@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-16
- * @LastEditTime: 2023-07-15
+ * @LastEditTime: 2023-07-18
  * @Description: polynomial trajectory segment
  * @reference: 
  * 
@@ -52,7 +52,7 @@ private:
     timeCoefficientMat xcoefftimeMat;
     timeCoefficientMat ycoefftimeMat;
     timeCoefficientMat qcoefftimeMat;
-    timeCoefficientMat timeMat;
+    // timeCoefficientMat timeMat;
 
     // std::vector<Eigen::Vector3d> posVector;
     // std::vector<Eigen::Vector3d> velVector;
@@ -150,6 +150,7 @@ public:
     Eigen::Matrix3Xd velVector;
     Eigen::Matrix3Xd accVector;
     Eigen::Matrix3Xd jerVector;
+    timeCoefficientMat timeMat;
 
     // 这里的用法是 *类的初始化列表* 一定要搞清楚先构造的是哪一个，是按照成员声明顺序进行构造的！
     Piece(double dur, int disNum,const CoefficientMat &cMat)
@@ -158,6 +159,7 @@ public:
                 posVector.resize(3, discreteNum + 1);
                 velVector.resize(3, discreteNum + 1);
                 accVector.resize(3, discreteNum + 1);
+                jerVector.resize(3, discreteNum + 1);
         }
     // 设置参数 ################################################################################################
     inline void setDuration(const double &dur) {
@@ -301,6 +303,7 @@ public:
         updatePosVector();
         updateVelVector();
         updateAccVector();
+        updateJerVector();
     }
 
     inline Eigen::Vector3d getMaxVel() const {

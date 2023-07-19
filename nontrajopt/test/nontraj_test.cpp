@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-07
- * @LastEditTime: 2023-07-17
+ * @LastEditTime: 2023-07-19
  * @Description: trajectory optimization class test
  * @reference: 
  * 
@@ -31,8 +31,9 @@ int main(int argc, char **argv) {
     // ros::NodeHandle nh;
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NontrajOptClass";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
-    testing::GTEST_FLAG(filter) = "NonTrajOptTest.LBFGSSolver";
-    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.OSQPSolve";
+    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.LBFGSSolver";
+    testing::GTEST_FLAG(filter) = "NonTrajOptTest.OSQPSolve";
+    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.CostGradDebug";
     return RUN_ALL_TESTS();
 }
 
@@ -233,16 +234,18 @@ TEST(NonTrajOptTest, NLoptSolver) {
     paras.lambda_ova = 0.1;
 
     paras.wq = 0.8;
-    paras.dist_th = 0.1;
-    paras.discredist = 0.1;
+    paras.dist_th = 0.5;
+    paras.discredist = 0.05;
 
-    paras.pv_max = 2.0;
-    paras.pa_max = 2.0;
-    paras.wv_max = 2.0;
-    paras.wa_max = 2.0;
+    //// MATLAB 1.5*ref_vel
+    paras.pv_max = 2.1;
+    paras.pa_max = 2.1;
+    paras.wv_max = 2.1;
+    paras.wa_max = 2.1;
+    paras.dyn_rate = 0.8;
 
-    paras.ORIEN_VEL = 1.0;
-    paras.VERDIT_VEL = 2.0;
+    paras.ORIEN_VEL = 2.0;
+    paras.VERDIT_VEL = 1.0;
     paras.OVAL_TH = 0.8;
 
     paras.SMO_SWITCH = true;
@@ -255,7 +258,7 @@ TEST(NonTrajOptTest, NLoptSolver) {
     paras.REDUCE_ORDER = true;
     paras.BOUND_OPTIMIZATION = true;
 
-    paras.INIT_OPT_VALUE  = true;
+    paras.INIT_OPT_VALUE  = false;
 
     paras.nlopt_max_iteration_num_ = 1000;
     paras.nlopt_max_iteration_time_ = 10.0;
@@ -274,7 +277,7 @@ TEST(NonTrajOptTest, NLoptSolver) {
 
     Eigen::VectorXd _initT;
     _initT.resize(3);
-    _initT << 0.7757, 0.2853, 0.6976;
+    _initT << 1.2063, 0.3520, 0.6880;
 
     Eigen::Matrix<double, 3, 4> _startStates;
     _startStates.resize(3, 4);
@@ -347,6 +350,7 @@ TEST(NonTrajOptTest, NLoptSolver) {
     std::cout << "MaxIterTime: " << std::fixed << std::setprecision(2) << nontrajopt.nlopt_max_iteration_time_ << std::endl;
 
     bool succeed = nontrajopt.NLoptSolve();
+    // bool succeed = nontrajopt.LBFGSSolve();
 
     if (succeed)
         std::cout << GREEN << "NLoptSolve succeed! Happy!!!" << RESET << std::endl;
@@ -579,7 +583,6 @@ TEST(NonTrajOptTest, LBFGSSolver) {
 
 }
 
-
 TEST(NonTrajOptTest, CostGradDebug) {
     NonTrajOpt nontrajopt;
     EigenCSV eigen_csv;
@@ -591,16 +594,18 @@ TEST(NonTrajOptTest, CostGradDebug) {
     paras.lambda_ova = 0.1;
 
     paras.wq = 0.8;
-    paras.dist_th = 0.1;
-    paras.discredist = 0.1;
+    paras.dist_th = 0.5;
+    paras.discredist = 0.05;
 
-    paras.pv_max = 2.0;
-    paras.pa_max = 2.0;
-    paras.wv_max = 2.0;
-    paras.wa_max = 2.0;
+    //// MATLAB 1.5*ref_vel
+    paras.pv_max = 2.1;
+    paras.pa_max = 2.1;
+    paras.wv_max = 2.1;
+    paras.wa_max = 2.1;
+    paras.dyn_rate = 0.8;
 
-    paras.ORIEN_VEL = 1.0;
-    paras.VERDIT_VEL = 2.0;
+    paras.ORIEN_VEL = 2.0;
+    paras.VERDIT_VEL = 1.0;
     paras.OVAL_TH = 0.8;
 
     paras.SMO_SWITCH = true;
@@ -632,7 +637,7 @@ TEST(NonTrajOptTest, CostGradDebug) {
 
     Eigen::VectorXd _initT;
     _initT.resize(3);
-    _initT << 0.7757, 0.2853, 0.6976;
+    _initT << 1.2063, 0.3520, 0.6880;
 
     Eigen::Matrix<double, 3, 4> _startStates;
     _startStates.resize(3, 4);
@@ -656,19 +661,38 @@ TEST(NonTrajOptTest, CostGradDebug) {
     _optx.tail(3) = _initT.array().log();
     Eigen::VectorXd _coeff;
     _coeff.resize(nontrajopt.MatDim);
-    _coeff  << 2.0, 0.0,    0.0,    0.0,    2.5996, -4.7631, 3.0521, -0.6598,
-            4.5,    0.0,    0.0,    0.0,    0.1842, 0.5642, -0.625, 0.1577,
-            1.5708, 0.0,    0.0,    0.0,    -0.4839,-0.9201,1.2507, -0.356,
-            2.2902, 0.3699, 0.6392, 1.4873, 0.2336, -4.8276,2.3715, 0.0449,
-            4.9912, 1.088,  0.1168, -1.1587,-0.3682,0.8588, 0.7065, -0.7962,
-            0.7264, -1.65,  0.252,  1.7995, 0.4458, -10.3844,17.0949, -7.4132,
-            2.5465, 1.1204, 0.8292, -2.0726,-3.4322,2.55,   7.6172, -6.397,
-            5.3379, 0.7535, -0.9336,-0.4246,1.241,  0.2793, -1.2553, 0.4926,
-            0.2336, -1.0674,1.05,   0.4888, 4.0399, -16.4143, 18.8061, -7.1919;
+    _coeff << 2, 0, 0, 0, 2.5996, -4.7631, 3.0521, -0.6598,
+            4.5, 0, 0, 0, 0.1842, 0.5642, -0.625, 0.1577,
+            1.5708, 0, 0, 0, -0.4839, -0.9201, 1.2507, -0.356,
+            2.2902, 0.3699, 0.6392, 1.4873, 0.2336, -4.8276, 2.3715, 0.0449,
+            4.9912, 1.088, 0.1168, -1.1587, -0.3682, 0.8588, 0.7065, -0.7962,
+            0.7264, -1.65, 0.252, 1.7995, 0.4458, -10.3844, 17.0949, -7.4132,
+            2.5465, 1.1204, 0.8292, -2.0726, -3.4322, 2.55, 7.6172, -6.397,
+            5.3379, 0.7535, -0.9336, -0.4246, 1.241, 0.2793, -1.2553, 0.4926,
+            0.2336, -1.0674, 1.05, 0.4888, 4.0399, -16.4143, 18.8061, -7.1919;
+
+
+    // _coeff  << 2.0, 0.0,    0.0,    0.0,    2.5996, -4.7631, 3.0521, -0.6598,
+    //         4.5,    0.0,    0.0,    0.0,    0.1842, 0.5642, -0.625, 0.1577,
+    //         1.5708, 0.0,    0.0,    0.0,    -0.4839,-0.9201,1.2507, -0.356,
+    //         2.2902, 0.3699, 0.6392, 1.4873, 0.2336, -4.8276,2.3715, 0.0449,
+    //         4.9912, 1.088,  0.1168, -1.1587,-0.3682,0.8588, 0.7065, -0.7962,
+    //         0.7264, -1.65,  0.252,  1.7995, 0.4458, -10.3844,17.0949, -7.4132,
+    //         2.5465, 1.1204, 0.8292, -2.0726,-3.4322,2.55,   7.6172, -6.397,
+    //         5.3379, 0.7535, -0.9336,-0.4246,1.241,  0.2793, -1.2553, 0.4926,
+    //         0.2336, -1.0674,1.05,   0.4888, 4.0399, -16.4143, 18.8061, -7.1919;
 
     EXPECT_EQ(_coeff.size(), nontrajopt.MatDim);
 
     nontrajopt.getReduceOrder(_coeff);
+    // std::cout << "reduce coeffs : " << _coeff.transpose() << std::endl; 
+    // std::cout << "optIndex : " ;
+    // for (int idx = 0;idx < nontrajopt.MatDim;idx++) {
+    //     if (nontrajopt.optFlag[idx]) {
+    //         std::cout << idx << " ";
+    //     }
+    // }
+    // std::cout << std::endl;
     
     _optx.head(nontrajopt.OptDof) = _coeff;
 
@@ -678,6 +702,95 @@ TEST(NonTrajOptTest, CostGradDebug) {
 
     nontrajopt.updateTraj();
 
+    std::cout << "Vect :" << std::endl;
+    std::cout << "T1 :" << nontrajopt.T1.transpose() << std::endl;
+    std::cout << "T2 :" << nontrajopt.T2.transpose() << std::endl;
+    std::cout << "T3 :" << nontrajopt.T3.transpose() << std::endl;
+    std::cout << "T4 :" << nontrajopt.T4.transpose() << std::endl;
+    std::cout << "T5 :" << nontrajopt.T5.transpose() << std::endl;
+    std::cout << "T6 :" << nontrajopt.T6.transpose() << std::endl;
+    std::cout << "T7 :" << nontrajopt.T7.transpose() << std::endl;
+
+    std::cout << "Time " << nontrajopt.Traj.getDurations().transpose() << std::endl;
+    std::cout << "Dist " << nontrajopt.discDist.transpose() << std::endl;
+    std::cout << "Bars " << nontrajopt.Traj.getDiscreteNums().transpose() << std::endl;
+    std::cout << "dt   " ;
+    for (int idx = 0; idx < nontrajopt.N; idx++) {
+        std::cout << nontrajopt.Traj[idx].getDiscretet() << " ";
+    }
+    std::cout <<  std::endl;
+
+    Eigen::MatrixXd _statestraj;
+    int state_num = nontrajopt.Traj.getTotalDiscreteNum();
+    _statestraj.resize(state_num + 3, 12);
+    int state_rows = 0;
+    EXPECT_EQ(nontrajopt.Traj.getPieceNum(), 3);
+    for (int idx = 0; idx < nontrajopt.Traj.getPieceNum(); idx++) {
+        Eigen::MatrixXd _states;
+        _states.resize(nontrajopt.Traj[idx].getDiscreteNum() + 1, 12);
+        _states.col(0) = nontrajopt.Traj[idx].posVector.row(0).transpose();
+        _states.col(1) = nontrajopt.Traj[idx].posVector.row(1).transpose();
+        _states.col(2) = nontrajopt.Traj[idx].posVector.row(2).transpose();
+        _states.col(3) = nontrajopt.Traj[idx].velVector.row(0).transpose();
+        _states.col(4) = nontrajopt.Traj[idx].velVector.row(1).transpose();
+        _states.col(5) = nontrajopt.Traj[idx].velVector.row(2).transpose();
+        _states.col(6) = nontrajopt.Traj[idx].accVector.row(0).transpose();
+        _states.col(7) = nontrajopt.Traj[idx].accVector.row(1).transpose();
+        _states.col(8) = nontrajopt.Traj[idx].accVector.row(2).transpose();
+        _states.col(9) = nontrajopt.Traj[idx].jerVector.row(0).transpose();
+        _states.col(10) = nontrajopt.Traj[idx].jerVector.row(1).transpose();
+        _states.col(11) = nontrajopt.Traj[idx].jerVector.row(2).transpose();
+        _statestraj.block(state_rows, 0, _states.rows(), 12) = _states;
+        state_rows += _states.rows();
+    }
+    eigen_csv.FirstLineIsTitles = true;
+    std::string statetitle = "px, py, pq, vx, vy, vq, ax, ay, aq, jx, jy, jq";
+    eigen_csv.setTitles(statetitle);
+    eigen_csv.WriteMatrix(_statestraj, "/media/zwt/UbuntuFiles/datas/Swift/StatesTraj.csv");
+
+    Eigen::MatrixXd TimeMat;
+    TimeMat.resize(4*nontrajopt.N,nontrajopt.O);
+    for (int idx = 0; idx < nontrajopt.N; idx++) {
+        TimeMat.block(idx*4,0,4,nontrajopt.O) = nontrajopt.Traj[idx].timeMat;
+    }
+    eigen_csv.FirstLineIsTitles = false;
+    eigen_csv.WriteMatrix(TimeMat, "/media/zwt/UbuntuFiles/datas/Swift/TimeMat.csv");
+
+    Eigen::MatrixXd MatVec;
+    MatVec.resize(nontrajopt.MatDim, nontrajopt.MatDim + 2);
+    MatVec.setZero();
+    MatVec.block(0, 0, nontrajopt.MatDim, nontrajopt.MatDim) = nontrajopt.MatA;
+    MatVec.block(0, nontrajopt.MatDim, nontrajopt.MatDim, 1) = nontrajopt.Vecx;
+    MatVec.block(0, nontrajopt.MatDim + 1, nontrajopt.MatDim, 1) = nontrajopt.Vecb;
+    eigen_csv.FirstLineIsTitles = false;
+    eigen_csv.WriteMatrix(MatVec, "/media/zwt/UbuntuFiles/datas/Swift/MatVec.csv");
+
+
+    nontrajopt.updateAeqbeq();
+    Eigen::MatrixXd EquMatVec;
+    EquMatVec.resize(nontrajopt.EquDim, nontrajopt.MatDim + 1);
+    EquMatVec.setZero();
+    EquMatVec.block(0, 0, nontrajopt.EquDim, nontrajopt.MatDim) = nontrajopt.MatAeq;
+    EquMatVec.block(0, nontrajopt.MatDim, nontrajopt.EquDim, 1) = nontrajopt.Vecbeq;
+    eigen_csv.FirstLineIsTitles = false;
+    eigen_csv.WriteMatrix(EquMatVec, "/media/zwt/UbuntuFiles/datas/Swift/EquMatVec.csv");
+
+    // 设置 EDF 的参数 map_width, map_height, map_resolution, mini_dist
+    nontrajopt.setEDFMap(12,8,0.01,0.01);
+
+    // 读取地图
+    nontrajopt.readEDFMap("/home/zwt/motion_ws/src/navigation/grid_path_searcher/map/map10.png",0);
+
+    std::cout << "Optimization Parameters: " << std::endl;
+    std::cout << "pv_max: " << nontrajopt.pv_max << std::endl;
+    std::cout << "pa_max: " << nontrajopt.pa_max << std::endl;
+    std::cout << "wv_max: " << nontrajopt.wv_max << std::endl;
+    std::cout << "wa_max: " << nontrajopt.wa_max << std::endl;
+    std::cout << "wq: " << nontrajopt.wq << std::endl;
+    std::cout << "dist_th: " << nontrajopt.dist_th << std::endl;
+    std::cout << "discredist: " << nontrajopt.discredist << std::endl;
+    std::cout << "oval_th: " << nontrajopt.OVAL_TH << std::endl;
+
     // nontrajopt.NLoptobjection(_optx, nullptr, nullptr);
     Eigen::VectorXd _grad;
     _grad.resize(nontrajopt.OptNum);
@@ -686,16 +799,32 @@ TEST(NonTrajOptTest, CostGradDebug) {
     Eigen::VectorXd smoGradc = Eigen::VectorXd::Zero(nontrajopt.MatDim);
     Eigen::VectorXd smoGradt = Eigen::VectorXd::Zero(nontrajopt.N);
     nontrajopt.calcuSmoCost(smoCost, smoGradc, smoGradt);
+    eigen_csv.FirstLineIsTitles = true;
+    std::string gdsmotctitle = "seg1, seg2, seg3";
+    eigen_csv.setTitles(gdsmotctitle);
+    eigen_csv.WriteMatrix(nontrajopt.gdsmotc, "/media/zwt/UbuntuFiles/datas/Swift/gdsmotc.csv");
+    std::cout << "gdsmocostgrad : " << std::endl;
+    std::cout << nontrajopt.gdsmocostgrad << std::endl;
+    std::cout << "gdsmotc : " << std::endl;
+    std::cout << nontrajopt.gdsmotc << std::endl;
 
     double obsCost = 0;
     Eigen::VectorXd obsGradc = Eigen::VectorXd::Zero(nontrajopt.MatDim);
     Eigen::VectorXd obsGradt = Eigen::VectorXd::Zero(nontrajopt.N);
     nontrajopt.calcuObsCost(obsCost, obsGradc, obsGradt);
+    eigen_csv.FirstLineIsTitles = true;
+    std::string gdobstctitle = "xpos, ypos, dist, xgrad, ygrad, Tdt, cost";
+    eigen_csv.setTitles(gdobstctitle);
+    eigen_csv.WriteMatrix(nontrajopt.gdobstc.transpose(), "/media/zwt/UbuntuFiles/datas/Swift/gdobstc.csv");
 
     double dynCost = 0;
     Eigen::VectorXd dynGradc = Eigen::VectorXd::Zero(nontrajopt.MatDim);
     Eigen::VectorXd dynGradt = Eigen::VectorXd::Zero(nontrajopt.N);
     nontrajopt.calcuDynCost(dynCost, dynGradc, dynGradt);
+    eigen_csv.FirstLineIsTitles = true;
+    std::string gddyntctitle = "Tdt,deltaVel(0),1,2, deltaAcc(0),1,2, velCost, accCost, velgradt, accgradt";
+    eigen_csv.setTitles(gddyntctitle);
+    eigen_csv.WriteMatrix(nontrajopt.gddyntc.transpose(), "/media/zwt/UbuntuFiles/datas/Swift/gddyntc.csv");
 
     double timCost = 0;
     Eigen::VectorXd timGradc = Eigen::VectorXd::Zero(nontrajopt.MatDim);
@@ -706,6 +835,10 @@ TEST(NonTrajOptTest, CostGradDebug) {
     Eigen::VectorXd ovaGradc = Eigen::VectorXd::Zero(nontrajopt.MatDim);
     Eigen::VectorXd ovaGradt = Eigen::VectorXd::Zero(nontrajopt.N);
     nontrajopt.calcuOvaCost(ovaCost, ovaGradc, ovaGradt);
+    eigen_csv.FirstLineIsTitles = true;
+    std::string gdovatctitle = "Tdt,deltaVel(0),1,2, deltaAcc(0),1,2, velCost, accCost, velgradt, accgradt";
+    eigen_csv.setTitles(gdovatctitle);
+    eigen_csv.WriteMatrix(nontrajopt.gdovatc.transpose(), "/media/zwt/UbuntuFiles/datas/Swift/gdovatc.csv");
 
     double Cost = 0.0;
     Cost =  smoCost * nontrajopt.lambda_smo + 
@@ -715,8 +848,8 @@ TEST(NonTrajOptTest, CostGradDebug) {
             ovaCost * nontrajopt.lambda_ova;
 
     eigen_csv.FirstLineIsTitles = true;
-    std::string title = "smoCost, obsCost, dynCost, timCost, ovaCost";
-    eigen_csv.setTitles(title);
+    std::string costtitle = "smoCost, obsCost, dynCost, timCost, ovaCost";
+    eigen_csv.setTitles(costtitle);
     Eigen::MatrixXd Gradc = Eigen::MatrixXd::Zero(nontrajopt.MatDim, 5);
     Eigen::MatrixXd Gradt = Eigen::MatrixXd::Zero(nontrajopt.N, 5);
     Gradc.col(0) = smoGradc;
@@ -729,8 +862,8 @@ TEST(NonTrajOptTest, CostGradDebug) {
     Gradt.col(2) = dynGradt;
     Gradt.col(3) = timGradt;
     Gradt.col(4) = ovaGradt;
-    eigen_csv.WriteMatrix(Gradc, "/home/zwt/Documents/Gradc.csv");
-    eigen_csv.WriteMatrix(Gradt, "/home/zwt/Documents/Gradt.csv");
+    eigen_csv.WriteMatrix(Gradc, "/media/zwt/UbuntuFiles/datas/Swift/Gradc.csv");
+    eigen_csv.WriteMatrix(Gradt, "/media/zwt/UbuntuFiles/datas/Swift/Gradt.csv");
     std::cout << "AllCost: " << Cost << " ";
     std::cout << " smoCost: " << smoCost;
     std::cout << " obsCost: " << obsCost;

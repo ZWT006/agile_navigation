@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-12
- * @LastEditTime: 2023-07-14
+ * @LastEditTime: 2023-07-18
  * @Description: Eigen 的 Matrix/Vector 与 csv 文件的转换
  * @reference: 
  * 
@@ -27,7 +27,7 @@ std::string titles;
 public:
     EigenCSV() = default;
     ~EigenCSV() = default;
-    bool FirstLineIsTitles = true;
+    bool FirstLineIsTitles = false;
     void setTitles(const std::string& _titles) {
         titles = _titles;
     }

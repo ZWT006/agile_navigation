@@ -23,6 +23,10 @@
 ### nontrajopt
 - [x] Polynomial Trajectory as `segment.hpp`
 - [x] 优化问题降维需要构建一个线性方程组$Ax=b$并且求解，其中的系数矩阵$A$是一个带状矩阵,确定这个矩阵的上下界`lowerBd`和`upperBd`,可以使用带状矩阵的LU分解快速求解方程组
+- [x] Traj 离散化参数计算 Debug 离散段数量/dt/离散状态计算
+- [x] Time 多次幂计算/exp()/log()
+- [ ] 角度q变化的光滑处理
+- [ ] 参考时间计算以及初末时间缩放
 
 #### OSQP Solver
 - [x] updateQ,updateAeqbeq Debug
@@ -36,8 +40,11 @@ The problem seems to be non-convex
 - [ ] 减少条件,先用NLopt求解器解相同的QP问题
     - [x] updateOptAxb Debug
     - [x] update Ax=b solve Debug
-    - [x] `set_min_objective` Debug
+    - [x] `set_min_objective` Debug : 编译通过运行出错/源码安装NLopt解决
     - [ ] `NLoptCost` Debug ID:`f070e92`
+        - [ ] smoCost 基本一致 Gradc / Gradt
+        - [ ] timeCost 基本一致
+        - [ ] 
     - [ ] `NLoptSolve()` Debug
 - [x] edf map Debug
 

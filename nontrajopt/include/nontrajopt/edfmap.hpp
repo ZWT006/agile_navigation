@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-14
+ * @LastEditTime: 2023-07-19
  * @Description: Euclidean Distance Field Map
  * @reference: 
  * 
@@ -146,8 +146,8 @@ class EDFMap
         double dist = _edfmap->at<float>(idy, idx);
         if (dist < DOUBLE_ZERO)
             return _mini_dist;
-        else
-            return dist;
+        else // MATLAB中如此计算所有距离场均 >= mini_dist
+            return dist + _mini_dist;
     }
 };
 #endif // EDFMAP_HPP_

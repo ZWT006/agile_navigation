@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-17
+ * @LastEditTime: 2023-07-19
  * @Description: Nonlinear Trajectory Optimization
  * @reference: 
  * 
@@ -192,6 +192,7 @@ struct OptParas {
     double discredist; // distance discretization
     double pv_max,pa_max; // max linear velocity, acceleration,
     double wv_max,wa_max; // max angular velocity, acceleration,
+    double dyn_rate;
     double ORIEN_VEL,VERDIT_VEL; // velocity
     double OVAL_TH; // oval cost threshold
     bool SMO_SWITCH;
@@ -226,7 +227,7 @@ struct OptParas {
 class NonTrajOpt
 {
     // private://##############################################################################################################
-    public://##############################################################################################################
+    public:////Debug: public ##############################################################################################################
     int N;  // number of segments
     int O;  // default order is 7th (8 optimal values)
     int D;  // dimension of the trajectory
@@ -240,6 +241,7 @@ class NonTrajOpt
     int upperBw;
     // &&&&&&&&&&&&&&&&& // full odrer Ax=b solve x
     BandedSystem MatABS;      // Ax=b solve x MatDim*MatDim band matrix
+    public: ////Debug: public ##############################################################################################################
     Eigen::MatrixXd MatA;     // Ax=b solve x MatDim*MatDim full matrix
     Eigen::VectorXd Vecb;   // Ax=b solve b MatDim*1
     Eigen::VectorXd Vecx;   // Ax=b solve x MatDim*1
@@ -299,7 +301,7 @@ class NonTrajOpt
     Eigen::MatrixXd MatAeq; // QP problem Aeq
     Eigen::VectorXd Vecbeq; // QP problem beq
     
-    private:
+    public:
     // Temp variables
     // Eigen::MatrixXd RawA;   // Raw A matrix 
     Eigen::VectorXd T1;
@@ -318,6 +320,7 @@ class NonTrajOpt
     Eigen::Matrix<double, 3, 4> EndStates;
     Eigen::VectorXd initT; // initial time
     Eigen::VectorXi discNums; // discretization number of each segment
+    Eigen::VectorXd discDist; // discretization distance of each segment
 
     Eigen::VectorXd OSQP_optx;
     Eigen::VectorXd Non_optx;
@@ -375,6 +378,12 @@ class NonTrajOpt
     Eigen::VectorXd gdcoe; // gradient of coefficients full size
     Eigen::VectorXd gdtau; // gradient of time
     Eigen::VectorXd gdopt; // gradient of optimization variables
+    ////Debug: &&&&&&&&&&&&&&
+    Eigen::MatrixXd gdsmotc; // gradient of smoothness cost
+    Eigen::MatrixXd gdobstc; // gradient of obstacle cost
+    Eigen::MatrixXd gddyntc; // gradient of dynamic cost
+    Eigen::MatrixXd gdovatc; // gradient of time cost
+    Eigen::MatrixXd gdsmocostgrad;
 
     std::vector<int> isOpt; // isOpt[i]  表示第n个变量是优化变量
     std::vector<int> noOpt; // noOpt[i]  表示第n个系数不是优化变量
@@ -463,12 +472,13 @@ inline void NonTrajOpt::initParameter(const OptParas &paras) {
     OVA_SWITCH = paras.OVA_SWITCH;
     
     wq         = paras.wq; // weight of state.q coefficients 
-    dist_th    = paras.dist_th; // distance threshold of obstacle
-    pv_max     = paras.pv_max;
-    pa_max     = paras.pa_max;
-    wv_max     = paras.wv_max;
-    wa_max     = paras.wa_max; // max velocity, acceleration,
+    dist_th    = paras.dist_th; // distance threshold of obstacle   
+    pv_max     = paras.pv_max * paras.dyn_rate;
+    pa_max     = paras.pa_max * paras.dyn_rate;
+    wv_max     = paras.wv_max * paras.dyn_rate;
+    wa_max     = paras.wa_max * paras.dyn_rate; // max velocity, acceleration,
     discredist = paras.discredist; // distance discretization
+    OVAL_TH    = paras.OVAL_TH; // oval cost threshold
     ORIEN_VEL  = paras.ORIEN_VEL;
     VERDIT_VEL = paras.VERDIT_VEL; // velocity
     ORIEN_VEL2 = ORIEN_VEL * ORIEN_VEL; // velocity orientaion
@@ -504,9 +514,12 @@ inline void NonTrajOpt::initWaypoints(const Eigen::Matrix3Xd &_waypoints, const 
     Vect = initT;
     double dist = 0.0;
     for (int i = 0; i < N; i++) {
-        Eigen::Vector2d xypos = Waypoints.row(i).head(2);
+        Eigen::Vector2d xypos_s = Waypoints.col(i).head(2);
+        Eigen::Vector2d xypos_e = Waypoints.col(i+1).head(2);
+        Eigen::Vector2d xypos = xypos_e - xypos_s;
         dist = xypos.norm();
         discNums(i) = std::ceil(dist/discredist);
+        discDist(i) = dist;
     }
     updateTime();
 }
@@ -628,6 +641,7 @@ inline void NonTrajOpt::reset(const int &pieceNum) {
     EndStates.setZero();
     initT.resize(N);
     discNums.resize(N);
+    discDist.resize(N);
     // QP problem resize &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     MatQ.resize(MatDim, MatDim);
     QPx.resize(MatDim);
@@ -752,14 +766,14 @@ void NonTrajOpt::updateOptAxb() {
         }
     }
     // std::cout << "equ num : " << equ_num << std::endl;
-    if (first_Abeq) {
-        std::cout << "Write TempAeqRE.csv" << std::endl;
-        std::cout << "Time Vector raw :" << Optt.transpose() << std::endl;
-        std::cout << "Time Vector exp :" << Vect.transpose() << std::endl;
-        eigenCSV.WriteMatrix(TempAeqRE,"/home/zwt/Documents/TempAeqRE.csv");
-        eigenCSV.WriteVector(TempbeqRE,"/home/zwt/Documents/TempbeqRE.csv");
-        first_Abeq = false;
-    }
+    // if (first_Abeq) {
+    //     std::cout << "Write TempAeqRE.csv" << std::endl;
+    //     std::cout << "Time Vector raw :" << Optt.transpose() << std::endl;
+    //     std::cout << "Time Vector exp :" << Vect.transpose() << std::endl;
+    //     eigenCSV.WriteMatrix(TempAeqRE,"/home/zwt/Documents/TempAeqRE.csv");
+    //     eigenCSV.WriteVector(TempbeqRE,"/home/zwt/Documents/TempbeqRE.csv");
+    //     first_Abeq = false;
+    // }
 
     // Debug &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     // std::cout << "TempAeq sizes: " << TempAeq.rows() << " " << TempAeq.cols() << std::endl;
@@ -773,11 +787,12 @@ void NonTrajOpt::updateOptAxb() {
     ////TODO: 这里求解线性方程组可能会有问题
     int rank = TempAeqRE.fullPivLu().rank();
     if (rank < MatDim) {
-        std::cout << YELLOW << "Write TempAeqRANK.csv" << RESET << std::endl;
-        std::cout << "Time Vector raw :" << Optt.transpose() << std::endl;
-        std::cout << "Time Vector exp :" << Vect.transpose() << std::endl;
-        eigenCSV.WriteMatrix(TempAeqRE,"/home/zwt/Documents/TempAeqRANK.csv");
-        eigenCSV.WriteVector(TempbeqRE,"/home/zwt/Documents/TempbeqRANK.csv");
+        // std::cout << YELLOW << "Write TempAeqRANK.csv" << RESET << std::endl;
+        // std::cout << "Time Vector raw :" << Optt.transpose() << std::endl;
+        // std::cout << "Time Vector exp :" << Vect.transpose() << std::endl;
+        // eigenCSV.WriteMatrix(TempAeqRE,"/home/zwt/Documents/TempAeqRANK.csv");
+        // eigenCSV.WriteVector(TempbeqRE,"/home/zwt/Documents/TempbeqRANK.csv");
+        std::cout << std::endl;
         std::cout << YELLOW << "God damn it! TempAeqRE rand :" << rank << " is singular!" << RESET << std::endl;
     }
 
@@ -861,7 +876,7 @@ void NonTrajOpt::updateAeqbeq() {
         for(int i = 0; i < D; i++) {
             int KDi = k*D+i;
             // waypoints pose constraints
-            beq_wp((E+1)*KDi,1) = Waypoints(i,k+1);
+            beq_wp((E+1)*KDi,0) = Waypoints(i,k+1);
             // 1:t:t^2:t^3:t^4…… * [p0 p1 p2 p3……]T
             Aeq_wp.block((E+1)*KDi, KDi*O, 1, O) = coeff;
             Aeq_wp.block((E+1)*KDi + 1, KDi*O, E, O) = Matp;
@@ -1149,8 +1164,10 @@ bool NonTrajOpt::OSQPSolve() {
     Eigen::VectorXd upperBound = Vecbeq;
     Eigen::VectorXd QPoptx = Eigen::VectorXd::Zero(MatDim);
 
-    lowerBound -= Eigen::VectorXd::Constant(lowerBound.size(), -0.01);
-    upperBound += Eigen::VectorXd::Constant(upperBound.size(), 0.01);
+    // lowerBound -= Eigen::VectorXd::Constant(lowerBound.size(), -0.01);
+    // upperBound += Eigen::VectorXd::Constant(upperBound.size(), 0.01);
+    lowerBound = Eigen::VectorXd::Constant(lowerBound.size(), -5000.0);
+    upperBound = Eigen::VectorXd::Constant(upperBound.size(), 5000.0);
 
     // instantiate the solver
     OsqpEigen::Solver solver;
@@ -1201,7 +1218,7 @@ bool NonTrajOpt::OSQPSolve() {
 // NLopt Function
 bool NonTrajOpt::NLoptSolve() {
     bool flag = false;
-    nlopt::opt opt(nlopt::algorithm::LD_LBFGS, OptNum);
+    nlopt::opt opt(nlopt::algorithm::LD_TNEWTON_PRECOND_RESTART, OptNum);
     // // ❗❗❗ NLoptobjection 必须返回 static double 类型的值 且该类型只能声明时候有，定义函数的时候就不能写 static 了
     opt.set_min_objective(NonTrajOpt::NLoptobjection, this);
 
@@ -1255,7 +1272,7 @@ bool NonTrajOpt::NLoptSolve() {
     try {
 
         nlopt::result result = opt.optimize(NLoptx, minf);
-        std::cout << "[\033[34mOptimization\033[0m]: nlopt slver" << std::endl;
+        std::cout << "[\033[34mOptimization\033[0m]: nlopt solver" << std::endl;
         std::cout << "NLopt result: " << result << std::endl;
 
         //// Time clock &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -1339,8 +1356,8 @@ bool NonTrajOpt::LBFGSSolve() {
     lbfgs_params.past = 3;
     lbfgs_params.delta = 1e-4;
     lbfgs_params.max_iterations = 0;
-    lbfgs_params.max_linesearch = 100;
-    lbfgs_params.min_step = 1e-16;
+    lbfgs_params.max_linesearch = 8000; //default 60
+    // lbfgs_params.min_step = 1e-16;
     lbfgs_params.xtol = 1e-4;
     lbfgs_params.line_search_type = 0;
 
@@ -1453,24 +1470,74 @@ void NonTrajOpt::calcuSmoCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
     // smoCost = 0.0;
     // Eigen::VectorXd gradc = Eigen::VectorXd::Zero(MatDim);
     // Eigen::VectorXd gradt = Eigen::VectorXd::Zero(N);
+    gdsmotc.resize(3*10,N);
+    gdsmocostgrad.resize(6,N);
     for (int idx = 0; idx < N; idx++) {
         Eigen::VectorXd xcoef = Vecx.segment(idx*O*D, O);
         double xcost = getSegPolyCost(xcoef, idx);
         double xgradt = getSegPolyGradt(xcoef, idx);
+
+        ////&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+        gdsmotc(0,idx) = 576.0 * xcoef(4) * xcoef(4);
+        gdsmotc(1,idx) = 5760.0 * xcoef(4) * xcoef(5)*T1(idx);
+        gdsmotc(2,idx) = 14400.0 * xcoef(5) * xcoef(5)*T2(idx);
+        gdsmotc(3,idx) = 17280.0 * xcoef(4) * xcoef(6)*T2(idx);
+        gdsmotc(4,idx) = 86400.0 * xcoef(5) * xcoef(6)*T3(idx);
+        gdsmotc(5,idx) = 40320.0 * xcoef(4) * xcoef(7)*T3(idx);
+        gdsmotc(6,idx) = 129600.0 * xcoef(6) * xcoef(6)*T4(idx);
+        gdsmotc(7,idx) = 201600.0 * xcoef(5) * xcoef(7)*T4(idx);
+        gdsmotc(8,idx) = 604800.0 * xcoef(6) * xcoef(7)*T5(idx);
+        gdsmotc(9,idx) = 705600.0 * xcoef(7) * xcoef(7)*T6(idx);
+        
         getSegPolyGradc(xcoef, idx);
         Eigen::VectorXd ycoef = Vecx.segment(idx*O*D+O, O);
         double ycost = getSegPolyCost(ycoef, idx);
         double ygradt = getSegPolyGradt(ycoef, idx);
+
+        ////&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+        gdsmotc(10,idx) = 576.0 * ycoef(4) * ycoef(4);
+        gdsmotc(11,idx) = 5760.0 * ycoef(4) * ycoef(5)*T1(idx);
+        gdsmotc(12,idx) = 14400.0 * ycoef(5) * ycoef(5)*T2(idx);
+        gdsmotc(13,idx) = 17280.0 * ycoef(4) * ycoef(6)*T2(idx);
+        gdsmotc(14,idx) = 86400.0 * ycoef(5) * ycoef(6)*T3(idx);
+        gdsmotc(15,idx) = 40320.0 * ycoef(4) * ycoef(7)*T3(idx);
+        gdsmotc(16,idx) = 129600.0 * ycoef(6) * ycoef(6)*T4(idx);
+        gdsmotc(17,idx) = 201600.0 * ycoef(5) * ycoef(7)*T4(idx);
+        gdsmotc(18,idx) = 604800.0 * ycoef(6) * ycoef(7)*T5(idx);
+        gdsmotc(19,idx) = 705600.0 * ycoef(7) * ycoef(7)*T6(idx);
+
         getSegPolyGradc(ycoef, idx);
         Eigen::VectorXd qcoef = Vecx.segment(idx*O*D+2*O, O);
         double qcost = getSegPolyCost(qcoef, idx);
         double qgradt = getSegPolyGradt(qcoef, idx);
+
+        ////&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+        gdsmotc(20,idx) = 576.0 * qcoef(4) * qcoef(4);
+        gdsmotc(21,idx) = 5760.0 * qcoef(4) * qcoef(5)*T1(idx);
+        gdsmotc(22,idx) = 14400.0 * qcoef(5) * qcoef(5)*T2(idx);
+        gdsmotc(23,idx) = 17280.0 * qcoef(4) * qcoef(6)*T2(idx);
+        gdsmotc(24,idx) = 86400.0 * qcoef(5) * qcoef(6)*T3(idx);
+        gdsmotc(25,idx) = 40320.0 * qcoef(4) * qcoef(7)*T3(idx);
+        gdsmotc(26,idx) = 129600.0 * qcoef(6) * qcoef(6)*T4(idx);
+        gdsmotc(27,idx) = 201600.0 * qcoef(5) * qcoef(7)*T4(idx);
+        gdsmotc(28,idx) = 604800.0 * qcoef(6) * qcoef(7)*T5(idx);
+        gdsmotc(29,idx) = 705600.0 * qcoef(7) * qcoef(7)*T6(idx);
+
         getSegPolyGradc(qcoef, idx);
         gradc.segment(idx*O*D, O) = xcoef;
         gradc.segment(idx*O*D+O, O) = ycoef;
         gradc.segment(idx*O*D+2*O, O) = qcoef*wq;
         gradt(idx) = xgradt + ygradt + qgradt*wq;
         Cost += xcost + ycost + qcost*wq;
+        gdsmocostgrad(0,idx) = xgradt;
+        gdsmocostgrad(1,idx) = gdsmotc(0,idx) + gdsmotc(1,idx) + gdsmotc(2,idx) + gdsmotc(3,idx) + gdsmotc(4,idx) + 
+                               gdsmotc(5,idx) + gdsmotc(6,idx) + gdsmotc(7,idx) + gdsmotc(8,idx) + gdsmotc(9,idx);
+        gdsmocostgrad(2,idx) = ygradt;
+        gdsmocostgrad(3,idx) = gdsmotc(10,idx) + gdsmotc(11,idx) + gdsmotc(12,idx) + gdsmotc(13,idx) + gdsmotc(14,idx) + 
+                               gdsmotc(15,idx) + gdsmotc(16,idx) + gdsmotc(17,idx) + gdsmotc(18,idx) + gdsmotc(19,idx);
+        gdsmocostgrad(4,idx) = qgradt;
+        gdsmocostgrad(5,idx) = gdsmotc(20,idx) + gdsmotc(21,idx) + gdsmotc(22,idx) + gdsmotc(23,idx) + gdsmotc(24,idx) + 
+                               gdsmotc(25,idx) + gdsmotc(26,idx) + gdsmotc(27,idx) + gdsmotc(28,idx) + gdsmotc(29,idx);
     }
 }
 
@@ -1491,6 +1558,10 @@ inline Eigen::VectorXd NonTrajOpt::getTimeVec(const double t,const int row) {
  * @return {*}
  */
 void NonTrajOpt::calcuObsCost(double &Cost,Eigen::VectorXd &gradc, Eigen::VectorXd &gradt) {
+    Eigen::VectorXi DiscreteNums = Traj.getDiscreteNums();
+    gdobstc.resize(7,(DiscreteNums.sum()+DiscreteNums.size()));
+    gdobstc.setZero();
+    int gdidx = 0;
     for (int idx = 0; idx < Traj.getPieceNum(); idx++) {
         double vecCost = 0.0;
         Eigen::VectorXd xgrad = Eigen::VectorXd::Zero(O);
@@ -1509,12 +1580,23 @@ void NonTrajOpt::calcuObsCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
                 ygrad += ygrad + grad(1)*vectime*(-2*std::pow(dist,3));
                 // gradc.segment(idx*O*D, O) += 1.0 / (dist * dist); //* edfmap.getGrad(pos).transpose();
             }
+            //[xpos ypos dist xgrad ygrad Tdt cost]
+            gdobstc(0,gdidx) = pos(0);
+            gdobstc(1,gdidx) = pos(1);
+            gdobstc(2,gdidx) = dist;
+            gdobstc(3,gdidx) = grad(0);
+            gdobstc(4,gdidx) = grad(1);
+            gdobstc(5,gdidx) = Tdt;
+            gdobstc(6,gdidx) = 1/std::pow(2*(dist),2) * vel.squaredNorm() * Tdt;
+            gdidx++;
         }
         Cost += vecCost;
         gradc.segment(idx*O*D, O) = xgrad;
         gradc.segment(idx*O*D+O, O) = ygrad;
     }
+    gradt.setZero();
 }
+
 
 /***************************************************************************************************************
  * @description: calculate dynamic constraints cost
@@ -1525,6 +1607,10 @@ void NonTrajOpt::calcuObsCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
  * @return {*}
  */
 void NonTrajOpt::calcuDynCost(double &Cost,Eigen::VectorXd &gradc, Eigen::VectorXd &gradt) {
+    Eigen::VectorXi DiscreteNums = Traj.getDiscreteNums();
+    gddyntc.resize(11,(DiscreteNums.sum()+DiscreteNums.size()));
+    gddyntc.setZero();
+    int gdidx = 0;
     for (int idx = 0; idx < Traj.getPieceNum(); idx++) {
         double velCost = 0.0,accCost = 0.0;
         double velgradt = 0.0,accgradt = 0.0;
@@ -1535,10 +1621,19 @@ void NonTrajOpt::calcuDynCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
         Eigen::VectorXd yagrad = Eigen::VectorXd::Zero(O);
         Eigen::VectorXd qagrad = Eigen::VectorXd::Zero(O);
         double dt = Traj[idx].getDiscretet();
+        // std::cout << "velVector size :" << Traj[idx].velVector.rows() << "," << Traj[idx].velVector.cols() << std::endl;
+        // std::cout << "DiscreteNum :" << Traj[idx].getDiscreteNum() << std::endl;
         for (int idy = 0; idy <= Traj[idx].getDiscreteNum(); idy++) {
+            // std::cout << "velVector.col(idy) :" << Traj[idx].velVector.col(idy) << std::endl;
+            // std::cout << "accVector.col(idy) :" << Traj[idx].accVector.col(idy) << std::endl;
+            // std::cout << "jerVector.col(idy) :" << Traj[idx].jerVector.col(idy) << std::endl;
+            // Eigen::Vector3d vel(1.1,1.1,1.1);
+            // Eigen::Vector3d acc(2.2,2.2,2.2);
+            // Eigen::Vector3d jer(3.3,3.3,3.3);     
             Eigen::Vector3d vel = Traj[idx].velVector.col(idy);
             Eigen::Vector3d acc = Traj[idx].accVector.col(idy);
             Eigen::Vector3d jer = Traj[idx].jerVector.col(idy);
+ 
             Eigen::Vector3d deltaVel(0.0,0.0,0.0);
             Eigen::Vector3d deltaAcc(0.0,0.0,0.0);
             double Tdt = idy * dt;
@@ -1549,16 +1644,19 @@ void NonTrajOpt::calcuDynCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
             }else if ( vel(0) < -pv_max ) {
                 deltaVel(0) = vel(0) + pv_max;
             } xvgrad += vectime2 * 2 * deltaVel(0);
+
             if ( vel(1) > pv_max ) {
                 deltaVel(1) = vel(1) - pv_max;
             }else if ( vel(1) < -pv_max ) {
                 deltaVel(1) = vel(1) + pv_max;
             } yvgrad += vectime2 * 2 * deltaVel(1);
+
             if ( vel(2) > wv_max ) {
                 deltaVel(2) = vel(2) - wv_max;
             }else if ( vel(2) < -wv_max ) {
                 deltaVel(2) = vel(2) + wv_max;
             } qvgrad += vectime2 * 2 * deltaVel(2);
+
             if ( acc(0) > pa_max ) {
                 deltaAcc(0) = acc(0) - pa_max;
             }else if ( acc(0) < -pa_max ) {
@@ -1576,8 +1674,21 @@ void NonTrajOpt::calcuDynCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
             } qagrad += vectime3 * 2 * deltaAcc(2);
             velCost += deltaVel.squaredNorm();
             accCost += deltaAcc.squaredNorm();
-            velgradt += 2*deltaVel.dot(jer)*Tdt;
+            velgradt += 2*deltaVel.dot(acc)*Tdt;
             accgradt += 2*deltaAcc.dot(jer)*Tdt;
+            ////Debug: [Tdt deltaVel deltaAcc velCost accCost velgradt accgradt]
+            gddyntc(0,gdidx) = Tdt;
+            gddyntc(1,gdidx) = deltaVel(0);
+            gddyntc(2,gdidx) = deltaVel(1);
+            gddyntc(3,gdidx) = deltaVel(2);
+            gddyntc(4,gdidx) = deltaAcc(0);
+            gddyntc(5,gdidx) = deltaAcc(1);
+            gddyntc(6,gdidx) = deltaAcc(2);
+            gddyntc(7,gdidx) = deltaVel.squaredNorm();
+            gddyntc(8,gdidx) = deltaAcc.squaredNorm();
+            gddyntc(9,gdidx) = 2*deltaVel.dot(acc);
+            gddyntc(10,gdidx) = 2*deltaAcc.dot(jer);
+            gdidx++;
         }
         Cost += velCost + accCost;
         gradc.segment(idx*O*D, O)       = xvgrad + xagrad;
@@ -1586,7 +1697,6 @@ void NonTrajOpt::calcuDynCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
         gradt(idx) = velgradt + accgradt;
     }
 }
-
 /***************************************************************************************************************
  * @description: calculate time cost
  * @reference: https://gitee.com/hi-zwt/kinodynamicpath/blob/master/PolyOpt/timeCost.m
@@ -1609,6 +1719,10 @@ void NonTrajOpt::calcuTimCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
  * @return {*}
  */
 void NonTrajOpt::calcuOvaCost(double &Cost,Eigen::VectorXd &gradc, Eigen::VectorXd &gradt) {
+    Eigen::VectorXi DiscreteNums = Traj.getDiscreteNums();
+    gdovatc.resize(12,(DiscreteNums.sum()+DiscreteNums.size()));
+    gdovatc.setZero();
+    int gdidx = 0;
     for (int idx = 0; idx < Traj.getPieceNum(); idx++) {
         Eigen::VectorXd xgrad = Eigen::VectorXd::Zero(O);
         Eigen::VectorXd ygrad = Eigen::VectorXd::Zero(O);
@@ -1624,9 +1738,9 @@ void NonTrajOpt::calcuOvaCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
             Eigen::MatrixXd Rmatrix = Eigen::MatrixXd::Zero(2,2);
             double cosyaw = std::cos(yaw_q);
             double sinyaw = std::sin(yaw_q);
-            // rotation matrix and state transform
-            Rmatrix << cosyaw, -sinyaw,
-                       sinyaw,  cosyaw;
+            // rotation matrix and state transform //TODO: 判断选择矩阵的方向
+            Rmatrix << cosyaw, sinyaw,
+                       -sinyaw, cosyaw;
             Eigen::Vector2d vel_B = Rmatrix * vel.head(2);
             Eigen::Vector2d acc_B = Rmatrix * acc.head(2);
             double vel_B2 = std::pow(vel_B(0),2)/ORIEN_VEL2 + std::pow(vel_B(1),2)/VERDIT_VEL2;
@@ -1638,6 +1752,21 @@ void NonTrajOpt::calcuOvaCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
                 ygrad += (2 * sinyaw * vel_B(0)/ORIEN_VEL2 + 2 * cosyaw * vel_B(1) / VERDIT_VEL2) * vectime2;
                 qgrad += (2 * vel_B(0) * vel(1) / ORIEN_VEL2 - 2 * vel_B(1) * vel(0) / VERDIT_VEL2) * vectime1;
             }
+            ////Debug: [Tdt vel_B vel_B2 Cost gradt(idx) xgrad ygrad qgrad]
+            gdovatc(0,gdidx) = Tdt;
+            gdovatc(1,gdidx) = vel_B(0);
+            gdovatc(2,gdidx) = vel_B(1);
+            gdovatc(3,gdidx) = vel_B2;
+            gdovatc(4,gdidx) = Rmatrix(0,0);
+            gdovatc(5,gdidx) = Rmatrix(0,1);
+            gdovatc(6,gdidx) = Rmatrix(1,0);
+            gdovatc(7,gdidx) = Rmatrix(1,1);
+            gdovatc(8,gdidx) = (2 * vel_B(1) * (acc_B(1) - cosyaw * vel(0) * vel(2) - sinyaw * vel(1) * vel(2)) / VERDIT_VEL2 +
+                               2 * vel_B(0) * (acc_B(0) + cosyaw * vel(1) * vel(2) - sinyaw * vel(0) * vel(2)) / ORIEN_VEL2) * Tdt;
+            gdovatc(9,gdidx) = (2 * cosyaw * vel_B(0)/ORIEN_VEL2 - 2 * sinyaw * vel_B(1) / VERDIT_VEL2);
+            gdovatc(10,gdidx) = (2 * sinyaw * vel_B(0)/ORIEN_VEL2 + 2 * cosyaw * vel_B(1) / VERDIT_VEL2);
+            gdovatc(11,gdidx) = (2 * vel_B(0) * vel(1) / ORIEN_VEL2 - 2 * vel_B(1) * vel(0) / VERDIT_VEL2);
+            gdidx++;
         }
         gradc.segment(idx*O*D, O)       = xgrad;
         gradc.segment(idx*O*D+O, O)     = ygrad;
