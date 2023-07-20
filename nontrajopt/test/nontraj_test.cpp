@@ -30,10 +30,10 @@ int main(int argc, char **argv) {
     // ros::init (argc,argv, "tester" );
     // ros::NodeHandle nh;
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NontrajOptClass";
-    testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
+    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.LBFGSSolver";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.OSQPSolve";
-    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.CostGradDebug";
+    testing::GTEST_FLAG(filter) = "NonTrajOptTest.CostGradDebug";
     return RUN_ALL_TESTS();
 }
 
@@ -230,7 +230,7 @@ TEST(NonTrajOptTest, NLoptSolver) {
     paras.lambda_smo = 0.1;
     paras.lambda_obs = 0.1;
     paras.lambda_dyn = 0.1;
-    paras.lambda_tim = 2000.0;
+    paras.lambda_tim = 8000.0;
     paras.lambda_ova = 0.1;
 
     paras.wq = 0.8;
@@ -349,8 +349,8 @@ TEST(NonTrajOptTest, NLoptSolver) {
     std::cout << "MaxIterNum: " << nontrajopt.nlopt_max_iteration_num_ << std::endl;
     std::cout << "MaxIterTime: " << std::fixed << std::setprecision(2) << nontrajopt.nlopt_max_iteration_time_ << std::endl;
 
-    // bool succeed = nontrajopt.NLoptSolve();
-    bool succeed = nontrajopt.LBFGSSolve();
+    bool succeed = nontrajopt.NLoptSolve();
+    // bool succeed = nontrajopt.LBFGSSolve();
 
     if (succeed)
         std::cout << GREEN << "NLoptSolve succeed! Happy!!!" << RESET << std::endl;
@@ -845,7 +845,8 @@ TEST(NonTrajOptTest, CostGradDebug) {
     Eigen::VectorXd ovaGradt = Eigen::VectorXd::Zero(nontrajopt.N);
     nontrajopt.calcuOvaCost(ovaCost, ovaGradc, ovaGradt);
     eigen_csv.FirstLineIsTitles = true;
-    std::string gdovatctitle = "Tdt, vel_B(1), vel_B(2), vel_B2, R(1v1), R(1v2), R(2v1), R(2v2), gradt(idx), xgrad, ygrad, qgrad";
+    std::string gdovatctitle = "Tdt, vel_B(1), vel_B(2), vel_B2, R(1v1), R(1v2), R(2v1), R(2v2), gradt(idx),\
+                                xgrad, ygrad, qgrad, acc_B(1), acc_B(2), acc_B2, yaw_q";
     eigen_csv.setTitles(gdovatctitle);
     eigen_csv.WriteMatrix(nontrajopt.gdovatc.transpose(), "/media/zwt/UbuntuFiles/datas/Swift/gdovatc.csv");
 

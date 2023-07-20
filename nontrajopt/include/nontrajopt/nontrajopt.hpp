@@ -1742,7 +1742,7 @@ void NonTrajOpt::calcuTimCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
  */
 void NonTrajOpt::calcuOvaCost(double &Cost,Eigen::VectorXd &gradc, Eigen::VectorXd &gradt) {
     Eigen::VectorXi DiscreteNums = Traj.getDiscreteNums();
-    gdovatc.resize(12,(DiscreteNums.sum()+DiscreteNums.size()));
+    gdovatc.resize(17,(DiscreteNums.sum()+DiscreteNums.size()));
     gdovatc.setZero();
     int gdidx = 0;
     for (int idx = 0; idx < Traj.getPieceNum(); idx++) {
@@ -1772,7 +1772,7 @@ void NonTrajOpt::calcuOvaCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
                                2 * vel_B(0) * (acc_B(0) + cosyaw * vel(1) * vel(2) - sinyaw * vel(0) * vel(2)) / ORIEN_VEL2) * Tdt;
                 xgrad += (2 * cosyaw * vel_B(0)/ORIEN_VEL2 - 2 * sinyaw * vel_B(1) / VERDIT_VEL2) * vectime2;
                 ygrad += (2 * sinyaw * vel_B(0)/ORIEN_VEL2 + 2 * cosyaw * vel_B(1) / VERDIT_VEL2) * vectime2;
-                qgrad += (2 * vel_B(0) * vel(1) / ORIEN_VEL2 - 2 * vel_B(1) * vel(0) / VERDIT_VEL2) * vectime1;
+                qgrad += (2 * vel_B(0) * vel_B(1) / ORIEN_VEL2 - 2 * vel_B(1) * vel_B(0) / VERDIT_VEL2) * vectime1;
             }
             ////Debug: [Tdt vel_B(1) vel_B(2) vel_B2 R(1,1) R(1,2) R(2,1) R(2,2) gradt(idx) xgrad ygrad qgrad]
             gdovatc(0,gdidx) = Tdt;
@@ -1787,7 +1787,12 @@ void NonTrajOpt::calcuOvaCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
                                2 * vel_B(0) * (acc_B(0) + cosyaw * vel(1) * vel(2) - sinyaw * vel(0) * vel(2)) / ORIEN_VEL2) * Tdt;
             gdovatc(9,gdidx) = (2 * cosyaw * vel_B(0)/ORIEN_VEL2 - 2 * sinyaw * vel_B(1) / VERDIT_VEL2);
             gdovatc(10,gdidx) = (2 * sinyaw * vel_B(0)/ORIEN_VEL2 + 2 * cosyaw * vel_B(1) / VERDIT_VEL2);
-            gdovatc(11,gdidx) = (2 * vel_B(0) * vel(1) / ORIEN_VEL2 - 2 * vel_B(1) * vel(0) / VERDIT_VEL2);
+            gdovatc(11,gdidx) = (2 * vel_B(0) * vel_B(1) / ORIEN_VEL2 - 2 * vel_B(1) * vel_B(0) / VERDIT_VEL2);
+            gdovatc(12,gdidx) = acc_B(0);
+            gdovatc(13,gdidx) = acc_B(1);
+            gdovatc(14,gdidx) = acc_B.squaredNorm();
+            gdovatc(15,gdidx) = acc_B(0)*acc_B(0) + acc_B(1)*acc_B(1);
+            gdovatc(16,gdidx) = yaw_q;
             gdidx++;
         }
         gradc.segment(idx*O*D, O)       = xgrad;
