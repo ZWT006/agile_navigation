@@ -42,10 +42,12 @@ The problem seems to be non-convex
     - [x] updateOptAxb Debug
     - [x] update Ax=b solve Debug
     - [x] `set_min_objective` Debug : 编译通过运行出错/源码安装NLopt解决
-    - [ ] `NLoptCost` Debug ID:`f070e92`
-        - [ ] smoCost 基本一致 Gradc / Gradt
-        - [ ] timeCost 基本一致
-        - [ ] obsCost 
+    - [x] `NLoptCost` Debug ID:`f070e92` 
+        - [x] smoCost 基本一致 Gradc / Gradt
+        - [x] timeCost 基本一致
+        - [x] obsCost 
+    - [x] `nonCost` Debug ID: `f34f159` for all Debug data save as `.csv` compared with MATLAB
+    - [ ] `OSQPSolve()` Debug
     - [ ] `NLoptSolve()` Debug
 - [x] edf map Debug
 

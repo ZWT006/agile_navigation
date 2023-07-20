@@ -1,6 +1,6 @@
 <launch>
 
-    <node pkg="nontrajopt" type="nontraj_test" name="nontraj_test" output="screen" required = "true">
+    <node pkg="nontrajopt" type="nlopt_TO" name="nlopt_TO" output="screen" required = "true">
     </node>
 
 </launch>

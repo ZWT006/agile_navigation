@@ -30,10 +30,10 @@ int main(int argc, char **argv) {
     // ros::init (argc,argv, "tester" );
     // ros::NodeHandle nh;
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NontrajOptClass";
-    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
+    testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.LBFGSSolver";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.OSQPSolve";
-    testing::GTEST_FLAG(filter) = "NonTrajOptTest.CostGradDebug";
+    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.CostGradDebug";
     return RUN_ALL_TESTS();
 }
 
@@ -228,10 +228,10 @@ TEST(NonTrajOptTest, NLoptSolver) {
     NonTrajOpt nontrajopt;
     OptParas paras;
     paras.lambda_smo = 0.1;
-    paras.lambda_obs = 0.1;
-    paras.lambda_dyn = 0.1;
+    paras.lambda_obs = 1.0;
+    paras.lambda_dyn = 10.0;
     paras.lambda_tim = 8000.0;
-    paras.lambda_ova = 0.1;
+    paras.lambda_ova = 10.0;
 
     paras.wq = 0.8;
     paras.dist_th = 0.5;
@@ -249,10 +249,10 @@ TEST(NonTrajOptTest, NLoptSolver) {
     paras.OVAL_TH = 0.8;
 
     paras.SMO_SWITCH = true;
-    paras.OBS_SWITCH = false;
-    paras.DYN_SWITCH = false;
+    paras.OBS_SWITCH = true;
+    paras.DYN_SWITCH = true;
     paras.TIM_SWITCH = true;
-    paras.OVA_SWITCH = false;
+    paras.OVA_SWITCH = true;
 
     paras.TIME_OPTIMIZATION = true;
     paras.REDUCE_ORDER = true;
@@ -350,7 +350,6 @@ TEST(NonTrajOptTest, NLoptSolver) {
     std::cout << "MaxIterTime: " << std::fixed << std::setprecision(2) << nontrajopt.nlopt_max_iteration_time_ << std::endl;
 
     bool succeed = nontrajopt.NLoptSolve();
-    // bool succeed = nontrajopt.LBFGSSolve();
 
     if (succeed)
         std::cout << GREEN << "NLoptSolve succeed! Happy!!!" << RESET << std::endl;

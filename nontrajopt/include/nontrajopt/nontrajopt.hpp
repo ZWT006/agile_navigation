@@ -13,7 +13,7 @@
 
 #include <iostream>
 #include <vector>
-// #include <chrono>
+#include <angles/angles.h>
 #include <Eigen/Eigen>
 #include <opencv2/opencv.hpp>
 
@@ -190,6 +190,7 @@ struct OptParas {
     double wq; // weight of state.q coefficients 
     double dist_th; // distance threshold of obstacle
     double discredist; // distance discretization
+    double ref_vel,ref_ome; // reference linear velocity and angular velocity
     double pv_max,pa_max; // max linear velocity, acceleration,
     double wv_max,wa_max; // max angular velocity, acceleration,
     double dyn_rate;
@@ -254,8 +255,6 @@ class NonTrajOpt
     Eigen::VectorXd Equb; // 由 waypoints 构建的原始等式约束的右边项 dimensions = EquDim
     // $Ax=b$ and $x$ is the coefficients of the trajectory
 
-
-
     // cost, gradient and weight 
     Eigen::VectorXd smogd;
     Eigen::VectorXd obsgd;
@@ -276,6 +275,7 @@ class NonTrajOpt
     double wq; // weight of state.q coefficients 
     double dist_th; // distance threshold of obstacle
     double discredist; // distance discretization
+    double ref_vel,ref_ome; // reference linear velocity and angular velocity
     double pv_max,pa_max,wv_max,wa_max; // max velocity, acceleration,
     double ORIEN_VEL,VERDIT_VEL; // velocity
     double ORIEN_VEL2,VERDIT_VEL2; // velocity^2
@@ -394,13 +394,15 @@ class NonTrajOpt
     ~NonTrajOpt() { MatABS.destroy();};
 
     // fixed parameters for every optimization 
-    inline void initParameter(const OptParas &paras);
+    void initParameter(const OptParas &paras);
 
     // every time optimization reset parameters
-    inline void reset(const int &pieceNum);
+    void reset(const int &pieceNum);
     // init waypoints and start/end states  for polynomial trajectory optimization
     inline void initWaypoints(const Eigen::Matrix3Xd &_waypoints, const Eigen::VectorXd &_initT, 
-                              const Eigen::Matrix<double, 3, 4> &_startStates, const Eigen::Matrix<double, 3, 4> &_endStates);
+                       const Eigen::Matrix<double, 3, 4> &_startStates, const Eigen::Matrix<double, 3, 4> &_endStates);
+    bool setWaypoints(const std::vector<Eigen::Vector3d> &_waypoints, 
+                       const Eigen::Matrix<double, 3, 3> &_startStates, const Eigen::Matrix<double, 3, 3> &_endStates);
     inline void getReduceOrder(Eigen::VectorXd &_vec);  // reduce order vector
     inline void getRawEquation(Eigen::VectorXd &_vec);  // raw equation vector
 
@@ -474,6 +476,8 @@ inline void NonTrajOpt::initParameter(const OptParas &paras) {
     
     wq         = paras.wq; // weight of state.q coefficients 
     dist_th    = paras.dist_th; // distance threshold of obstacle   
+    ref_vel    = paras.ref_vel; // reference linear velocity
+    ref_ome    = paras.ref_ome; // reference angular velocity
     pv_max     = paras.pv_max * paras.dyn_rate;
     pa_max     = paras.pa_max * paras.dyn_rate;
     wv_max     = paras.wv_max * paras.dyn_rate;
@@ -506,8 +510,17 @@ inline void NonTrajOpt::initParameter(const OptParas &paras) {
     C = 4; // cost function order
 }
 
+/*****************************************************************************************************
+ * @description: 
+ * @reference: 
+ * @param {Eigen::Matrix3Xd} _waypoints column vector of waypoints
+ * @param {Eigen::VectorXd} _initT
+ * @param {Eigen::Matrix<double, 3, 4>} _startStates pos;vel;acc;jer
+ * @param {Eigen::Matrix<double, 3, 4>} _endStates  pos;vel;acc;jer
+ * @return {*}
+ */
 inline void NonTrajOpt::initWaypoints(const Eigen::Matrix3Xd &_waypoints, const Eigen::VectorXd &_initT, 
-        const Eigen::Matrix<double, 3, 4> &_startStates, const Eigen::Matrix<double, 3, 4> &_endStates) {
+    const Eigen::Matrix<double, 3, 4> &_startStates, const Eigen::Matrix<double, 3, 4> &_endStates) {
     Waypoints = _waypoints;
     StartStates = _startStates;
     EndStates = _endStates;
@@ -522,8 +535,64 @@ inline void NonTrajOpt::initWaypoints(const Eigen::Matrix3Xd &_waypoints, const 
         discNums(i) = std::ceil(dist/discredist);
         discDist(i) = dist;
     }
-    updateTime();
+    updateTime();   
 }
+/*****************************************************************************************************
+ * @description: set Waypoints
+ * @reference: 
+ * @param {std::vector<Eigen::Vector3d>} _waypoints vector of waypoints pos
+ * @param {Eigen::Matrix<double, 3, 3>} _startStates pos;vel;acc
+ * @param {Eigen::Matrix<double, 3, 3>} _endStates  pos;vel;acc
+ * @return {bool} flag of success
+ */
+bool NonTrajOpt::setWaypoints(const std::vector<Eigen::Vector3d> &_waypoints, 
+    const Eigen::Matrix<double, 3, 3> &_startStates, const Eigen::Matrix<double, 3, 3> &_endStates) {
+
+    if ( _waypoints.size() - N != 1 ) {
+        return false;
+    }
+    //// 注意 waypoints 的数量比 轨迹段 N 多 1 ##############################################################
+    Eigen::Matrix3Xd Initwaypoints = Eigen::Matrix3Xd::Zero(3, _waypoints.size());
+    Eigen::VectorXd Vecyaw = Eigen::VectorXd::Zero(_waypoints.size());
+    Eigen::VectorXd InitT = Eigen::VectorXd::Zero(N);
+    Eigen::Matrix<double, 3, 4> StartStates = Eigen::Matrix<double, 3, 4>::Zero();
+    StartStates.block(0,0,3,3) = _startStates;
+    Eigen::Matrix<double, 3, 4> EndStates = Eigen::Matrix<double, 3, 4>::Zero();
+    _endStates;
+    for (int idx = 0; idx < N + 1 ; idx++) {
+        Initwaypoints.col(idx) = _waypoints[idx];
+    //// Step 0: yaw 角归一化到 [-pi pi] ##################################################################
+        Vecyaw(idx) = angles::normalize_angle(_waypoints[idx](2));
+    }
+    //// Step 1: yaw 角的平滑处理 缩小使转向角变化
+    Eigen::VectorXd VecyawSmooth = Eigen::VectorXd::Zero(_waypoints.size());
+    for (int idx = 1; idx < N ; idx++) {
+        VecyawSmooth(idx) = angles::shortest_angular_distance(Vecyaw(idx),Vecyaw(idx+1))/2.0 + Vecyaw(idx);
+    }
+    VecyawSmooth(0) = Vecyaw(0); VecyawSmooth(N-1) = Vecyaw(N-1);
+    Vecyaw = VecyawSmooth;
+    //// Step 2: reference time 参考优化时间计算 ###########################################################
+    for (int idx = 0; idx < N; idx++) {
+        Eigen::Vector2d xypos_s = Initwaypoints.col(idx).head(2);
+        Eigen::Vector2d xypos_e = Initwaypoints.col(idx+1).head(2);
+        Eigen::Vector2d xypos = xypos_e - xypos_s;
+        double xy_dist = xypos.norm();
+        double q_dist = angles::shortest_angular_distance(Vecyaw(idx),Vecyaw(idx+1));
+        InitT(idx) = std::max(xy_dist/ref_vel,q_dist/ref_ome);
+    }
+    //// Step 3: yaw 角的数值连续性处理 用于数值优化 #########################################################
+    for (int idx = 1; idx <= N; idx++) { ////Note: 这里的第 N 个点会不会有问题? 比原定的点偏离? 应该不会吧?
+        VecyawSmooth(idx) = VecyawSmooth(idx-1) + angles::shortest_angular_distance(Vecyaw(idx-1),Vecyaw(idx));
+    }
+    VecyawSmooth(0) = Vecyaw(0); 
+    for (int idx = 0; idx <= N; idx++) {
+        Initwaypoints(2,idx) = VecyawSmooth(idx);
+    }
+    //// Step 4: init waypoints and start/end states for polynomial trajectory optimization
+    initWaypoints(Initwaypoints,InitT,StartStates,EndStates);
+    return true;
+}
+
 // ##############################################################################################################
 // public auxiliary functions for parameters update #############################################################
 // ##############################################################################################################
@@ -919,7 +988,7 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
 
     OPTptr->iter_num++;
 
-    std::cout << BLUE << "NLopt iter_num: " << RESET <<OPTptr->iter_num << std::endl;
+    std::cout << BLUE << "NLopt iter_num: " << RESET << "["<<OPTptr->iter_num <<"]"<< std::endl;
     std::cout << "opt coefs: " ;
     for (int i = 0; i < OPTptr->OptDof; i++) {
         std::cout << optx[i] << " ";
@@ -1050,7 +1119,6 @@ double NonTrajOpt::LBFGSobjection(void* ptrObj,const double* optx,double* grad,c
     OPTptr->iter_num++;
     std::cout << BLUE << "NLopt iter_num: " << RESET <<OPTptr->iter_num << std::endl;
 
-
     std::fill(grad, grad + n, 0.0);
     Eigen::VectorXd _optx = Eigen::Map<const Eigen::VectorXd>(optx, n);
     Eigen::VectorXd _grad = Eigen::Map<Eigen::VectorXd>(grad, n);
@@ -1152,7 +1220,7 @@ double NonTrajOpt::LBFGSobjection(void* ptrObj,const double* optx,double* grad,c
 // ##############################################################################################################
 // Optimization Solvers #########################################################################################
 // ##############################################################################################################
-// OSQP Function
+// OSQP Function //TODO: add inequality constraints for waypoints max/min states
 bool NonTrajOpt::OSQPSolve() {
     bool flag = false;
 
@@ -1214,9 +1282,9 @@ bool NonTrajOpt::OSQPSolve() {
     else {
         flag = true;
         QPoptx = solver.getSolution();
-        std::cout << "[\033[32mOptimization\033[0m]: OSQP succeed" << std::endl;
-        std::cout << "OSQP Solver result: " << std::endl;
-        std::cout << QPoptx << std::endl;
+        std::cout << "[\033[32mOptimization\033[0m]: OSQP succeed happy!!!" << std::endl;
+        // std::cout << "OSQP Solver result: " << std::endl;
+        // std::cout << QPoptx << std::endl;
     }
 
     OSQP_optx = QPoptx;
@@ -1309,7 +1377,6 @@ bool NonTrajOpt::NLoptSolve() {
             break;
         case nlopt::SUCCESS:
             std::cout << "nlopt success!" << std::endl;
-            flag = true;
             break;
         case nlopt::STOPVAL_REACHED:
             std::cout << "nlopt stopval reached!" << std::endl;
@@ -1330,6 +1397,9 @@ bool NonTrajOpt::NLoptSolve() {
             std::cout << "nlopt unknown result!" << std::endl;
             break;
         }
+
+        if (result > 0)
+            flag = true;
     }
     catch(std::exception& e) {
         std::cout << "[\033[31mOptimization\033[0m]: nlopt exception" << std::endl;
@@ -1344,12 +1414,12 @@ bool NonTrajOpt::NLoptSolve() {
 
     Non_optx = Eigen::Map<const Eigen::VectorXd>(NLoptx.data(), NLoptx.size());
     
-    // 更新优化变量
-    updateOptVars(Non_optx);
-    // 更新优化变量对应的矩阵 并求解 Ax=b
-    updateOptAxb();
-    // 将求解后的系数放入 Traj 中
-    updateTraj();
+    // // 更新优化变量
+    // updateOptVars(Non_optx);
+    // // 更新优化变量对应的矩阵 并求解 Ax=b
+    // updateOptAxb();
+    // // 将求解后的系数放入 Traj 中
+    // updateTraj();
     return flag;
 }
 
