@@ -30,7 +30,8 @@
 
 #### OSQP Solver
 - [x] updateQ,updateAeqbeq Debug
-- [ ] ERROR: non-convex 这可怎么办呢，这咋解呀
+- [x] ERROR: non-convex 这可怎么办呢，这咋解呀  
+搞定了，是$Q$矩阵算错了，自己写的C++代码的问题
 ```
 ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
 ERROR in osqp_setup: KKT matrix factorization.
@@ -44,7 +45,7 @@ The problem seems to be non-convex
     - [ ] `NLoptCost` Debug ID:`f070e92`
         - [ ] smoCost 基本一致 Gradc / Gradt
         - [ ] timeCost 基本一致
-        - [ ] 
+        - [ ] obsCost 
     - [ ] `NLoptSolve()` Debug
 - [x] edf map Debug
 

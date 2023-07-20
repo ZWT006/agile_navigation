@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-07
- * @LastEditTime: 2023-07-19
+ * @LastEditTime: 2023-07-20
  * @Description: trajectory optimization class test
  * @reference: 
  * 
@@ -30,9 +30,9 @@ int main(int argc, char **argv) {
     // ros::init (argc,argv, "tester" );
     // ros::NodeHandle nh;
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NontrajOptClass";
-    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
+    testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.LBFGSSolver";
-    testing::GTEST_FLAG(filter) = "NonTrajOptTest.OSQPSolve";
+    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.OSQPSolve";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.CostGradDebug";
     return RUN_ALL_TESTS();
 }
@@ -251,14 +251,14 @@ TEST(NonTrajOptTest, NLoptSolver) {
     paras.SMO_SWITCH = true;
     paras.OBS_SWITCH = false;
     paras.DYN_SWITCH = false;
-    paras.TIM_SWITCH = false;
+    paras.TIM_SWITCH = true;
     paras.OVA_SWITCH = false;
 
-    paras.TIME_OPTIMIZATION = false;
+    paras.TIME_OPTIMIZATION = true;
     paras.REDUCE_ORDER = true;
     paras.BOUND_OPTIMIZATION = true;
 
-    paras.INIT_OPT_VALUE  = false;
+    paras.INIT_OPT_VALUE  = true;
 
     paras.nlopt_max_iteration_num_ = 1000;
     paras.nlopt_max_iteration_time_ = 10.0;
@@ -349,15 +349,15 @@ TEST(NonTrajOptTest, NLoptSolver) {
     std::cout << "MaxIterNum: " << nontrajopt.nlopt_max_iteration_num_ << std::endl;
     std::cout << "MaxIterTime: " << std::fixed << std::setprecision(2) << nontrajopt.nlopt_max_iteration_time_ << std::endl;
 
-    bool succeed = nontrajopt.NLoptSolve();
-    // bool succeed = nontrajopt.LBFGSSolve();
+    // bool succeed = nontrajopt.NLoptSolve();
+    bool succeed = nontrajopt.LBFGSSolve();
 
     if (succeed)
         std::cout << GREEN << "NLoptSolve succeed! Happy!!!" << RESET << std::endl;
     else
         std::cout << RED << "NLoptSolve failed! Sad!!!" << RESET << std::endl;
 
-        double dt = 0.01;
+    double dt = 0.01;
     double allT = nontrajopt.Traj.getTotalDuration();
     int num = allT / dt;
     std::vector<double> time(num);
@@ -606,7 +606,7 @@ TEST(NonTrajOptTest, CostGradDebug) {
 
     paras.ORIEN_VEL = 2.0;
     paras.VERDIT_VEL = 1.0;
-    paras.OVAL_TH = 0.8;
+    paras.OVAL_TH = 0.4;
 
     paras.SMO_SWITCH = true;
     paras.OBS_SWITCH = false;
@@ -670,6 +670,7 @@ TEST(NonTrajOptTest, CostGradDebug) {
             2.5465, 1.1204, 0.8292, -2.0726, -3.4322, 2.55, 7.6172, -6.397,
             5.3379, 0.7535, -0.9336, -0.4246, 1.241, 0.2793, -1.2553, 0.4926,
             0.2336, -1.0674, 1.05, 0.4888, 4.0399, -16.4143, 18.8061, -7.1919;
+    Eigen::VectorXd optCoeffs = _coeff;
 
 
     // _coeff  << 2.0, 0.0,    0.0,    0.0,    2.5996, -4.7631, 3.0521, -0.6598,
@@ -698,7 +699,21 @@ TEST(NonTrajOptTest, CostGradDebug) {
 
     nontrajopt.updateOptVars(_optx);
 
+    // 真奇怪 这里求解一个满秩的线性方程组 会出现求解结果不一致的情况
+    // 必须得判断一下 是数值精度的问题还是自己的代码有问题
     nontrajopt.updateOptAxb();    // update MatA, Vecb by time initT
+
+    Eigen::MatrixXd MatVec;
+    MatVec.resize(nontrajopt.MatDim, nontrajopt.MatDim + 2);
+    MatVec.setZero();
+    MatVec.block(0, 0, nontrajopt.MatDim, nontrajopt.MatDim) = nontrajopt.MatA;
+    MatVec.block(0, nontrajopt.MatDim, nontrajopt.MatDim, 1) = nontrajopt.Vecx;
+    MatVec.block(0, nontrajopt.MatDim + 1, nontrajopt.MatDim, 1) = nontrajopt.Vecb;
+    eigen_csv.FirstLineIsTitles = false;
+    eigen_csv.WriteMatrix(MatVec, "/media/zwt/UbuntuFiles/datas/Swift/MatVec.csv");
+
+    // 不使用线性方程组求得的解 给定coeffs 用于测试
+    nontrajopt.Vecx = optCoeffs;
 
     nontrajopt.updateTraj();
 
@@ -756,15 +771,6 @@ TEST(NonTrajOptTest, CostGradDebug) {
     eigen_csv.FirstLineIsTitles = false;
     eigen_csv.WriteMatrix(TimeMat, "/media/zwt/UbuntuFiles/datas/Swift/TimeMat.csv");
 
-    Eigen::MatrixXd MatVec;
-    MatVec.resize(nontrajopt.MatDim, nontrajopt.MatDim + 2);
-    MatVec.setZero();
-    MatVec.block(0, 0, nontrajopt.MatDim, nontrajopt.MatDim) = nontrajopt.MatA;
-    MatVec.block(0, nontrajopt.MatDim, nontrajopt.MatDim, 1) = nontrajopt.Vecx;
-    MatVec.block(0, nontrajopt.MatDim + 1, nontrajopt.MatDim, 1) = nontrajopt.Vecb;
-    eigen_csv.FirstLineIsTitles = false;
-    eigen_csv.WriteMatrix(MatVec, "/media/zwt/UbuntuFiles/datas/Swift/MatVec.csv");
-
 
     nontrajopt.updateAeqbeq();
     Eigen::MatrixXd EquMatVec;
@@ -805,24 +811,27 @@ TEST(NonTrajOptTest, CostGradDebug) {
     eigen_csv.WriteMatrix(nontrajopt.gdsmotc, "/media/zwt/UbuntuFiles/datas/Swift/gdsmotc.csv");
     std::cout << "gdsmocostgrad : " << std::endl;
     std::cout << nontrajopt.gdsmocostgrad << std::endl;
-    std::cout << "gdsmotc : " << std::endl;
-    std::cout << nontrajopt.gdsmotc << std::endl;
+    // std::cout << "gdsmotc : " << std::endl;
+    // std::cout << nontrajopt.gdsmotc << std::endl;
 
     double obsCost = 0;
     Eigen::VectorXd obsGradc = Eigen::VectorXd::Zero(nontrajopt.MatDim);
     Eigen::VectorXd obsGradt = Eigen::VectorXd::Zero(nontrajopt.N);
     nontrajopt.calcuObsCost(obsCost, obsGradc, obsGradt);
     eigen_csv.FirstLineIsTitles = true;
-    std::string gdobstctitle = "xpos, ypos, dist, xgrad, ygrad, Tdt, cost";
+    std::string gdobstctitle = "xpos, ypos, dist, xgrad, ygrad, Tdt, cost, velnorm, 1/dist^2, -2*dist^3";
     eigen_csv.setTitles(gdobstctitle);
     eigen_csv.WriteMatrix(nontrajopt.gdobstc.transpose(), "/media/zwt/UbuntuFiles/datas/Swift/gdobstc.csv");
+    std::string gdobstimetitle = "t^0, t^1, t^2, t^3, t^4, t^5, t^6, t^7";
+    eigen_csv.setTitles(gdobstimetitle);
+    eigen_csv.WriteMatrix(nontrajopt.gdobstimemat.transpose(), "/media/zwt/UbuntuFiles/datas/Swift/gdobstimet.csv");
 
     double dynCost = 0;
     Eigen::VectorXd dynGradc = Eigen::VectorXd::Zero(nontrajopt.MatDim);
     Eigen::VectorXd dynGradt = Eigen::VectorXd::Zero(nontrajopt.N);
     nontrajopt.calcuDynCost(dynCost, dynGradc, dynGradt);
     eigen_csv.FirstLineIsTitles = true;
-    std::string gddyntctitle = "Tdt,deltaVel(0),1,2, deltaAcc(0),1,2, velCost, accCost, velgradt, accgradt";
+    std::string gddyntctitle = "Tdt, deltaVel(0), 1, 2, deltaAcc(0), 1, 2, velCost, accCost, velgradt, accgradt, velnorm, accnorm, jernorm";
     eigen_csv.setTitles(gddyntctitle);
     eigen_csv.WriteMatrix(nontrajopt.gddyntc.transpose(), "/media/zwt/UbuntuFiles/datas/Swift/gddyntc.csv");
 
@@ -836,7 +845,7 @@ TEST(NonTrajOptTest, CostGradDebug) {
     Eigen::VectorXd ovaGradt = Eigen::VectorXd::Zero(nontrajopt.N);
     nontrajopt.calcuOvaCost(ovaCost, ovaGradc, ovaGradt);
     eigen_csv.FirstLineIsTitles = true;
-    std::string gdovatctitle = "Tdt,deltaVel(0),1,2, deltaAcc(0),1,2, velCost, accCost, velgradt, accgradt";
+    std::string gdovatctitle = "Tdt, vel_B(1), vel_B(2), vel_B2, R(1v1), R(1v2), R(2v1), R(2v2), gradt(idx), xgrad, ygrad, qgrad";
     eigen_csv.setTitles(gdovatctitle);
     eigen_csv.WriteMatrix(nontrajopt.gdovatc.transpose(), "/media/zwt/UbuntuFiles/datas/Swift/gdovatc.csv");
 
@@ -928,7 +937,7 @@ TEST(NonTrajOptTest, OSQPSolve) {
 
     Eigen::VectorXd _initT;
     _initT.resize(3);
-    _initT << 0.7757, 0.2853, 0.6976;
+    _initT << 1.2063, 0.3520, 0.6880;
 
     Eigen::Matrix<double, 3, 4> _startStates;
     _startStates.resize(3, 4);
@@ -945,11 +954,13 @@ TEST(NonTrajOptTest, OSQPSolve) {
     nontrajopt.updateAeqbeq();    // update MatA, Vecb by time initT  
     nontrajopt.updateMatQ();      // update MatQ by time initT
 
-    // eigen_csv.WriteMatrix(nontrajopt.MatQ, "/home/zwt/Documents/MatQ.csv");
-    // std::cout << "nontrajopt.MatQ: " << std::endl;
-    // eigen_csv.WriteMatrix(nontrajopt.MatAeq, "/home/zwt/Documents/MatAeq.csv");
-    // std::cout << "nontrajopt.MatAeq: " << std::endl;
-    // eigen_csv.WriteVector(nontrajopt.Vecbeq, "/home/zwt/Documents/Vecbeq.csv");
+    // eigen_csv.WriteMatrix(nontrajopt.MatQ, "/media/zwt/UbuntuFiles/datas/Swift/MatQ.csv");
+    // std::cout << "nontrajopt.MatQ: rank = "<< nontrajopt.MatQ.fullPivLu().rank() << std::endl;
+    // Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigensolver(nontrajopt.MatQ);
+    // std::cout << "SelfAdjointEigenSolver : minicoeffs = " << eigensolver.eigenvalues().minCoeff() << std::endl;
+    // eigen_csv.WriteMatrix(nontrajopt.MatAeq, "/media/zwt/UbuntuFiles/datas/Swift/MatAeq.csv");
+    // std::cout << "nontrajopt.MatAeq: rank = " << nontrajopt.MatAeq.fullPivLu().rank() <<  std::endl;
+    // eigen_csv.WriteVector(nontrajopt.Vecbeq, "/media/zwt/UbuntuFiles/datas/Swift/Vecbeq.csv");
     // std::cout << "nontrajopt.Vecbeq: " << std::endl;
 
     nontrajopt.OSQPSolve();
