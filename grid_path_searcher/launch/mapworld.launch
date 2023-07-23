@@ -87,7 +87,7 @@
         <param name="waypoint_type" value="manual-lonely-waypoint"/>
     </node>
 
-    <node name="img_rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/imgmap.rviz"/>
+    <node name="img_rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/image.rviz"/>
 
     <!-- <node pkg="tf" type="static_transform_publisher" name="tf_world_to_map" 
         args="0 0 0 0 0 0 1 odom world 100 " /> -->

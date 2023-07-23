@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /RobotVis1/Status1
         - /GroundTruth1/Shape1
       Splitter Ratio: 0.591176450252533
     Tree Height: 539
@@ -175,7 +176,7 @@ Visualization Manager:
       Visual Enabled: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /swaft_planner_node/planner_path_vis
+      Marker Topic: /swift_planner_node/planner_path_vis
       Name: SearchPath
       Namespaces:
         {}
@@ -276,7 +277,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /swaft_planner_node/planner_path_vis
+      Marker Topic: /swift_planner_node/planner_path_vis
       Name: SearchPathVis
       Namespaces:
         {}
@@ -284,15 +285,15 @@ Visualization Manager:
       Value: true
     - Class: rviz/MarkerArray
       Enabled: true
-      Marker Topic: /swaft_planner_node/robot_vis
+      Marker Topic: /swift_planner_node/robot_vis
       Name: RobotVis
       Namespaces:
-        {}
+        planner_node/visRobot: true
       Queue Size: 1
       Value: true
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /swaft_planner_node/sdf_map_img
+      Image Topic: /swift_planner_node/sdf_map_img
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -349,7 +350,7 @@ Visualization Manager:
       Size (Pixels): 3
       Size (m): 0.05000000074505806
       Style: Flat Squares
-      Topic: /swaft_planner_node/obs_map_pcl
+      Topic: /swift_planner_node/obs_map_pcl
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
@@ -419,7 +420,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 9.315101623535156
+      Distance: 3.778496265411377
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -427,17 +428,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -3.0543155670166016
-        Y: -1.1546248197555542
-        Z: 1.2842546701431274
+        X: -0.783549964427948
+        Y: -0.24187856912612915
+        Z: 0.9895696640014648
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.424796462059021
+      Pitch: 0.5847973823547363
       Target Frame: <Fixed Frame>
-      Yaw: 4.258548259735107
+      Yaw: 2.393522262573242
     Saved: ~
 Window Geometry:
   Displays:

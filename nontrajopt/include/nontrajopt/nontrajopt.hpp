@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-20
+ * @LastEditTime: 2023-07-21
  * @Description: Nonlinear Trajectory Optimization
  * @reference: 
  * 
@@ -15,6 +15,7 @@
 #include <vector>
 #include <angles/angles.h>
 #include <Eigen/Eigen>
+#include <Eigen/SparseQR>
 #include <opencv2/opencv.hpp>
 
 // osqp-eigen
@@ -37,145 +38,6 @@
 #define TIME_TAU_UPPER_BOUND 1.6
 #define TIME_TAU_LOWER_BOUND -3.0
 
-// namespace NonTrajOptSpace
-// {
-
-/// @reference: https://github.com/ZJU-FAST-Lab/GCOPTER/blob/main/gcopter/include/gcopter/minco.hpp
-// The banded system class is used for solving
-// banded linear system Ax=b efficiently.
-// A is an N*N band matrix with lower band width lowerBw
-// and upper band width upperBw.
-// Banded LU factorization has O(N) time complexity.
-class BandedSystem {
- public:
-  // The size of A, as well as the lower/upper
-  // banded width p/q are needed
-  inline void create(const int &n, const int &p, const int &q) {
-    // In case of re-creating before destroying
-    destroy();
-    N = n;
-    lowerBw = p;
-    upperBw = q;
-    int actualSize = N * (lowerBw + upperBw + 1);
-    ptrData = new double[actualSize];
-    std::fill_n(ptrData, actualSize, 0.0);
-    return;
-  }
-
-  inline void destroy() {
-    if (ptrData != nullptr) {
-      delete[] ptrData;
-      ptrData = nullptr;
-    }
-    return;
-  }
-
- private:
-  int N;
-  int lowerBw;
-  int upperBw;
-  // Compulsory nullptr initialization here
-  double *ptrData = nullptr;
-
- public:
-  // Reset the matrix to zero
-  inline void reset(void) {
-    std::fill_n(ptrData, N * (lowerBw + upperBw + 1), 0.0);
-    return;
-  }
-
-  // The band matrix is stored as suggested in "Matrix Computation"
-  inline const double &operator()(const int &i, const int &j) const {
-    return ptrData[(i - j + upperBw) * N + j];
-  }
-
-  inline double &operator()(const int &i, const int &j) {
-    return ptrData[(i - j + upperBw) * N + j];
-  }
-
-  // This function conducts banded LU factorization in place
-  // Note that NO PIVOT is applied on the matrix "A" for efficiency!!!
-  /// @attention: This function is not numerical stable
-  inline void factorizeLU() {
-    int iM, jM;
-    double cVl;
-    for (int k = 0; k <= N - 2; k++) {
-      iM = std::min(k + lowerBw, N - 1);
-      cVl = operator()(k, k);
-      for (int i = k + 1; i <= iM; i++) {
-        if (operator()(i, k) != 0.0) {
-          operator()(i, k) /= cVl;
-        }
-      }
-      jM = std::min(k + upperBw, N - 1);
-      for (int j = k + 1; j <= jM; j++) {
-        cVl = operator()(k, j);
-        if (cVl != 0.0) {
-          for (int i = k + 1; i <= iM; i++) {
-            if (operator()(i, k) != 0.0) {
-              operator()(i, j) -= operator()(i, k) * cVl;
-            }
-          }
-        }
-      }
-    }
-    return;
-  }
-
-  // This function solves Ax=b, then stores x in b
-  // The input b is required to be N*m, i.e.,
-  // m vectors to be solved.
-  inline void solve(Eigen::VectorXd &b) const {
-    int iM;
-    for (int j = 0; j <= N - 1; j++) {
-      iM = std::min(j + lowerBw, N - 1);
-      for (int i = j + 1; i <= iM; i++) {
-        if (operator()(i, j) != 0.0) {
-          b.row(i) -= operator()(i, j) * b.row(j);
-        }
-      }
-    }
-    for (int j = N - 1; j >= 0; j--) {
-      b.row(j) /= operator()(j, j);
-      iM = std::max(0, j - upperBw);
-      for (int i = iM; i <= j - 1; i++) {
-        if (operator()(i, j) != 0.0) {
-          b.row(i) -= operator()(i, j) * b.row(j);
-        }
-      }
-    }
-    return;
-  }
-
-  // This function solves ATx=b, then stores x in b
-  // The input b is required to be N*m, i.e.,
-  // m vectors to be solved.
-  inline void solveAdj(Eigen::VectorXd &b) const {
-    int iM;
-    for (int j = 0; j <= N - 1; j++) {
-      b.row(j) /= operator()(j, j);
-      iM = std::min(j + upperBw, N - 1);
-      for (int i = j + 1; i <= iM; i++) {
-        if (operator()(j, i) != 0.0) {
-          b.row(i) -= operator()(j, i) * b.row(j);
-        }
-      }
-    }
-    for (int j = N - 1; j >= 0; j--) {
-      iM = std::max(0, j - lowerBw);
-      for (int i = iM; i <= j - 1; i++) {
-        if (operator()(j, i) != 0.0) {
-          b.row(i) -= operator()(j, i) * b.row(j);
-        }
-      }
-    }
-    return;
-  }
-};
-
-// ##############################################################################################################
-#define MAT_A_LOWER_BW 30
-#define MAT_A_UPPER_BW 10
 
 enum OPT_METHOD {
     LBFGS_RAW,
@@ -237,11 +99,7 @@ class NonTrajOpt
 
     private://##############################################################################################################
     /// @brief: Nonlinear Optimization
-    // bound matrix MatABS and upper/lower bound
-    int lowerBw;
-    int upperBw;
     // &&&&&&&&&&&&&&&&& // full odrer Ax=b solve x
-    BandedSystem MatABS;      // Ax=b solve x MatDim*MatDim band matrix
     public: ////Debug: public ##############################################################################################################
     Eigen::MatrixXd MatA;     // Ax=b solve x MatDim*MatDim full matrix
     Eigen::VectorXd Vecb;   // Ax=b solve b MatDim*1
@@ -391,7 +249,7 @@ class NonTrajOpt
     std::vector<bool> optFlag; // optFlag[i]  表示第n个系数是否是优化变量
 
     NonTrajOpt(/* args */) = default;
-    ~NonTrajOpt() { MatABS.destroy();};
+    ~NonTrajOpt() = default;
 
     // fixed parameters for every optimization 
     void initParameter(const OptParas &paras);
@@ -500,10 +358,6 @@ inline void NonTrajOpt::initParameter(const OptParas &paras) {
     nlopt_max_iteration_num_ = paras.nlopt_max_iteration_num_;
     nlopt_max_iteration_time_ = paras.nlopt_max_iteration_time_;
 
-
-    // always fixed parameters
-    lowerBw = MAT_A_LOWER_BW;
-    upperBw = MAT_A_UPPER_BW;
     O = 8; // 7th = 8 coefficients
     D = 3; // [x,y,q]
     E = 4; // [p,v,a,j]
@@ -684,7 +538,6 @@ inline void NonTrajOpt::reset(const int &pieceNum) {
     EquDim = 2*E*D + E*(N-1)*D + (N-1)*D;
     // opt 问题的自由度 整个自由度 减去 等式约束 (waypoints连续性约束+waypoints固定点约束)
     OptDof = MatDim - EquDim;
-    MatABS.create(MatDim, lowerBw, upperBw);
     MatA.resize(MatDim, MatDim);
     Vecb.resize(MatDim);
     Vecx.resize(MatDim);
@@ -856,22 +709,38 @@ void NonTrajOpt::updateOptAxb() {
     // 线性方程组能够 正常求解且与MATLAB结果一致
     ////TODO: 这里求解线性方程组可能会有问题
     int rank = TempAeqRE.fullPivLu().rank();
+    // 将 TempAeq 和 Tempbeq 赋值给 MatABS 和 Vecb
+    MatA = TempAeqRE;
+    Vecb = TempbeqRE;
+    //// 最小二乘求解线性方程组 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    Eigen::SparseQR<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>> solver;
+    // 设置求解器的参数（可选）
+    solver.setPivotThreshold(1e-6); // 设置主元选取阈值，默认为1e-6
+
     if (rank < MatDim) {
         // std::cout << YELLOW << "Write TempAeqRANK.csv" << RESET << std::endl;
         // std::cout << "Time Vector raw :" << Optt.transpose() << std::endl;
         // std::cout << "Time Vector exp :" << Vect.transpose() << std::endl;
         // eigenCSV.WriteMatrix(TempAeqRE,"/home/zwt/Documents/TempAeqRANK.csv");
         // eigenCSV.WriteVector(TempbeqRE,"/home/zwt/Documents/TempbeqRANK.csv");
-        std::cout << std::endl;
-        std::cout << YELLOW << "God damn it! TempAeqRE rand :" << rank << " is singular!" << RESET << std::endl;
+        // std::cout << std::endl;
+        std::cout << YELLOW << "God damn it! TempAeqRE rand :" << rank <<" < " << MatDim << " is singular!" << RESET << std::endl;
+        Vecx = TempAeqRE.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(TempbeqRE);
+        // Vecx = TempAeqRE.fullPivLu().solve(TempbeqRE);
+        // Eigen::SparseMatrix<double> A = TempAeqRE.sparseView();
+        // solver.compute(A);
+        // if (solver.info() != Eigen::Success) {
+        //     std::cout << "sad SparseQR faild ....." << std::endl;
+        // }
+        // Vecx = solver.solve(TempbeqRE); // 使用求解器求解线性方程组
     }
-
-    MatA = TempAeqRE;
-    Vecx = TempAeqRE.fullPivLu().solve(TempbeqRE);
+    else {
+        Vecx = TempAeqRE.fullPivLu().solve(TempbeqRE);
     // std::cout << "Vecx sizes: " << Vecx.rows() << " " << Vecx.cols() << std::endl;
     // std::cout << "Vecx: " << Vecx.transpose() << std::endl;
-    // 将 TempAeq 和 Tempbeq 赋值给 MatABS 和 Vecb
-    Vecb = TempbeqRE;
+    }
+
+    
 }
 
 inline void NonTrajOpt::updateTraj() {
@@ -978,7 +847,6 @@ void NonTrajOpt::updateAeqbeq() {
 }
 
 
-
 // ##############################################################################################################
 // Objective Functions 
 // ##############################################################################################################
@@ -988,18 +856,19 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
 
     OPTptr->iter_num++;
 
-    std::cout << BLUE << "NLopt iter_num: " << RESET << "["<<OPTptr->iter_num <<"]"<< std::endl;
-    std::cout << "opt coefs: " ;
-    for (int i = 0; i < OPTptr->OptDof; i++) {
-        std::cout << optx[i] << " ";
-    }
-    std::cout << std::endl;
+    std::cout << BLUE << "NLopt iter_num: " << RESET << "["<<OPTptr->iter_num <<"] ";//<< std::endl;
+    // std::cout << "opt coefs: " ;
+    // for (int i = 0; i < OPTptr->OptDof; i++) {
+    //     std::cout << optx[i] << " ";
+    // }
+    // std::cout << std::endl;
     if (OPTptr->TIME_OPTIMIZATION) {
         double opt_time = 0;
         std::cout << "opt times: " ;
         for (int i = 0; i < OPTptr->N; i++) {
             opt_time = optx[OPTptr->OptDof+i];
-            std::cout << "exp(" << optx[OPTptr->OptDof+i] << ")=" << std::exp(opt_time) <<" ";
+            // std::cout << "exp(" << opt_time << ")=" << std::exp(opt_time) <<" ";
+            std::cout << std::exp(opt_time) <<" ";
         }
         std::cout << std::endl;
     }
@@ -1109,10 +978,7 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
     return Cost;
 }
 
-// static double LBFGSobjection(void* ptrObj,const double* optx,double* grad,const int n);
 double NonTrajOpt::LBFGSobjection(void* ptrObj,const double* optx,double* grad,const int n) {
-// double LBFGSobjection(void* ptrObj,const double* optx,double* grad,const int n) {
-    // NonTrajOpt& obj = *(NonTrajOpt*)ptrObj;
     NonTrajOpt* OPTptr = reinterpret_cast<NonTrajOpt*>(ptrObj);
     double Cost;
 
@@ -1123,20 +989,20 @@ double NonTrajOpt::LBFGSobjection(void* ptrObj,const double* optx,double* grad,c
     Eigen::VectorXd _optx = Eigen::Map<const Eigen::VectorXd>(optx, n);
     Eigen::VectorXd _grad = Eigen::Map<Eigen::VectorXd>(grad, n);
 
-    std::cout << "opt coefs: " ;
-    for (int i = 0; i < OPTptr->OptDof; i++) {
-        std::cout << optx[i] << " ";
-    }
-    std::cout << std::endl;
-    if (OPTptr->TIME_OPTIMIZATION) {
-        double opt_time = 0;
-        std::cout << "opt times: " ;
-        for (int i = 0; i < OPTptr->N; i++) {
-            opt_time = optx[OPTptr->OptDof+i];
-            std::cout << "exp(" << optx[OPTptr->OptDof+i] << ")=" << std::exp(opt_time) <<" ";
-        }
-        std::cout << std::endl;
-    }
+    // std::cout << "opt coefs: " ;
+    // for (int i = 0; i < OPTptr->OptDof; i++) {
+    //     std::cout << optx[i] << " ";
+    // }
+    // std::cout << std::endl;
+    // if (OPTptr->TIME_OPTIMIZATION) {
+    //     double opt_time = 0;
+    //     std::cout << "opt times: " ;
+    //     for (int i = 0; i < OPTptr->N; i++) {
+    //         opt_time = optx[OPTptr->OptDof+i];
+    //         std::cout << "exp(" << optx[OPTptr->OptDof+i] << ")=" << std::exp(opt_time) <<" ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     // 更新优化变量
     OPTptr->updateOptVars(_optx);
@@ -1288,6 +1154,7 @@ bool NonTrajOpt::OSQPSolve() {
     }
 
     OSQP_optx = QPoptx;
+    Vecx = QPoptx;
 
     return flag;
 }
@@ -1355,8 +1222,12 @@ bool NonTrajOpt::NLoptSolve() {
         //// Time clock &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         auto nlopt_time_end = std::chrono::high_resolution_clock::now();
         // std::chrono::microseconds获取微秒数 std::chrono::milliseconds获取毫秒数，或者使用std::chrono::seconds获取秒数
-        auto nlopt_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(nlopt_time_end - nlopt_time_start);
-        std::cout << "NLopt time: " << nlopt_time_duration.count() << " us" << std::endl;
+        auto nlopt_time_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(nlopt_time_end - nlopt_time_start);
+        auto nlopt_time_duration_us = std::chrono::duration_cast<std::chrono::microseconds>(nlopt_time_end - nlopt_time_start);
+        auto nlopt_time_duration_s = std::chrono::duration_cast<std::chrono::seconds>(nlopt_time_end - nlopt_time_start);
+        std::cout << "NLopt time: " << nlopt_time_duration_us.count() << " us" << std::endl;
+        std::cout << "NLopt time: " << nlopt_time_duration_ms.count() << " ms" << std::endl;
+        std::cout << "NLopt time: " << nlopt_time_duration_s.count() << " s" << std::endl;
         std::cout << "NLopt minf: " << minf << std::endl;
         //// Debug result flag 
         switch (result) {
@@ -1407,9 +1278,9 @@ bool NonTrajOpt::NLoptSolve() {
 
         //// Time clock &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         auto nlopt_time_end = std::chrono::high_resolution_clock::now();
-        // std::chrono::microseconds获取微秒数 std::chrono::milliseconds获取毫秒数，或者使用std::chrono::seconds获取秒数
-        auto nlopt_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(nlopt_time_end - nlopt_time_start);
-        std::cout << "NLopt time: " << nlopt_time_duration.count() << " us" << std::endl;
+        // std::chrono::microseconds获取微秒数 std::chrono::milliseconds 获取毫秒数，或者使用 std::chrono::seconds 获取秒数
+        auto nlopt_time_duration = std::chrono::duration_cast<std::chrono::milliseconds>(nlopt_time_end - nlopt_time_start);
+        std::cout << "NLopt time: " << nlopt_time_duration.count() << " ms" << std::endl;
     }
 
     Non_optx = Eigen::Map<const Eigen::VectorXd>(NLoptx.data(), NLoptx.size());

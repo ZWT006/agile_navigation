@@ -27,6 +27,7 @@
 - [x] Time 多次幂计算/exp()/log()
 - [ ] 角度q变化的光滑处理
 - [ ] 参考时间计算以及初末时间缩放
+- [ ] QP优化和NLopt优化如何区分 长距离 QP + 短距离 NLopt?
 
 #### OSQP Solver
 - [x] updateQ,updateAeqbeq Debug
@@ -37,20 +38,22 @@ ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the no
 ERROR in osqp_setup: KKT matrix factorization.
 The problem seems to be non-convex
 ```
-#### NLopt Solver
-- [ ] 减少条件,先用NLopt求解器解相同的QP问题
-    - [x] updateOptAxb Debug
-    - [x] update Ax=b solve Debug
-    - [x] `set_min_objective` Debug : 编译通过运行出错/源码安装NLopt解决
-    - [x] `NLoptCost` Debug ID:`f070e92` 
-        - [x] smoCost 基本一致 Gradc / Gradt
-        - [x] timeCost 基本一致
-        - [x] obsCost 
-    - [x] `nonCost` Debug ID: `f34f159` for all Debug data save as `.csv` compared with MATLAB
-    - [ ] `OSQPSolve()` Debug
-    - [ ] `NLoptSolve()` Debug
-- [x] edf map Debug
+- [x] ~~add waypoints states inequality constraints~~ 还是不要的好 效果差
 
+#### NLopt Solver
+- [x] updateOptAxb Debug
+- [x] update Ax=b solve Debug
+- [x] `set_min_objective` Debug : 编译通过运行出错/源码安装NLopt解决
+- [x] `NLoptCost` Debug ID:`f070e92` 
+    - [x] smoCost 基本一致 Gradc / Gradt
+    - [x] timeCost 基本一致
+    - [x] obsCost 反正Cost都Debug了 我不管!
+- [x] `nonCost` Debug ID: `f34f159` for all Debug data save as `.csv` compared with MATLAB
+- [x] `OSQPSolve()` Debug
+- [ ] `NLoptSolve()` Debug
+- [x] edf map Debug
+- [ ] 奇异矩阵的线性最小二乘解
+- [ ] MATLAB 对比一下是不是一直都是满秩的
 ### BUGs
 #### Big!!!
 - [x] start swift planner 第一个数据会有一个(0,0,0)的期望，让机器人猛地一顿  
@@ -58,7 +61,7 @@ The problem seems to be non-convex
 - [ ] `tracking.NavSeqFixed(tracking._local_odom);` 造成机器人原地偏移, Odometry根据机器人的踏步在漂
 - [ ] replanning 的逻辑有些问题，貌似一直从 currPose 开始重规划不行，或者说得在别的地方一直更新 currPose
 - [x] 现在的逻辑是从距离障碍物最近的轨迹点开始重规划,可能造成多走冤枉路的情况出现,这个可以考虑比较一下 障碍物的段索引和当前跟踪的段索引，找一个阈值来确定重规划的段索引
-
+- [ ] `swift_planner`第一次搜索失败后再重设终点会直接死掉
 #### Warry
 
 #### Easy
@@ -82,14 +85,21 @@ The problem seems to be non-convex
 
 # TEST List
 
-##
+## Navigation
+- [ ] 10Hz or 5Hz and gait frequancy make different
+- [ ] Time State givened by navigation
+## bspline
 - [ ] CLF-TRO build and roslaunch
+- [ ] CLF-TRO State Trajectory
 
 
 ## Search
+everything is OK
 
 ## Opt
 - [ ] mini jerk smoothcost ?
+- [ ] dynCost,obsCost,timCost,ovaCost weights
+
 ## NMPC
 
 # Important Version List

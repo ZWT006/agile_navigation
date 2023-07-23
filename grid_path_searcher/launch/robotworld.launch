@@ -46,7 +46,7 @@
     <param name="waypoint_type" value="manual-lonely-waypoint"/>
 </node>
 
-<node name="robot_rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/swaft_rviz.rviz"/>
+<node name="robot_rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/swift_rviz.rviz"/>
 
 <!-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 添加SLAM等的坐标系转化关系 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
 <node pkg="tf" type="static_transform_publisher" name="tf_world_to_odom" 

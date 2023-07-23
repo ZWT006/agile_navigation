@@ -1,0 +1,92 @@
+<launch>
+    <node pkg="fiesta" type="test_fiesta" name="fiesta" output="screen"
+          required="true">
+
+        <param name="resolution" value="0.05"/>
+        <param name="update_esdf_every_n_sec" value="0.1"/>
+
+        <!--Hash Table only-->
+        <param name="reserved_size" value="8000000"/>
+
+        <!--Array only l[x,y,z] & r[x,y,z] confirm the map size-->
+        <param name="lx" value="-20.0"/>
+        <param name="ly" value="-20.0"/>
+        <param name="lz" value="-0.2"/>
+        <param name="rx" value="+20.0"/>
+        <param name="ry" value="+20.0"/>
+        <param name="rz" value="+4"/>
+
+        <!-- raycasting parameters -->
+        <param name="min_ray_length" value="0.3"/>
+        <param name="max_ray_length" value="10.0"/>
+        <!--If hash table is used, make sure the value is 0. In array implementation, 0 means no other thread.-->
+        <param name="ray_cast_num_thread" value="0"/>
+
+        <!-- needed when using depth image-->
+        <!-- <param name="center_x" value="323.120483"/>-->
+        <!-- <param name="center_y" value="236.743210"/>-->
+        <!-- <param name="focal_x" value="385.754486"/>-->
+        <!-- <param name="focal_y" value="385.754486"/>-->
+
+        <!-- probabilistic grid map -->
+        <param name="p_hit" value="0.70"/>
+        <param name="p_miss" value="0.35"/>
+        <param name="p_min" value="0.12"/>
+        <param name="p_max" value="0.97"/>
+        <param name="p_occ" value="0.80"/>
+
+        <!-- zwt ADD parameters for self using -->
+        <param name="global_pcl" value="true"/> <!--global_pcl switch input pcl is local(trans by odometry)/global(trans needless)-->
+        <param name="local_height" value="true"/> <!--local_height switch vis_bound is fixed/ update with odometry-->
+        <param name="esdf_update" value="false"/> <!--esdf_update switch esdf is update/ not update-->
+        <param name="occupancy_pcl_pub" value="true"/> <!--occupancy_pcl_pub switch occupancy_pcl is publish/ not publish-->
+        <param name="occupancy_img_pub" value="true"/> <!--occupancy_img_pub switch occupancy_img is publish/ not publish-->
+        <param name="occupancy_DUP_pub" value="false"/> <!--occupancy_DUP_pub switch occupancy_DUP is publish/ not publish-->
+        <param name="esdf_marker_pub" value="false"/> <!--esdf_marker_pub switch esdf_marker is publish/ not publish-->
+        <param name="esdf_pcl_pub" value="false"/> <!--esdf_pcl_pub switch esdf_pcl is publish/ not publish-->
+        <param name="esdf_img_pub" value="false"/> <!--esdf_img_pub switch esdf_img is publish/ not publish-->
+        <param name="esdf_DUP_pub" value="false"/> <!--esdf_DUP_pub switch esdf_DUP is publish/ not publish-->
+
+        <!-- global / local -->
+        <param name="global_map" value="true"/> 
+        <param name="global_update" value="true"/>
+        <param name="global_vis" value="true"/>
+        <param name="radius_x" value="4.0"/>
+        <param name="radius_y" value="4.0"/>
+        <param name="radius_z" value="2"/>
+
+        <!--depth_filter -->
+        <param name="use_depth_filter" value="true"/>
+        <param name="depth_filter_tolerance" value="0.1"/>
+        <param name="depth_filter_max_dist" value="10.0"/>
+        <param name="depth_filter_min_dist" value="0.1"/>
+        <!--unit: pixel-->
+        <param name="depth_filter_margin" value="0"/>
+
+        <!-- visulization -->
+        <!--0 for no visulize-->
+        <param name="visualize_every_n_updates" value="10"/>
+        <param name="slice_vis_max_dist" value="2.0"/>
+        <!-- relative to the lz if array is used, relative to the origin if hash table is used -->
+        <!--ESDFMap/occ_pc 's lower bound and upper bound'-->
+        <!-- vis_high is real high as absolute zwt modify -->
+        <param name="slice_vis_level" value="0.05"/> <!--Marker-->
+        <param name="vis_lower_bound" value="-0.5"/>
+        <param name="vis_upper_bound" value="3"/>
+
+        <!-- subsribe source -->
+        <!--<remap from="~pointcloud" to="/camera/depth/color/points"/>-->
+        <!-- <remap from="~depth" to="/camera/depth/image_rect_raw"/>-->
+        <!-- <remap from="~depth" to="/Laser_map"/> -->
+        <remap from="~depth" to="/cloud_registered"/>
+        <remap from="~transform" to="/Odometry"/>
+        <!-- <remap from="~depth" to="/livox/lidar"/> -->
+        <!-- <remap from="~transform" to="/ground_truth/state"/> -->
+    </node>
+    <!-- this static tf for connect fast_lio and fiesta odom-->
+    <node pkg="tf" type="static_transform_publisher" name="tf_world_to_map" 
+        args="0 0 0 0 0 0 1 camera_init world 100 "/>
+
+    <node name="rvizvisualisation" pkg="rviz" type="rviz" output="log" args="-d $(find fiesta)/rvizconfig/lidar.rviz" />
+</launch>
+

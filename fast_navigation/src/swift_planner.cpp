@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-07-11
+ * @LastEditTime: 2023-07-23
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -9,6 +9,7 @@
  */
 
 #include <Eigen/Geometry>
+// #include <boost/make_shared.hpp>
 #include <fast_navigation/navigation.hpp>
 #include <fast_navigation/readwritecsv.hpp>
 
@@ -70,6 +71,7 @@ bool _FIRST_ODOM= true;     // 是否是第一次接收到里程计信息
 bool _REACH_GOAL= true;    // 是否到达目标点
 bool _TRACKING  = false;    // 是否正在跟踪轨迹 安全检查不通过就会置为false 原地急刹车trot
 
+bool _OFFESET_ODOM = false; // 是否需要反向里程计信息
 bool _PURE_TRACKING = false; // 是否纯跟踪模式
 
 ////####################################################################################
@@ -78,11 +80,12 @@ int _OPT_SEG = 0;           // 优化轨迹的段数 这个参数根据 sample �
                             // 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度
 double _optHorizon = 1.5;   // 优化轨迹的时间长度
 #define OPT_FACTOR 1.5f
-
-nav_msgs::Odometry::ConstPtr currodometry;
-Eigen::Isometry3d Odomtrans; // 坐标系转换
-double biasx = 0.0, biasy = 0.0,biasq = 0.0; // 坐标系转换偏置 [x,y,q] q:rad
-double cosyaw,sinyaw; // 坐标系转换偏置 [x,y,q] q:rad
+// nav_msgs::Odometry currodometry_msg;
+nav_msgs::Odometry::Ptr currodometry;
+// 感觉没啥用
+// Eigen::Isometry3d Odomtrans; // 坐标系转换
+// double biasx = 0.0, biasy = 0.0,biasq = 0.0; // 坐标系转换偏置 [x,y,q] q:rad
+// double cosyaw,sinyaw; // 坐标系转换偏置 [x,y,q] q:rad
 // visualization robot switch 在ros循环中可视化 
 Vector3d _first_pose;
 
@@ -104,7 +107,7 @@ void rcvWaypointsCallback(const nav_msgs::Path & wp);
 // 点云回调函数，负责设置障碍地图并更新SDF地图
 void rcvPointCloudCallback(const sensor_msgs::PointCloud2 & pointcloud_map);
 // 里程计回调函数，负责设置机器人位置;进行轨迹跟踪
-void rcvOdomCallback(const nav_msgs::Odometry::ConstPtr& msg);
+void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg);
 
 // 关键功能函数 ############################################################################################################
 // search trajectory checking
@@ -126,7 +129,7 @@ void visSearchTraj();
 // visulization obstacle map
 void visObsMap();
 // visulization robot 
-void visRobot(const nav_msgs::Odometry::ConstPtr& msg);
+void visRobot(const nav_msgs::Odometry::Ptr& msg);
 // visulization position trajectory
 void visPtraj();
 // visulization velocity trajectory
@@ -198,16 +201,14 @@ int main(int argc, char** argv)
         _OPT_SEG = int(_optHorizon / sample_grid_time * OPT_FACTOR); // 优化轨迹的段数
     }
     tracking._TO_SEG = _OPT_SEG;
-
+    nh.param("planner/offset_odom", _OFFESET_ODOM, false);
     // 读取给定轨迹并跟踪 ################################################################################################################
     nh.param("planner/pure_tracking", _PURE_TRACKING, false);
     // FileName: TRAJ_DATA_LONG.csv | TRAJ_DATA_SHORT.csv
     if (_PURE_TRACKING) {
-        nh.param("planner/orign_biasx",biasx,0.0);
-        nh.param("planner/orign_biasy",biasy,0.0);
-        nh.param("planner/orign_biasq",biasq,0.0);
-        cosyaw = std::cos(biasq);
-        sinyaw = std::sin(biasq);
+        // nh.param("planner/orign_biasx",biasx,0.0);
+        // nh.param("planner/orign_biasy",biasy,0.0);
+        // nh.param("planner/orign_biasq",biasq,0.0);
         readcsv.setFileName("/media/zwt/UbuntuFiles/datas/Swift/Trajectory/TRAJ_DATA_LONG.csv");
         readcsv.setOrign(0.01);
         TrackSeg _trackseg;
@@ -498,26 +499,26 @@ void rcvPointCloudCallback(const sensor_msgs::PointCloud2 & pointcloud_map)
 }
 int info_cnt = 0;
 // 里程计回调函数，负责设置机器人位置;进行轨迹跟踪
-void rcvOdomCallback(const nav_msgs::Odometry::ConstPtr& msg)
+void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg)
 {
     //// 必要的处理 标志位的设置
     _odom_sub_cnt--;
     if (_odom_sub_cnt < 0)
         _odom_sub_cnt = 5;
-
     currodometry = msg;
+    if (_OFFESET_ODOM) {
+        currodometry->pose.pose.position.x = -currodometry->pose.pose.position.x;
+        currodometry->pose.pose.position.y = -currodometry->pose.pose.position.y;
+    }
     _vis_Robot = true;
     _HAS_ODOM  = true;
     tracking._currodometry = currodometry;
-
+    // ####################################################################################
     // 轨迹控制 跟踪位置/速度
     Vector3d _current_odom;
-    double tempx = msg->pose.pose.position.x + biasx;
-    double tempy  = msg->pose.pose.position.y + biasy;
+    _current_odom(0) = msg->pose.pose.position.x;
+    _current_odom(1)  = msg->pose.pose.position.y;
     _current_odom(2) = tf::getYaw(msg->pose.pose.orientation); // use tf2 library to get yaw from quaternion
-    // TODO: test the odom transform
-    _current_odom(0) = tempx * cosyaw - tempy * sinyaw;
-    _current_odom(1) = tempx * sinyaw + tempy * cosyaw;
     // 这里注意一点, local_odom 是上次里程计的位置, current_odom 是当前接收到里程计 会在下边的轨迹跟踪中更新
     // WARN: 这样处理可能造成机器人原地踏步定位的漂移 
     tracking._local_odom = tracking._current_odom;
@@ -937,7 +938,7 @@ void visObsMap()
  * @param {ConstPtr&} msg
  * @return {*}
  */
-void visRobot(const nav_msgs::Odometry::ConstPtr& msg)
+void visRobot(const nav_msgs::Odometry::Ptr& msg)
 {   
     // 获取机器人当前位姿
     if (msg == nullptr)
@@ -1032,6 +1033,7 @@ void visRobot(const nav_msgs::Odometry::ConstPtr& msg)
     Spheres.pose.position.x = tracking._pursuitPose(0);
     Spheres.pose.position.y = tracking._pursuitPose(1);
     Spheres.pose.position.z = DEFAULT_HIGH;
+    Spheres.pose.orientation.w = 1.0;
 
     LineArray.markers.push_back(Spheres);
 
