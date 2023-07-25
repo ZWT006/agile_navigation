@@ -8,6 +8,8 @@
 - [ ] 离线轨迹的可视化
 - [ ] 如何解决跟踪误差偏大造成失控翻车
 - [ ] 坐标系的转化 SLAM <=> Robot
+- [ ] 手动输入 Goal (非GUI输入)
+- [ ] 精简代码结构和功能 以完成基础功能为主
 
 #### Replanning
 思路：先检查当前Odometry是否安全/根据当前odometry计算1s的轨迹是否安全，危险直接停机；判断当前pose在期望轨迹上的位置，并检查之后的轨迹是否安全，从不安全的Segment开始，重新search，填补到期望轨迹向量中。要将lazykinoprm中的pathStateSets和fast_navigation分离开来，fast_navigation要有自己的一套waypoint数据。
@@ -39,6 +41,7 @@ ERROR in osqp_setup: KKT matrix factorization.
 The problem seems to be non-convex
 ```
 - [x] ~~add waypoints states inequality constraints~~ 还是不要的好 效果差
+- [ ] maybe 可以把求解的输出给关了
 
 #### NLopt Solver
 - [x] updateOptAxb Debug
@@ -75,6 +78,7 @@ The problem seems to be non-convex
 - [x] ESDF Update Switch => `esdf_update` bool flag
 
 ## legged control
+- [ ] merge low state publish & nav seq subscribe
 
 ### Target Trajectory
 - [ ] timestate 序列变成可调,由轨迹跟踪的`nav_seq`控制
@@ -82,6 +86,11 @@ The problem seems to be non-convex
 ### NMPC
 - [ ] Oval Constrain: 添加线速度与方向角的椭圆形约束
 - [ ] Velocity Penalty: 添加机器人线速度与角速度的安全性代价约束
+
+## UDP
+- [ ] udp send ros msg
+- [ ] udp receive datas
+- [ ] publish msg node
 
 # TEST List
 

@@ -33,10 +33,10 @@
 <arg name="time_interval"   default="0.01"/>
 <arg name="vel_factor"      default="2.0"/>
 <arg name="ome_factor"      default="2.0"/>
-<arg name="weightR"         default="1.0"/>
+<arg name="weightR"         default="0.8"/>
 <arg name="SAMPLE_RANDOM"   default="true"/>
 <arg name="erode_kernel_size" default="6.0"/>
-<arg name="sdf_th" default="0.2"/>
+<arg name="sdf_th"          default="0.2"/>
 
 <arg name="nav_seq_vis"     default="true"/>
 
@@ -68,15 +68,8 @@
     <param name="map/erode_kernel_size" value="$(arg erode_kernel_size)" />
     <param name="map/sdf_threshold"     value="$(arg sdf_th)"/>
     <param name="map/local_width"       value="2"/>
-    <param name="map/resolution"        value="0.02"/>
-
-    <!-- %%%%%%%%%%%%%% optimization parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
-    <param name="optimization/oval_xvel"    value="2"/> <!-- 2 [m/s]--> 
-    <param name="optimization/oval_yvel"    value="2"/> <!-- 2 [m/s]-->
-    <param name="optimization/oval_qvel"    value="2"/> <!-- 2 [rad/s]-->
-    <param name="optimization/oval_xacc"    value="2"/> <!-- 2 [m/s^2]-->
-    <param name="optimization/oval_yacc"    value="2"/> <!-- 2 [m/s^2]-->
-    <param name="optimization/oval_qacc"    value="2"/> <!-- 2 [rad/s^2]-->
+    <param name="map/resolution"        value="$(arg xy_resolution)"/>
+    <param name="map/mini_dist"         value="0.01"/>
     
     <!-- %%%%%%%%%%%%%% planner parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
     <param name="planner/frame_x"       value="0"/>
@@ -91,7 +84,12 @@
     <param name="planner/vis_sample"    value="true"/>
     <param name="planner/vis_traj"      value="false"/>
     <param name="planner/vis_obspcl"    value="true"/>
+    <param name="planner/vis_sdf_img"   value="false"/>
     <param name="planner/nav_seq_vis"   value="$(arg nav_seq_vis)"/>
+    <param name="planner/vis_osqp_traj" value="false"/>
+    <param name="planner/vis_nlopt_traj" value="false"/>
+    <param name="planner/vis_tracking_traj" value="false"/>
+
     <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
     <param name="planner/optHorizon"    value="3.0"/> <!-- 3.0 [s]-->
     <param name="planner/opt_seg"       value="0.0"/> 
@@ -99,11 +97,40 @@
     <param name="planner/persuit_factor"    value="0.2"/>
     <!-- reverse_odom for real world SLAM -->
     <param name="planner/offset_odom"      value="false"/>
+    <param name="planner/track_ctrl"       value="true"/>
     <!-- 是否使用预先设计的轨迹进行跟踪 用于测试 -->
     <param name="planner/pure_tracking"     value="false"/>
     <param name="planner/orign_biasx"       value="-0.5"/>
     <param name="planner/orign_biasy"       value="-0.5"/>
     <param name="planner/orign_biasq"       value="3.1415926"/>
+
+    <!-- %%%%%%%%%%%%%% optimization parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
+    <param name="nontrajopt/lambda_smo"     value="0.1"/>
+    <param name="nontrajopt/SMO_SWITCH"     value="true"/>
+    <param name="nontrajopt/lambda_obs"     value="1.0"/>
+    <param name="nontrajopt/OBS_SWITCH"     value="true"/>
+    <param name="nontrajopt/lambda_dyn"     value="10.0"/>
+    <param name="nontrajopt/DYN_SWITCH"     value="true"/>
+    <param name="nontrajopt/lambda_tim"     value="8000.0"/>
+    <param name="nontrajopt/TIM_SWITCH"     value="true"/>
+    <param name="nontrajopt/lambda_ova"     value="10.0"/>
+    <param name="nontrajopt/OVA_SWITCH"     value="true"/>
+    <param name="nontrajopt/dist_th"        value="0.5"/>
+    <param name="nontrajopt/discredist"     value="0.05"/>
+    <param name="nontrajopt/pv_max"         value="2.1"/>
+    <param name="nontrajopt/pa_max"         value="2.1"/>
+    <param name="nontrajopt/wv_max"         value="2.1"/>
+    <param name="nontrajopt/wa_max"         value="2.1"/>
+    <param name="nontrajopt/dyn_rate"       value="0.8"/>
+    <param name="nontrajopt/OVAL_TH"        value="0.8"/>
+    <param name="nontrajopt/ORIEN_VEL"      value="2.0"/>
+    <param name="nontrajopt/VERDIT_VEL"     value="1.0"/>
+    <param name="nontrajopt/TIME_OPTIMIZATION" value="true"/>
+    <param name="nontrajopt/REDUCE_ORDER"      value="true"/>
+    <param name="nontrajopt/BOUND_OPTIMIZATION" value="true"/>
+    <param name="nontrajopt/INIT_OPT_VALUE"    value="true"/>
+    <param name="nontrajopt/nlopt_max_iteration_num" value="100"/>
+    <param name="nontrajopt/nlopt_max_iteration_time" value="0.1"/>
 
 </node>
 

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-19
+ * @LastEditTime: 2023-07-25
  * @Description: Euclidean Distance Field Map
  * @reference: 
  * 
@@ -43,21 +43,23 @@
 class EDFMap
 {
     private:
-    // cv::Mat* _edfmap;
-    // cv::Mat _edfmap_A;
-    // cv::Mat _edfmap_B;
+    cv::Mat* _edfmap;
+    cv::Mat _edfmap_A;
+    cv::Mat _edfmap_B;
     cv::Mat element;        // 用于腐蚀的核
+
+
+    public:
     double _map_origin_x;   // 地图原点
     double _map_origin_y;   // 地图原点
     double _map_size_x;     // 地图尺寸
     double _map_size_y;     // 地图尺寸
     double _map_resolution; // 地图分辨率
     double _mini_dist;      // 用于处理距离场为0的情况
-
-    public:
-    cv::Mat* _edfmap;
-    cv::Mat _edfmap_A;
-    cv::Mat _edfmap_B;
+    
+    // cv::Mat* _edfmap;
+    // cv::Mat _edfmap_A;
+    // cv::Mat _edfmap_B;
     EDFMap() = default;
     ~EDFMap(){};
 
@@ -101,7 +103,7 @@ class EDFMap
         _edfmap = &_edfmap_A;
     }
     // 更新EDF地图
-    void setMap(const cv::Mat &map) {
+    inline void setMap(const cv::Mat &map) {
         if (_edfmap == &_edfmap_A) {
             _edfmap_B = map.clone();
             _edfmap = &_edfmap_B;
@@ -110,8 +112,18 @@ class EDFMap
             _edfmap = &_edfmap_A;
         }
     }
+    // 更新EDF地图
+    inline void setMap(const cv::Mat *map) {
+        if (_edfmap == &_edfmap_A) {
+            _edfmap_B = map->clone();
+            _edfmap = &_edfmap_B;
+        } else {
+            _edfmap_A = map->clone();
+            _edfmap = &_edfmap_A;
+        }
+    }
 
-    void getDistGrad(double xpos,double ypos,double &dist,double &xgrad,double &ygrad) const {
+    inline void getDistGrad(double xpos,double ypos,double &dist,double &xgrad,double &ygrad) const {
         int _idx = std::floor((xpos + _map_origin_x) / _map_resolution);
         int _idy = std::floor((ypos + _map_origin_y) / _map_resolution);
         dist = getDist(_idx,_idy);

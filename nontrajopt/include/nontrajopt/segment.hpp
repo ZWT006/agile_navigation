@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-16
- * @LastEditTime: 2023-07-18
+ * @LastEditTime: 2023-07-24
  * @Description: polynomial trajectory segment
  * @reference: 
  * 
@@ -15,8 +15,6 @@
 #include <iostream>
 #include <Eigen/Eigen>
 #include <cmath>
-
-#include "root_finder.hpp"
 
 struct Segment;
 typedef Segment* SegmentPtr;

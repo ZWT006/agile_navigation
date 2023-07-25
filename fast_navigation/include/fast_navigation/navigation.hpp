@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-07-23
+ * @LastEditTime: 2023-07-25
  * @Description: 
  * @reference: 
  * 
@@ -38,7 +38,9 @@
 #include <vector>
 
 // lazykinoprm path searching
-#include <lazykinoprm/LazyKinoPRM.h>
+// #include <lazykinoprm/LazyKinoPRM.h>
+// nontrajopt trajectory optimization
+// #include <nontrajopt/nontrajopt.h>
 
 // nearPose judeg threshold
 #define DIST_XY 0.03f
@@ -49,11 +51,13 @@
 #define STAND_HIGH 0.30f
 
 // max local bias step 这个限度内就正常推进 persuit 前移 
+// 感觉这个参数可以设置的大一点,因为 NMPC 滚动优化的时候会有偏差修正
 #define AMX_BIAS_STEP 2
 
 #define PURSET_STEP_BACK_BIAS 3 // persuit 在轨迹上的定位后退步长
 
-#define REPLAN_BIAS 2 // 重规划偏差阈值 考虑设置的和 TO的长度一致
+#define REPLAN_BIAS 2 // 重规划偏差阈值 当前seg_index + REPLAN_BIAS 为重规划起始段
+#define NLOPT_BIAS 2    // 优化偏差阈值 当前seg_index + OPT_BIAS 为优化起始段
 
 bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double currq,double goalq);
 
@@ -73,11 +77,14 @@ typedef TrackSeg* TrackSegPtr;
 struct TrackSeg
 {
     double duration;
-    Eigen::Matrix<double, 3, 3> startState;
-    Eigen::Matrix<double, 3, 3> endState;
-    std::vector<double> xcoeff;
-    std::vector<double> ycoeff;
-    std::vector<double> qcoeff;
+    Eigen::Matrix<double, 3, 3> startState = Eigen::Matrix3Xd::Zero(3,3);
+    Eigen::Matrix<double, 3, 3> endState = Eigen::Matrix3Xd::Zero(3,3);
+    // std::vector<double> xcoeff;
+    // std::vector<double> ycoeff;
+    // std::vector<double> qcoeff;
+    Eigen::VectorXd xcoeff;
+    Eigen::VectorXd ycoeff;
+    Eigen::VectorXd qcoeff;
     std::vector<double> pxtraj;
     std::vector<double> pytraj;
     std::vector<double> pqtraj;
@@ -102,7 +109,8 @@ class Tracking
     // std::vector<double> pxtraj,pytraj,pqtraj; // 用于存储轨迹的px,py,pq for tracking
     // std::vector<double> vxtraj,vytraj,vqtraj; // 用于存储轨迹的vx,vy,vq for tracking
     std::vector<int> segtrajpoints; // 用于存储每段轨迹的离散点数
-    std::vector<double> timevector; // 用于存储每段轨迹的时间向量
+    // std::vector<double> timevector; // 用于存储每段轨迹的时间向量  这个时间向量没必要了,可以用下边的 tracksegsets
+    std::vector<TrackSeg> StatesSegSets; // 用于存储轨迹段集合 离散的状态轨迹去除,节省内存
     // 默认状态下存储的是整个搜索的轨迹，并将优化的部分插入替换
 
     // ROS 相关 Publisher/Subscriber/message
@@ -124,7 +132,8 @@ class Tracking
     double _refer_vel,_refer_ome;   // 参考速度 线速度 角速度
     // Trajectory
 	bool OBS_FLAG = false;	// 轨迹上是否有障碍物
-	bool TROT_FLAG = false;	// 是否急刹车 轨迹上的障碍物距离机器人只有一个node的距离
+	bool TROT_FLAG = false;	// 是否急刹车 轨迹上的障碍物距离机器人只有一个node的距离 
+    bool CTRL_SWITCH = true;// 控制开关
 
     int _TO_SEG = 0; // 轨迹优化段
     
@@ -135,7 +144,7 @@ class Tracking
     std::vector<double> pxtraj,pytraj,pqtraj; // 用于存储轨迹的px,py,pq for tracking
     std::vector<double> vxtraj,vytraj,vqtraj; // 用于存储轨迹的vx,vy,vq for tracking
     // Tracking 有关的中间变量
-    nav_msgs::Odometry::ConstPtr _currodometry; // 当前的odometry
+    nav_msgs::Odometry::Ptr _currodometry; // 当前的odometry
     Eigen::Vector3d _current_odom;  //真实的当前位姿
     Eigen::Vector3d _local_odom;    //局部的当前位姿(处理 LeggedRobot 运动时的局部晃动)
     Eigen::Vector3d _goal_odom;     //真实的目标位姿
@@ -146,7 +155,7 @@ class Tracking
     Eigen::Vector2i _current_index; // [0] segments [1] points
     Eigen::Vector2i _pursuit_index; // [0] segments [1] points
     int _serch_start_seg_index; // 轨迹搜索起始段
-    int _opt_start_seg_index;   // 轨迹优化起始段
+    int _opt_start_seg_index,_opt_end_seg_index;   // 轨迹优化起始段
     int _curr_time_step,_pursuit_time_step; // 当前时间步,局部 persuit 时间步
     int _curr_seg_points,_curr_traj_points; // 所有段的轨迹离散点数; 当前段的轨迹离散点数
 
@@ -158,6 +167,7 @@ class Tracking
     void initPlanner(Eigen::Vector3d new_goal_odom);
     // void ReachGoal(); // 到达目标点
     bool insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets); // 从重规划段插入新轨迹
+    bool popOptSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets); // 从tracksegsets中弹出待优化轨迹
     bool OdometryIndex(Eigen::Vector3d odom); // 计算当前 odometry 所在的轨迹段和轨迹点, 如果跟踪紧密返回true，如果偏差较大返回false
     void NavSeqUpdate();    // 更新导航控制轨迹序列
     void NavSeqFixed(Eigen::Vector3d TargetPose);     // 固定导航控制轨迹序列
@@ -194,6 +204,8 @@ void Tracking::setParam(ros::NodeHandle& nh)
     nh.param("planner/nav_seq_vis", _nav_seq_vis_flag, true);
     nh.param("planner/persuit_factor", _persuit_factor, 1.0);
 
+    nh.param("planner/track_ctrl", CTRL_SWITCH, true);
+
     // _persuit_factor 是 persuit 的缩放因子 根据 persuit 的时间步长来缩放速度
     if (_persuit_factor > 2.0) _persuit_factor = 2.0;
     _traj_time_interval = 1.0 / _loop_rate;                     // tracking 的周期
@@ -225,6 +237,7 @@ void Tracking::initPlanner(Eigen::Vector3d new_goal_odom)
     _pursuit_index = Eigen::Vector2i(0,0);
     _serch_start_seg_index = 0; // 轨迹搜索起始点
     _opt_start_seg_index   = 0;   // 轨迹优化起始点
+    _opt_end_seg_index     = _TO_SEG;   // 轨迹优化结束点
     
     _curr_time_step = 0;
     _pursuit_time_step = 0;
@@ -246,7 +259,7 @@ void Tracking::initPlanner(Eigen::Vector3d new_goal_odom)
         vytraj.clear();
         vqtraj.clear();
         segtrajpoints.clear();
-        timevector.clear();
+        StatesSegSets.clear();
     }
 }
 
@@ -286,7 +299,7 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
             _erase_seg_num ++;
         }
         segtrajpoints.erase(segtrajpoints.begin() + seg_index, segtrajpoints.begin() + seg_index + _erase_seg_num);
-        timevector.erase(timevector.begin() + seg_index, timevector.begin() + seg_index + _erase_seg_num);
+        StatesSegSets.erase(StatesSegSets.begin() + seg_index, StatesSegSets.begin() + seg_index + _erase_seg_num);
     }
     // step 3: 将插入段的原本轨迹清除
     if (_pre_traj_num + _new_traj_num > static_cast<int>(pxtraj.size())){
@@ -306,9 +319,10 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
     std::vector<double> _new_pxtraj,_new_pytraj,_new_pqtraj;
     std::vector<double> _new_vxtraj,_new_vytraj,_new_vqtraj;
     std::vector<int> _new_segtrajpoints;
-    std::vector<double> _new_timevector;
+    std::vector<TrackSeg> _new_StatesSegSets;
     for (int idx = 0;idx < _seg_num;idx++)
     {
+        TrackSeg _new_trackseg;
         _new_pxtraj.insert(_new_pxtraj.end(),tracksegsets->at(idx).pxtraj.begin(),tracksegsets->at(idx).pxtraj.end());
         _new_pytraj.insert(_new_pytraj.end(),tracksegsets->at(idx).pytraj.begin(),tracksegsets->at(idx).pytraj.end());
         _new_pqtraj.insert(_new_pqtraj.end(),tracksegsets->at(idx).pqtraj.begin(),tracksegsets->at(idx).pqtraj.end());
@@ -316,7 +330,13 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
         _new_vytraj.insert(_new_vytraj.end(),tracksegsets->at(idx).vytraj.begin(),tracksegsets->at(idx).vytraj.end());
         _new_vqtraj.insert(_new_vqtraj.end(),tracksegsets->at(idx).vqtraj.begin(),tracksegsets->at(idx).vqtraj.end());
         _new_segtrajpoints.push_back(tracksegsets->at(idx).pxtraj.size());
-        _new_timevector.push_back(tracksegsets->at(idx).duration);
+        _new_trackseg.duration = tracksegsets->at(idx).duration;
+        _new_trackseg.startState = tracksegsets->at(idx).startState;
+        _new_trackseg.endState = tracksegsets->at(idx).endState;
+        _new_trackseg.xcoeff = tracksegsets->at(idx).xcoeff;
+        _new_trackseg.ycoeff = tracksegsets->at(idx).ycoeff;
+        _new_trackseg.qcoeff = tracksegsets->at(idx).qcoeff;
+        _new_StatesSegSets.push_back(_new_trackseg);
     }
     pxtraj.insert(pxtraj.begin() + _pre_traj_num , _new_pxtraj.begin(), _new_pxtraj.end());
     pytraj.insert(pytraj.begin() + _pre_traj_num , _new_pytraj.begin(), _new_pytraj.end());
@@ -325,11 +345,29 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
     vytraj.insert(vytraj.begin() + _pre_traj_num , _new_vytraj.begin(), _new_vytraj.end());
     vqtraj.insert(vqtraj.begin() + _pre_traj_num , _new_vqtraj.begin(), _new_vqtraj.end());
     segtrajpoints.insert(segtrajpoints.begin() + seg_index , _new_segtrajpoints.begin(), _new_segtrajpoints.end());
-    timevector.insert(timevector.begin() + seg_index , _new_timevector.begin(), _new_timevector.end());
+    StatesSegSets.insert(StatesSegSets.begin() + seg_index , _new_StatesSegSets.begin(), _new_StatesSegSets.end());
     ROS_DEBUG("[\033[34mTrackNode\033[0m]insertSegTraj: seg_num: %d, traj_num: %ld",_seg_num,_new_pxtraj.size());
     return flag;
 }
 
+/***********************************************************************************************************************
+ * @description: pop trajectory from tracksegsets at seg_index
+ * @reference: 
+ * @param {int} seg_index
+ * @param {vector<TrackSeg>} *tracksegsets : new trajectory
+ * @return {bool} flag : if pop success return true else return false
+ */
+bool Tracking::popOptSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets) {
+    if (_TO_SEG < 0)
+        return false;
+    else if (_TO_SEG == 0)
+        for (int idx = seg_index; idx < static_cast<int>(StatesSegSets.size()); idx ++)
+            tracksegsets->push_back(StatesSegSets.at(idx));
+    else if (_TO_SEG > 0) 
+        for (int idx = seg_index; idx < seg_index + _TO_SEG; idx ++) 
+            tracksegsets->push_back(StatesSegSets.at(idx));
+    return true;
+}
 
 /***********************************************************************************************************************
  * @description: 计算当前 odometry 所在的轨迹段和轨迹点, 转化为 curr_pose 如果跟踪紧密返回true，如果偏差较大返回false 
@@ -353,6 +391,15 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
             _pursuit_time_step = static_cast<int>(pqtraj.size()) - 1;
         }
         _pursuit_index = TrajtoIndex(_pursuit_time_step);
+
+        //// 更新 opt_start_seg_index
+        if (_pursuit_index(0) + NLOPT_BIAS> _opt_start_seg_index)
+        {
+            _opt_start_seg_index = _pursuit_index(0) + NLOPT_BIAS;
+            _opt_end_seg_index  =   (_opt_start_seg_index + _TO_SEG > static_cast<int>(StatesSegSets.size())) ? 
+                                    static_cast<int>(StatesSegSets.size()) : (_opt_start_seg_index + _TO_SEG);
+        }
+
         _pursuitPose = Eigen::Vector3d(pxtraj.at(_pursuit_time_step), pytraj.at(_pursuit_time_step), pqtraj.at(_pursuit_time_step));
         return true;
     }
@@ -554,7 +601,8 @@ void Tracking::NavSeqPublish()
     }
     _nav_seq_msg.header.frame_id = "world";
     _nav_seq_msg.header.stamp = ros::Time::now();
-    _nav_seq_pub.publish(_nav_seq_msg);
+    if (CTRL_SWITCH)
+        _nav_seq_pub.publish(_nav_seq_msg);
     _nav_seq_msg.poses.clear();
     _nav_seq = 0;
 }
@@ -650,11 +698,9 @@ bool Tracking::setObsTrajPoint(int obs_index)
 	_obs_seg_index  = _obsIndex(0);
     ////&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     // 处理重规划起始点
-    if (_TO_SEG <= 0)
-        _TO_SEG = REPLAN_BIAS;
     _search_seg_index = _obs_seg_index - 1;
-    if (_search_seg_index - _current_index(0) > _TO_SEG)
-        _search_seg_index = _current_index(0) + _TO_SEG;
+    if (_search_seg_index - _current_index(0) > REPLAN_BIAS)
+        _search_seg_index = _current_index(0) + REPLAN_BIAS;
     ////&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     _search_traj_index = IndextoTraj(Eigen::Vector2i(_search_seg_index,0));
 	if (_obs_seg_index <= _current_index(0)) {// 障碍物挨的太近了
@@ -673,7 +719,8 @@ bool Tracking::setObsTrajPoint(int obs_index)
  */
 bool Tracking::isReachGoal(Eigen::Vector3d current_odom) // TODO:
 {
-    if (nearPose(current_odom.head(2),_goal_odom.head(2),current_odom(2),_goal_odom(2))){
+    // 这里的_goalPose 是经过 lazykinoprm 重规划后的目标点(_goal_odom 是原始目标点 可能在障碍物里面)
+    if (nearPose(current_odom.head(2),_goalPose.head(2),current_odom(2),_goalPose(2))){
         return true;
     }
     else{

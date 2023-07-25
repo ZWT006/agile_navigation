@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   visualization_msgs 
   cv_bridge
   lazykinoprm
+  nontrajopt
 )
 
 ## System dependencies are found with CMake's conventions
@@ -25,7 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
-
+# find_package(OsqpEigen REQUIRED)
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
@@ -114,7 +115,7 @@ find_package(OpenCV REQUIRED)
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES fast_navigation
- CATKIN_DEPENDS roscpp rospy std_msgs lazykinoprm
+ CATKIN_DEPENDS roscpp rospy std_msgs lazykinoprm nontrajopt
 #  DEPENDS system_lib
 )
 
@@ -127,6 +128,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
   include
+  /usr/local/include/osqp
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/include/fast_navigation
   ${catkin_INCLUDE_DIRS}

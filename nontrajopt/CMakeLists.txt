@@ -73,12 +73,13 @@ include_directories(
 )
 
 add_library(nontrajopt
-  src/traj_opt_perching.cc
+  src/nontrajopt.cc
 )
 
 target_link_libraries(nontrajopt
   ${catkin_LIBRARIES}
   OsqpEigen::OsqpEigen
+  nlopt
 )
 # message(SEND_ERROR "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
 # message(SEND_ERROR "Python3_LIBRARIES: ${Python3_LIBRARIES}")

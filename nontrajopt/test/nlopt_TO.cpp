@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-20
- * @LastEditTime: 2023-07-21
+ * @LastEditTime: 2023-07-25
  * @Description: 
  * @reference: 
  * 
@@ -55,6 +55,9 @@ TEST(NonTrajOptTest, NonlinearSolver) {
     paras.wv_max = 2.1;
     paras.wa_max = 2.1;
     paras.dyn_rate = 0.8;
+
+    paras.ref_vel  = 1.4;
+    paras.ref_ome  = 1.4;
 
     paras.ORIEN_VEL = 2.0;
     paras.VERDIT_VEL = 1.0;
@@ -320,7 +323,7 @@ TEST(NonTrajOptTest, NonlinearLongSolver) {
     Eigen::VectorXd _optx;
     _optx.resize(nontrajopt.OptDof + pieceNum);
     _optx.setZero();    
-    _optx.tail(pieceNum) = _initT.array().log();
+    
     Eigen::VectorXd _coeff;
     _coeff.resize(nontrajopt.MatDim);
     
@@ -387,7 +390,7 @@ TEST(NonTrajOptTest, NonlinearLongSolver) {
     
     _optx.head(nontrajopt.OptDof) = _coeff;
 
-    
+    _optx.tail(pieceNum) = _initT.array().log();
 
     // nontrajopt.OSQP_optx;         // get opt result
 

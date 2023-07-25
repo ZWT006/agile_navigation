@@ -66,6 +66,10 @@
   <build_export_depend>lazykinoprm</build_export_depend>
   <exec_depend>lazykinoprm</exec_depend>
 
+  <build_depend>nontrajopt</build_depend>
+  <build_export_depend>nontrajopt</build_export_depend>
+  <exec_depend>nontrajopt</exec_depend>
+
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->

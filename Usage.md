@@ -50,6 +50,7 @@
 
 
 #### SLAM ROS packages
+使用`catkin_make`编译指定包`catkin_make -DCATKIN_WHITELIST_PACKAGES="package_name"`  
 1. 建立SLAM工作空间
     ```
     mkdir -p ~/slam_ws/src
