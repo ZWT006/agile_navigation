@@ -103,7 +103,10 @@ The problem seems to be non-convex
 
 
 ## Search
-everything is OK
+~~everything is OK~~对不起不该这样说
+- [ ] add obs_map and fat_map 避免机器人本体形状的影响
+- [x] fix bug about obsmap update, add resetLocalObstmap to avoid obstacle pcl accumulative
+- [ ] 
 
 ## Opt
 - [ ] mini jerk smoothcost ?

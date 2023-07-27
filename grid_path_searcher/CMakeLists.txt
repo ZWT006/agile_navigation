@@ -16,7 +16,7 @@ find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
 
-set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
+# set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
 catkin_package(
   INCLUDE_DIRS include
@@ -27,7 +27,7 @@ include_directories(
     SYSTEM 
     third_party
     ${catkin_INCLUDE_DIRS} 
-    ${Eigen3_INCLUDE_DIRS} 
+    ${EIGEN3_INCLUDE_DIR} 
     ${PCL_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
 )

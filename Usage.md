@@ -165,6 +165,8 @@ Mid360网口IP为`192.168.11.156`(可以根据用户手册使用LivoxViewer进�
 
 ### Dependence
 
+`osqp` CMakeList.txt add include directory as: `/usr/local/include/osqp`
+
 ## NMPC
 
 ```

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-07-03
+ * @LastEditTime: 2023-07-26
  * @Description: 
  * @reference: 
  * 
@@ -42,7 +42,9 @@ LazyKinoPRM::~LazyKinoPRM()
   }
   delete[] pose_map;
   delete[] obs_map;
-  delete[] raw_obs_map;
+	delete[] fat_map;
+	delete[] sdf_map;
+  delete[] raw_pcl_map;
 }
 
 /** 
@@ -245,9 +247,9 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
 
     //########################################################
     if (iter_num_ < DIR_GRID_M)
-    DIR_GRID = iter_num_;
+        DIR_GRID = iter_num_;
     else
-    DIR_GRID = DIR_GRID_M;
+        DIR_GRID = DIR_GRID_M;
 
     for (int dir_row = -DIR_GRID;dir_row <= DIR_GRID;dir_row++)
     {
@@ -372,23 +374,23 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
     //reverse the path
     reverse(pathstateSets.begin(),pathstateSets.end());
     // 感觉没必要计算出具体的轨迹点存储,貌似这样会占用很多内存且用处感觉也不大 影响: PathStateSetsCheck() 函数的运行时间
-    for (int idx = 0; idx < int(pathstateSets.size()); idx++)
-    {
-      vector<double> _xtraj,_ytraj,_qtraj;
-      nodestate = pathstateSets[idx];
-      _xtraj = nodestate.polytraj('p', 'x', time_interval_);
-      _ytraj = nodestate.polytraj('p', 'y', time_interval_);
-      _qtraj = nodestate.polytraj('p', 'q', time_interval_);
-      pathstateSets[idx].xptraj.insert(pathstateSets[idx].xptraj.begin(),_xtraj.begin(),_xtraj.end());
-      pathstateSets[idx].yptraj.insert(pathstateSets[idx].yptraj.begin(),_ytraj.begin(),_ytraj.end());
-      pathstateSets[idx].qptraj.insert(pathstateSets[idx].qptraj.begin(),_qtraj.begin(),_qtraj.end());
-      _xtraj = nodestate.polytraj('v', 'x', time_interval_);
-      _ytraj = nodestate.polytraj('v', 'y', time_interval_);
-      _qtraj = nodestate.polytraj('v', 'q', time_interval_);
-      pathstateSets[idx].xvtraj.insert(pathstateSets[idx].xvtraj.begin(),_xtraj.begin(),_xtraj.end());
-      pathstateSets[idx].yvtraj.insert(pathstateSets[idx].yvtraj.begin(),_ytraj.begin(),_ytraj.end());
-      pathstateSets[idx].qvtraj.insert(pathstateSets[idx].qvtraj.begin(),_qtraj.begin(),_qtraj.end());
-    }
+    // for (int idx = 0; idx < int(pathstateSets.size()); idx++)
+    // {
+    //   vector<double> _xtraj,_ytraj,_qtraj;
+    //   nodestate = pathstateSets[idx];
+    //   _xtraj = nodestate.polytraj('p', 'x', time_interval_);
+    //   _ytraj = nodestate.polytraj('p', 'y', time_interval_);
+    //   _qtraj = nodestate.polytraj('p', 'q', time_interval_);
+    //   pathstateSets[idx].xptraj.insert(pathstateSets[idx].xptraj.begin(),_xtraj.begin(),_xtraj.end());
+    //   pathstateSets[idx].yptraj.insert(pathstateSets[idx].yptraj.begin(),_ytraj.begin(),_ytraj.end());
+    //   pathstateSets[idx].qptraj.insert(pathstateSets[idx].qptraj.begin(),_qtraj.begin(),_qtraj.end());
+    //   _xtraj = nodestate.polytraj('v', 'x', time_interval_);
+    //   _ytraj = nodestate.polytraj('v', 'y', time_interval_);
+    //   _qtraj = nodestate.polytraj('v', 'q', time_interval_);
+    //   pathstateSets[idx].xvtraj.insert(pathstateSets[idx].xvtraj.begin(),_xtraj.begin(),_xtraj.end());
+    //   pathstateSets[idx].yvtraj.insert(pathstateSets[idx].yvtraj.begin(),_ytraj.begin(),_ytraj.end());
+    //   pathstateSets[idx].qvtraj.insert(pathstateSets[idx].qvtraj.begin(),_qtraj.begin(),_qtraj.end());
+    // }
     cout << "[\033[34mSearchNode\033[0m]" << "pathstateSets.size() = " << GREEN <<  pathstateSets.size() << RESET << endl;
     cout << "[\033[34mSearchNode\033[0m]" << GREEN << "no path = "<< std::boolalpha << no_path_ << RESET << endl; 
     // path search end so reset 
@@ -465,21 +467,24 @@ double LazyKinoPRM::AngleMinDelta(Eigen::Vector3d _start, Eigen::Vector3d _goal)
   double _anggoal, _angstart, _delta;
   _anggoal = _goal(2);
   _angstart = _start(2);
+	_anggoal = angles::normalize_angle(_anggoal);
+	_angstart = angles::normalize_angle(_angstart);
+	_delta = angles::shortest_angular_distance(_angstart, _anggoal);
   // if (abs(_delta) > )
-  _anggoal = fmod(_anggoal, M_PI * 2);
-  if (_anggoal < 0)
-    _anggoal = _anggoal + M_PI * 2;
-  _angstart = fmod(_angstart, M_PI * 2);
-  if (_angstart < 0)
-    _angstart = _angstart + M_PI * 2;
-  _delta = _anggoal - _angstart;
-  if (abs(_delta) > M_PI)
-  {
-    if (_delta > 0)
-      _delta = _delta - M_PI * 2;
-    else
-      _delta = _delta + M_PI * 2;
-  }
+  // _anggoal = fmod(_anggoal, M_PI * 2);
+  // if (_anggoal < 0)
+  //   _anggoal = _anggoal + M_PI * 2;
+  // _angstart = fmod(_angstart, M_PI * 2);
+  // if (_angstart < 0)
+  //   _angstart = _angstart + M_PI * 2;
+  // _delta = _anggoal - _angstart;
+  // if (abs(_delta) > M_PI)
+  // {
+  //   if (_delta > 0)
+  //     _delta = _delta - M_PI * 2;
+  //   else
+  //     _delta = _delta + M_PI * 2;
+  // }
   return _delta;
 }
 
@@ -505,6 +510,7 @@ inline double LazyKinoPRM::getHeuristic(Eigen::Vector3d _start, Eigen::Vector3d 
   * @param: _pathstate: the path state
   * @return: the cost of the path and the path collision flag
 */
+// int print_count = 0;
 inline bool LazyKinoPRM::getPathCost(NodeStatePtr _parnodestate,NodeStatePtr _curnodestate)
 {
   Eigen::Vector3d _start, _goal;
@@ -526,24 +532,16 @@ inline bool LazyKinoPRM::getPathCost(NodeStatePtr _parnodestate,NodeStatePtr _cu
   angcost = pow(angdelta,2)*c_angle_;
   _curnodestate->trajectory_length = pathlength;
   _curnodestate->angle_cost = angcost;
+	// print_count++;
+	// if (print_count >= 10) {
+	// 	std::cout << "angcost: " << angcost << " pathlength: " << pathlength << std::endl;
+	// 	print_count = 0;	
+	// }
   //all waypoints path cost
   _curnodestate->pathcost = _parnodestate->pathcost + pathlength + angcost;
   return collision_flag;
 }
 
-///* Tag: floor is not suitable */
-// inline bool LazyKinoPRM::setObstacleMap(const double coord_x, const double coord_y, const double coord_z)
-// {
-//   int map_rows = floor((coord_x+map_origin_[0])/xy_resolution_); 
-//   int map_cols = floor((coord_y+map_origin_[1])/xy_resolution_);
-//   if (map_rows < 0 || map_cols < 0 || map_cols >= MAX_OBS_MAP_COL || map_rows >= MAX_OBS_MAP_ROW)
-//     return false;
-//   else
-//   {
-//     obs_map->at<uchar>(map_rows,map_cols) = IMG_OBS;
-//     return true;
-//   }
-// }
 
 inline bool LazyKinoPRM::setObstacleMap(const double coord_x, const double coord_y, const double coord_z)
 {
@@ -552,10 +550,10 @@ inline bool LazyKinoPRM::setObstacleMap(const double coord_x, const double coord
   int map_rows_c = ceil((coord_x+map_origin_[0])/xy_resolution_); 
   int map_cols_c = ceil((coord_y+map_origin_[1])/xy_resolution_);
 
-  raw_obs_map->at<uchar>(cv::Point(map_rows_f, map_cols_f)) = IMG_OBS;
-  raw_obs_map->at<uchar>(cv::Point(map_rows_c, map_cols_c)) = IMG_OBS;
-  raw_obs_map->at<uchar>(cv::Point(map_rows_f, map_cols_c)) = IMG_OBS;
-  raw_obs_map->at<uchar>(cv::Point(map_rows_c, map_cols_f)) = IMG_OBS;
+  raw_pcl_map->at<uchar>(cv::Point(map_rows_f, map_cols_f)) = IMG_OBS;
+  raw_pcl_map->at<uchar>(cv::Point(map_rows_c, map_cols_c)) = IMG_OBS;
+  raw_pcl_map->at<uchar>(cv::Point(map_rows_f, map_cols_c)) = IMG_OBS;
+  raw_pcl_map->at<uchar>(cv::Point(map_rows_c, map_cols_f)) = IMG_OBS;
 
   if (map_rows_f < 0 || map_cols_f < 0 || map_cols_f >= MAX_OBS_MAP_COL || map_rows_f >= MAX_OBS_MAP_ROW\
       || map_rows_c < 0 || map_cols_c < 0 || map_cols_c >= MAX_OBS_MAP_COL || map_rows_c >= MAX_OBS_MAP_ROW)
@@ -581,6 +579,25 @@ inline bool LazyKinoPRM::isObstacleFree(Eigen::Vector3d _pose)
   //out map or is not free
   if ( map_rows < 0 || map_cols < 0 || map_cols >= MAX_OBS_MAP_COL || map_rows >= MAX_OBS_MAP_ROW
       || obs_map->at<uchar>(cv::Point(map_rows,map_cols)) == IMG_OBS)
+    {feasible=false;return feasible;}
+  return feasible;
+}
+
+/**********************************************************************************************************************
+ * @description:  check pose is obsticle feasible or not,and out of map is not free
+ * @reference: 
+ * @param {Eigen::Vector3d} _pose
+ * @return {bool} feasible  no -> false; yes -> true
+ */
+inline bool LazyKinoPRM::isFatObstacleFree(Eigen::Vector3d _pose)
+{
+  bool feasible=true;
+  ////real pose in map
+  int map_rows = floor((_pose[0]+map_origin_[0])/xy_resolution_); 
+  int map_cols = floor((_pose[1]+map_origin_[1])/xy_resolution_);
+  //out map or is not free
+  if ( map_rows < 0 || map_cols < 0 || map_cols >= MAX_OBS_MAP_COL || map_rows >= MAX_OBS_MAP_ROW
+      || fat_map->at<uchar>(cv::Point(map_rows,map_cols)) == IMG_OBS)
     {feasible=false;return feasible;}
   return feasible;
 }
@@ -639,9 +656,9 @@ inline float LazyKinoPRM::getPoseSDF(Eigen::Vector3d _pose)
  * @param {Eigen::Vector3d} _goal
  * @return {Eigen::Vector3d} goal
  */
-Eigen::Vector3d GoalFeasibleSet(Eigen::Vector3d _goal)
-{
-}
+// Eigen::Vector3d GoalFeasibleSet(Eigen::Vector3d _goal)
+// {
+// }
 
 /**********************************************************************************************************************
  * @description:  set LazyKinoPRM param
@@ -673,7 +690,8 @@ void LazyKinoPRM::setParam(ros::NodeHandle& nh)
   nh.param("map/x_size",  map_size_x, 50.0);
   nh.param("map/y_size",  map_size_y, 50.0);
   nh.param("map/z_size",  map_size_z, 5.0 );
-  nh.param("map/erode_kernel_size",  erode_kernel_size_, int(3.0));
+  nh.param("map/erode_pcl_size" , erode_pcl_size_, int(6.0));
+  nh.param("map/erode_obs_size" , erode_obs_size_, int(2.0));
   nh.param("map/sdf_threshold",  sdf_th_, 0.1);
 
   // nh.param("map/orign_x_size",  map_origin_x, 25.0);
@@ -695,7 +713,8 @@ void LazyKinoPRM::setParam(ros::NodeHandle& nh)
   cout << "[\033[34mLazyKinoPRM\033[0m]map_size_x:" << GREEN << map_size_x << RESET << endl;
   cout << "[\033[34mLazyKinoPRM\033[0m]map_size_y:" << GREEN << map_size_y << RESET << endl;
   cout << "[\033[34mLazyKinoPRM\033[0m]map_size_z:" << GREEN << map_size_z << RESET << endl;
-  cout << "[\033[34mLazyKinoPRM\033[0m]erode_kernel_size_:" << GREEN << erode_kernel_size_ << RESET << endl;
+  cout << "[\033[34mLazyKinoPRM\033[0m]erode_pcl_size_:" << GREEN << erode_pcl_size_ << RESET << "; dist: " << erode_pcl_size_* xy_resolution_ << endl;
+  cout << "[\033[34mLazyKinoPRM\033[0m]erode_obs_size_:" << GREEN << erode_obs_size_ << RESET << "; dist: " << erode_obs_size_* xy_resolution_ << endl;
   cout << "[\033[34mLazyKinoPRM\033[0m]sdf_th_:" << GREEN << sdf_th_ << RESET << endl;
   //#######################################################
   // param init without param server
@@ -730,6 +749,7 @@ void LazyKinoPRM::setParam(ros::NodeHandle& nh)
   map_origin_[1] = map_size_y/2;
   map_origin_[2] = map_size_z/2;
   IMG_OBS = 0;// scale 0-255 0=black 255=white
+	IMG_FREE = 255;
 }
 
 
@@ -750,10 +770,12 @@ void LazyKinoPRM::init()
   MAX_POSE_MAP_D  = (uint16_t)ceil(2 * M_PI / q_sample_size_); //for q
   //init obs map as all free 255 = white
   // in opencv Mat :row == heigh == Point.y;col == width == Point.x;Mat::at(Point(x, y)) == Mat::at(y,x)
+	raw_pcl_map = new cv::Mat(MAX_OBS_MAP_COL, MAX_OBS_MAP_ROW, CV_8UC1, cv::Scalar(255));
+	fat_map = new cv::Mat(MAX_OBS_MAP_COL, MAX_OBS_MAP_ROW, CV_8UC1, cv::Scalar(255));
   obs_map = new cv::Mat(MAX_OBS_MAP_COL, MAX_OBS_MAP_ROW, CV_8UC1, cv::Scalar(255));
   sdf_map = new cv::Mat(MAX_OBS_MAP_COL, MAX_OBS_MAP_ROW, CV_32FC1, cv::Scalar(255));
-  raw_obs_map = new cv::Mat(MAX_OBS_MAP_COL, MAX_OBS_MAP_ROW, CV_8UC1, cv::Scalar(255));
-  element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(erode_kernel_size_, erode_kernel_size_));
+	pcl_element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(erode_pcl_size_, erode_pcl_size_));
+	obs_element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(erode_obs_size_, erode_obs_size_));
   //init pose map as all free
   /*// Tag: the 3D point GridNodePtr maybe wrong;*/
   // Allocate memory for the pose map.
@@ -818,7 +840,7 @@ void LazyKinoPRM::init()
         rand_pose[1] = pose_y;
         rand_pose[2] = 0.0;
         pose_map[map_rows][map_cols][map_depth]->setPose(rand_pose, rand_pose_index);
-        if (isObstacleFree(rand_pose))
+        if (isFatObstacleFree(rand_pose))
           {// free space is Type=M
             pose_map[map_rows][map_cols][map_depth]->setType(Mid);
             // ROS_INFO("pose_map[%d][%d][%d] is Mid", map_rows, map_cols, map_depth);
@@ -846,7 +868,7 @@ void LazyKinoPRM::init()
 }// 均匀空间撒点
 
 /**********************************************************************************************************
-  * @brief: sample in the map
+  * @brief: sample all the map
   * @param: none
   * @return: none
 */
@@ -875,7 +897,7 @@ void LazyKinoPRM::sample()
         rand_pose[0] = pose_x;
         rand_pose[1] = pose_y;
         pose_map[map_rows][map_cols][map_depth]->setPose(rand_pose, rand_pose_index);
-        if (isObstacleFree(rand_pose))
+        if (isFatObstacleFree(rand_pose))
           pose_map[map_rows][map_cols][map_depth]->setType(Mid);
         else
           pose_map[map_rows][map_cols][map_depth]->setType(Invalid);
@@ -914,7 +936,7 @@ void LazyKinoPRM::resetsample()
     rand_pose[0] = pose_x;
     rand_pose[1] = pose_y;
     pose_map[map_rows][map_cols][map_depth]->setPose(rand_pose, rand_pose_index);
-    if (isObstacleFree(rand_pose))
+    if (isFatObstacleFree(rand_pose))
       pose_map[map_rows][map_cols][map_depth]->setType(Mid);
     else
       pose_map[map_rows][map_cols][map_depth]->setType(Invalid);
@@ -932,15 +954,28 @@ void LazyKinoPRM::reset()
   // Eigen::Vector3d rand_pose;
   // double pose_x, pose_y;
   // Eigen::Vector3i rand_pose_index;
-  for (uint32_t idx = 0; idx < int(astaropenlist.nodestateSets.size()); idx++)
-  {
-    GridNodePtr gridnodeptr = astaropenlist.nodestateSets[idx].CurrGridNodePtr;
-    bool feasible = isObstacleFree(gridnodeptr->pose);
-    if (feasible)
-    gridnodeptr->setType(Mid);
-    else
-    gridnodeptr->setType(Invalid);
-  }
+	if (!astaropenlist.nodestateSets.empty()) {
+		for (uint32_t idx = 0; idx < int(astaropenlist.nodestateSets.size()); idx++)
+		{
+			GridNodePtr gridnodeptr = astaropenlist.nodestateSets[idx].CurrGridNodePtr;
+			bool feasible = isFatObstacleFree(gridnodeptr->pose);
+			if (feasible)
+			    gridnodeptr->setType(Mid);
+			else
+			    gridnodeptr->setType(Invalid);
+		}
+	}
+	if (!astarcloselist.node_index.empty()) {
+		for (uint32_t idx = 0; idx < int(astarcloselist.node_index.size()); idx++)
+		{
+			GridNodePtr gridnodeptr = Index2PoseNode(astarcloselist.node_index.at(idx));
+			bool feasible = isFatObstacleFree(gridnodeptr->pose);
+			if (feasible)
+			    gridnodeptr->setType(Mid);
+			else
+			    gridnodeptr->setType(Invalid);
+		}
+	}
   //############################################################################################################
   //reset search parameters
   iter_num_ = 0;
@@ -951,6 +986,33 @@ void LazyKinoPRM::reset()
   //reset the search 
   astaropenlist.reset();
   astarcloselist.reset();
+}
+
+/**********************************************************************************************************************
+  * @description:  reset local obstacle map with radius range
+  * @reference: 
+  * @param {Eigen::Vector3d} _pose
+	* @param {double} radius
+  * @return {bool} success -> true; failed -> false
+*/
+bool LazyKinoPRM::resetLocalMap(Eigen::Vector3d _pose,double radius)
+{
+	int min_idx_x = floor((_pose[0] - radius + map_origin_[0])/xy_resolution_);
+	int min_idx_y = floor((_pose[1] - radius + map_origin_[1])/xy_resolution_);
+	int max_idx_x = floor((_pose[0] + radius + map_origin_[0])/xy_resolution_);
+	int max_idx_y = floor((_pose[1] + radius + map_origin_[1])/xy_resolution_);
+	// cout << "min_idx_x: " << min_idx_x << " min_idx_y: " << min_idx_y << endl;
+	// cout << "max_idx_x: " << max_idx_x << " max_idx_y: " << max_idx_y << endl;
+	if (min_idx_x >= MAX_OBS_MAP_ROW || min_idx_y >= MAX_OBS_MAP_COL || max_idx_x < 0 || max_idx_y < 0)
+		return false;
+	if (min_idx_x < 0) min_idx_x = 0;
+	if (min_idx_y < 0) min_idx_y = 0;
+	if (max_idx_x >= MAX_OBS_MAP_ROW) max_idx_x = MAX_OBS_MAP_ROW - 1;
+	if (max_idx_y >= MAX_OBS_MAP_COL) max_idx_y = MAX_OBS_MAP_COL - 1;
+	for (int idx = min_idx_x; idx < max_idx_x; idx++)
+		for (int idy = min_idx_y; idy < max_idx_y; idy++) 
+			raw_pcl_map->at<uchar>(cv::Point(idx,idy)) = IMG_FREE;
+	return true;
 }
 
 /**********************************************************************************************************************
@@ -973,7 +1035,10 @@ void LazyKinoPRM::updataObsMap(pcl::PointCloud<pcl::PointXYZ> cloud)
     //   cout << RED << "set obstacle map failed!, PCL out map range!" << RESET << endl;
   }
   // Tag: local map update? and 
-  cv::erode(*raw_obs_map,*obs_map,element);
+	// pcl map erode to obs map
+  cv::erode(*raw_pcl_map,*obs_map,pcl_element);
+	// obs map erode to fat map
+	cv::erode(*obs_map,*fat_map,obs_element);
   cv::Mat binary_map;
   cv::threshold(*obs_map, binary_map, 127, 255, THRESH_BINARY);//二值化阈值处理
   // binary_map = ~binary_map;
@@ -1058,23 +1123,23 @@ bool LazyKinoPRM::LongTrajCheck(const vector<double> *xtraj,const vector<double>
  * @param {int} *obs_index the index of start check point or obstacle point
  * @return {bool} feasible  yes -> true; no -> false
  */
-bool LazyKinoPRM::PathNodeCheck(vector<Eigen::Vector3d> *nodes,int *obs_index)
-{
-  bool feasible = true;
-  Eigen::Vector3d pose;
-  int idx = (*obs_index);
-  for (;idx < nodes->size();idx++)
-  {
-    pose = nodes->at(idx);
-    feasible = isObstacleFree(pose);
-    if (feasible == false){
-      (*obs_index) = idx;
-      return feasible;
-    }
-  }
-  (*obs_index) = idx;
-  return feasible;
-}
+// bool LazyKinoPRM::PathNodeCheck(vector<Eigen::Vector3d> *nodes,int *obs_index)
+// {
+//   bool feasible = true;
+//   Eigen::Vector3d pose;
+//   int idx = (*obs_index);
+//   for (;idx < nodes->size();idx++)
+//   {
+//     pose = nodes->at(idx);
+//     feasible = isObstacleFree(pose);
+//     if (feasible == false){
+//       (*obs_index) = idx;
+//       return feasible;
+//     }
+//   }
+//   (*obs_index) = idx;
+//   return feasible;
+// }
 
 /**********************************************************************************************************************
  * @description:  check lazykinoPRM PathStateSets is obsticle feasible or not begin from path_index

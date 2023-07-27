@@ -54,7 +54,9 @@ class LazyKinoPRM {
   uint32_t MAX_OBS_MAP_COL,MAX_OBS_MAP_ROW;
   Eigen::Vector3d map_origin_,map_size_;
   uint16_t IMG_OBS;
-  int erode_kernel_size_;
+  uint16_t IMG_FREE;
+  int erode_pcl_size_; // raw pcl erode size
+  int erode_obs_size_; // obs map erode size
   double sdf_th_;
 
   /* search mid datas */
@@ -81,6 +83,7 @@ class LazyKinoPRM {
   bool getPathCost(NodeStatePtr _parnodestate,NodeStatePtr _curnodestate);
   bool isObstacleFree(Eigen::Vector3d _pose);
   bool isWideObstacleFree(Eigen::Vector3d _pose);
+  bool isFatObstacleFree(Eigen::Vector3d _pose);
   float getPoseSDF(Eigen::Vector3d _pose);
   bool setObstacleMap(const double coord_x, const double coord_y, const double coord_z);
   double AngleCost(Eigen::Vector3d _start,Eigen::Vector3d _goal)
@@ -90,15 +93,17 @@ class LazyKinoPRM {
     cost = c_angle_ * angle * angle ;
     return cost;
   };
-  Eigen::Vector3d GoalFeasibleSet(Eigen::Vector3d _goal);
+//   Eigen::Vector3d GoalFeasibleSet(Eigen::Vector3d _goal);
   bool TrajectoryCheck(std::vector<double> *xtraj,std::vector<double> *ytraj);
   
   public:
   /*key datas*/
+  cv::Mat *raw_pcl_map;        // pcl map as cv::Mat one pixel is pcl map resolution
   cv::Mat *obs_map;            // occupancy map as cv::Mat one pixel is pcl map resolution
-  cv::Mat *raw_obs_map;        // occupancy map as cv::Mat one pixel is pcl map resolution
+  cv::Mat *fat_map;            // pcl map as cv::Mat one pixel is pcl map resolution
   cv::Mat *sdf_map;            // sdf map as cv::Mat one pixel is pcl map resolution
-  cv::Mat element;            // element for dilate and erode
+  cv::Mat pcl_element;            // element for dilate and erode
+  cv::Mat obs_element;            // element for dilate and erode
   double xy_resolution_,axi_resolution_;
   std::vector<NodeState> pathstateSets;    // path state list
   OpenList astaropenlist;            // open list for astar search
@@ -115,6 +120,7 @@ class LazyKinoPRM {
   bool search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
              Eigen::Vector3d start_acc, Eigen::Vector3d goal_pos,
              Eigen::Vector3d goal_vel,  Eigen::Vector3d goal_acc);
+  bool resetLocalMap(Eigen::Vector3d _pose,double radius);
   void updataObsMap(pcl::PointCloud<pcl::PointXYZ> cloud);
   cv::Mat* getObsMap();
   cv::Mat* getSdfMap();
@@ -123,8 +129,8 @@ class LazyKinoPRM {
 //check Trajectory is obstacle feasible or not
   
   bool LongTrajCheck(const std::vector<double> *xtraj,const std::vector<double> *ytraj,int *obs_index);
-  bool PathNodeCheck(std::vector<Eigen::Vector3d> *nodes,int *obs_index);
-  int PathStateSetsCheck(int path_index);
+//   bool PathNodeCheck(std::vector<Eigen::Vector3d> *nodes,int *obs_index);
+//   int PathStateSetsCheck(int path_index);
 
 
   // typedef shared_ptr<LazyKinoPRM> Ptr;

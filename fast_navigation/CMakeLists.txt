@@ -26,6 +26,8 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(Python3 REQUIRED COMPONENTS Development)
+
 # find_package(OsqpEigen REQUIRED)
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -135,6 +137,7 @@ include_directories(
   ${Eigen3_INCLUDE_DIRS} 
   ${PCL_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  ${Python3_INCLUDE_DIRS}
 )
 
 
@@ -164,7 +167,8 @@ add_executable( swift_planner_node
 target_link_libraries(swift_planner_node 
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
-    ${OpenCV_LIBS})
+    ${OpenCV_LIBS}
+    ${Python3_LIBRARIES})
 
 
 

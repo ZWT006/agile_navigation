@@ -5,7 +5,6 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /RobotVis1/Status1
         - /GroundTruth1/Shape1
       Splitter Ratio: 0.591176450252533
     Tree Height: 539
@@ -56,132 +55,19 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz/RobotModel
       Collision Enabled: false
-      Enabled: true
+      Enabled: false
       Links:
         All Links Enabled: true
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
-        LF_FOOT:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LF_calf:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LF_hip:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LF_thigh:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_FOOT:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_calf:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_hip:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        LH_thigh:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
         Link Tree Style: Links in Alphabetic Order
-        RF_FOOT:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RF_calf:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RF_hip:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RF_thigh:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_FOOT:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_calf:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_hip:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        RH_thigh:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        base:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        cam_bracker_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        drives_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        mid360_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        unitree_imu:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
       Name: RobotModel
       Robot Description: legged_robot_description
       TF Prefix: ""
       Update Interval: 0
-      Value: true
+      Value: false
       Visual Enabled: true
-    - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /swift_planner_node/planner_path_vis
-      Name: SearchPath
-      Namespaces:
-        {}
-      Queue Size: 100
-      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -276,21 +162,13 @@ Visualization Manager:
       Show Trail: false
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: true
-      Marker Topic: /swift_planner_node/planner_path_vis
-      Name: SearchPathVis
-      Namespaces:
-        {}
-      Queue Size: 1
-      Value: true
-    - Class: rviz/MarkerArray
-      Enabled: true
+      Enabled: false
       Marker Topic: /swift_planner_node/robot_vis
       Name: RobotVis
       Namespaces:
-        planner_node/visRobot: true
+        {}
       Queue Size: 1
-      Value: true
+      Value: false
     - Class: rviz/Image
       Enabled: true
       Image Topic: /swift_planner_node/sdf_map_img
@@ -390,6 +268,30 @@ Visualization Manager:
       Topic: /ground_truth/state
       Unreliable: false
       Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /swift_planner_node/planner_path_vis
+      Name: SearchPathVis
+      Namespaces:
+        planner_node/TraLibrary: true
+      Queue Size: 1
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /swift_planner_node/planner_osqp_vis
+      Name: OSQPPathVis
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /swift_planner_node/planner_nlopt_vis
+      Name: NLoptTrajVis
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -420,7 +322,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.778496265411377
+      Distance: 11.054218292236328
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -428,17 +330,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -0.783549964427948
-        Y: -0.24187856912612915
-        Z: 0.9895696640014648
+        X: 1.0438785552978516
+        Y: -1.004592776298523
+        Z: 0.19749926030635834
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5847973823547363
+      Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
-      Yaw: 2.393522262573242
+      Yaw: 3.2985308170318604
     Saved: ~
 Window Geometry:
   Displays:

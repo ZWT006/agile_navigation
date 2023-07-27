@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-07
- * @LastEditTime: 2023-07-20
+ * @LastEditTime: 2023-07-26
  * @Description: trajectory optimization class test
  * @reference: 
  * 
@@ -347,7 +347,7 @@ TEST(NonTrajOptTest, NLoptSolver) {
     std::cout << std::boolalpha << "BOUND_OPTIMIZATION: " << nontrajopt.BOUND_OPTIMIZATION << std::endl;
 
     std::cout << "MaxIterNum: " << nontrajopt.nlopt_max_iteration_num_ << std::endl;
-    std::cout << "MaxIterTime: " << std::fixed << std::setprecision(2) << nontrajopt.nlopt_max_iteration_time_ << std::endl;
+    std::cout << "MaxIterTime: " << std::setprecision(2) << nontrajopt.nlopt_max_iteration_time_ << std::endl;
 
     bool succeed = nontrajopt.NLoptSolve();
 
@@ -525,7 +525,7 @@ TEST(NonTrajOptTest, LBFGSSolver) {
     std::cout << std::boolalpha << "BOUND_OPTIMIZATION: " << nontrajopt.BOUND_OPTIMIZATION << std::endl;
 
     std::cout << "MaxIterNum: " << nontrajopt.nlopt_max_iteration_num_ << std::endl;
-    std::cout << "MaxIterTime: " << std::fixed << std::setprecision(2) << nontrajopt.nlopt_max_iteration_time_ << std::endl;
+    std::cout << "MaxIterTime: " << std::setprecision(2) << nontrajopt.nlopt_max_iteration_time_ << std::endl;
 
     bool succeed = nontrajopt.LBFGSSolve();
 

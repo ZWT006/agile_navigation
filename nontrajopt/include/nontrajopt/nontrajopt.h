@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-25
+ * @LastEditTime: 2023-07-26
  * @Description: Nonlinear Trajectory Optimization
  * @reference: 
  * 
@@ -64,6 +64,8 @@ struct OptParas {
     bool TIM_SWITCH;
     bool OVA_SWITCH;
 
+    double coeff_bound;
+
     bool TIME_OPTIMIZATION;  // time optimization
     bool REDUCE_ORDER;
     bool BOUND_OPTIMIZATION; // bound optimization
@@ -96,7 +98,7 @@ struct OptParas {
 */
 class NonTrajOpt
 {
-    private://##############################################################################################################
+    public://##############################################################################################################
     int N;  // number of segments
     int O;  // default order is 7th (8 optimal values)
     int D;  // dimension of the trajectory
@@ -143,6 +145,7 @@ class NonTrajOpt
     double ORIEN_VEL2,VERDIT_VEL2; // velocity^2
     double OVAL_TH; // oval cost threshold
 
+    double coeff_bound;
     int    nlopt_max_iteration_num_;  // stopping criteria that can be used
     double nlopt_max_iteration_time_;  // stopping criteria that can be used
 

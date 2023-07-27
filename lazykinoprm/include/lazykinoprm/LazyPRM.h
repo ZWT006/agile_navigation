@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-05-04
+ * @LastEditTime: 2023-07-26
  * @Description: 
  * @reference: 
  * 
@@ -151,12 +151,13 @@ public:
 class CloseList
 {
 private:
-                 // open list length
+// open list length
   std::vector<Eigen::Vector3d> node_pose;  // node pose list
-  std::vector<Eigen::Vector3i> node_index; // node index list
+//   std::vector<Eigen::Vector3i> node_index; // node index list
 
 public:
   uint32_t list_length;
+  std::vector<Eigen::Vector3i> node_index; // node index list
 //that function change the gridnode
   GridNodePtr insert(GridNodePtr _node)
   {
@@ -176,7 +177,9 @@ public:
   void reset()
   {
     list_length = 0;
+    if (!node_pose.empty())
     node_pose.clear();
+    if (!node_index.empty())
     node_index.clear();
   }
   CloseList(){

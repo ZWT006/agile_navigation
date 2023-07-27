@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-07-25
+ * @LastEditTime: 2023-07-26
  * @Description: 
  * @reference: 
  * 
@@ -346,7 +346,7 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
     vqtraj.insert(vqtraj.begin() + _pre_traj_num , _new_vqtraj.begin(), _new_vqtraj.end());
     segtrajpoints.insert(segtrajpoints.begin() + seg_index , _new_segtrajpoints.begin(), _new_segtrajpoints.end());
     StatesSegSets.insert(StatesSegSets.begin() + seg_index , _new_StatesSegSets.begin(), _new_StatesSegSets.end());
-    ROS_DEBUG("[\033[34mTrackNode\033[0m]insertSegTraj: seg_num: %d, traj_num: %ld",_seg_num,_new_pxtraj.size());
+    ROS_DEBUG("[\033[34mTrackNode\033[0m] insertSegTraj: seg_num: %d, traj_num: %ld",_seg_num,_new_pxtraj.size());
     return flag;
 }
 
@@ -363,9 +363,15 @@ bool Tracking::popOptSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets) 
     else if (_TO_SEG == 0)
         for (int idx = seg_index; idx < static_cast<int>(StatesSegSets.size()); idx ++)
             tracksegsets->push_back(StatesSegSets.at(idx));
-    else if (_TO_SEG > 0) 
-        for (int idx = seg_index; idx < seg_index + _TO_SEG; idx ++) 
+    else if (_TO_SEG > 0) {
+        for (int idx = seg_index; idx < seg_index + _TO_SEG && idx < static_cast<int>(StatesSegSets.size()); idx ++) 
             tracksegsets->push_back(StatesSegSets.at(idx));
+        if ( _TO_SEG != static_cast<int>(tracksegsets->size())) {
+            if (!tracksegsets->empty()) tracksegsets->clear();
+            return false;
+        }
+    }
+    ROS_DEBUG("[\033[34mTrackNode\033[0m] popOptSegTraj: seg_num: %ld",tracksegsets->size());
     return true;
 }
 
@@ -428,6 +434,11 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
     if (_curr_time_step >= static_cast<int>(pqtraj.size()))
     {
         _curr_time_step = static_cast<int>(pqtraj.size()) - 1;
+    }
+    if (_curr_time_step < 0)
+    {
+        ROS_INFO("[\033[34mTrackNode\033[0m] _curr_time_step < 0");
+        _curr_time_step = 0;
     }
     _current_index = TrajtoIndex(_curr_time_step);
     int trajpoint = pxtraj.size();
@@ -518,6 +529,7 @@ void Tracking::NavSeqUpdate()
             nav_traj_msg.pose.orientation.x = vxtraj.at(_temp_time_step) * _persuit_factor;
             nav_traj_msg.pose.orientation.y = vytraj.at(_temp_time_step) * _persuit_factor;
             nav_traj_msg.pose.orientation.z = vqtraj.at(_temp_time_step) * _persuit_factor;
+            nav_traj_msg.pose.orientation.w = _traj_time_interval;
             _nav_seq_msg.poses.push_back(nav_traj_msg);
 
             _temp_time_step += _time_step_pursuit; // 应该从 pursuit_step 开始补充轨迹点
@@ -561,6 +573,7 @@ void Tracking::NavSeqFixed(Eigen::Vector3d TargetPose)
         nav_traj_msg.pose.orientation.x = 0;
         nav_traj_msg.pose.orientation.y = 0;
         nav_traj_msg.pose.orientation.z = 0;
+        nav_traj_msg.pose.orientation.w = _traj_time_interval;
         _nav_seq_msg.poses.push_back(nav_traj_msg);
     }
     // 第一个点为当前位姿 ####################################################################
