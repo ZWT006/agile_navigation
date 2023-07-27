@@ -498,7 +498,7 @@ double LazyKinoPRM::AngleMinDelta(Eigen::Vector3d _start, Eigen::Vector3d _goal)
 inline double LazyKinoPRM::getHeuristic(Eigen::Vector3d _start, Eigen::Vector3d _goal,NodeStatePtr _nodestate)
 {
   double gncost = 0;
-  gncost = sqrt(pow(_start(0) - _goal(0), 2) + pow(_start(1) - _goal(1), 2));
+  gncost = heur_factor_ * sqrt(pow(_start(0) - _goal(0), 2) + pow(_start(1) - _goal(1), 2));
   _nodestate->heurcost = gncost;
   return gncost;
 }
@@ -683,6 +683,7 @@ void LazyKinoPRM::setParam(ros::NodeHandle& nh)
   nh.param("search/time_interval", time_interval_, 0.01);
   nh.param("search/vel_factor", vel_factor_, 2.0);
   nh.param("search/ome_factor", ome_factor_, 1.0);
+  nh.param("search/heur_factor", heur_factor_, 1.0);
   nh.param("search/weightR", weightR_, 1.0);
   nh.param("search/SAMPLE_RANDOM", SAMPLE_RANDOM, true);
 
@@ -708,6 +709,7 @@ void LazyKinoPRM::setParam(ros::NodeHandle& nh)
   cout << "[\033[34mLazyKinoPRM\033[0m]vel_factor_:" << GREEN << vel_factor_ << RESET << endl;
   cout << "[\033[34mLazyKinoPRM\033[0m]ome_factor_:" << GREEN << ome_factor_ << RESET << endl;
   cout << "[\033[34mLazyKinoPRM\033[0m]weightR_:" << GREEN << weightR_ << RESET << endl;
+  cout << "[\033[34mLazyKinoPRM\033[0m]heur_factor_:" << GREEN << heur_factor_ << RESET << endl;
   cout << "[\033[34mLazyKinoPRM\033[0m]SAMPLE_RANDOM:" << GREEN << SAMPLE_RANDOM << RESET << endl;
   cout << "[\033[34mLazyKinoPRM\033[0m]map_size_x:" << GREEN << map_size_x << RESET << endl;
   cout << "[\033[34mLazyKinoPRM\033[0m]map_size_y:" << GREEN << map_size_y << RESET << endl;
@@ -1017,21 +1019,21 @@ bool LazyKinoPRM::resetLocalMap(Eigen::Vector3d _pose,double radius)
 		for (int idy = min_idx_y; idy < max_idx_y; idy++) 
 			raw_pcl_map->at<uchar>(cv::Point(idx,idy)) = IMG_FREE;
 
-    //// for debug
-    cv::erode(*raw_pcl_map,*obs_map,pcl_element);
-	// obs map erode to fat map
-    cv::erode(*obs_map,*fat_map,obs_element);
-    cv::Mat binary_map;
-    cv::threshold(*obs_map, binary_map, 127, 255, THRESH_BINARY);//二值化阈值处理
-    // binary_map = ~binary_map;
-    // imshow("binary_map",binary_map);
-    // *sdf_map = binary_map.clone();
-    cv::Mat sdf_img;
-    cv::distanceTransform(binary_map,sdf_img,DIST_L2,DIST_MASK_3);
-    // 1 pixel = xy_resolution_ m
-    sdf_img = sdf_img * xy_resolution_;
-    *sdf_map = sdf_img;
-            
+    //// for debug &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    // cv::erode(*raw_pcl_map,*obs_map,pcl_element);
+	// // obs map erode to fat map
+    // cv::erode(*obs_map,*fat_map,obs_element);
+    // cv::Mat binary_map;
+    // cv::threshold(*obs_map, binary_map, 127, 255, THRESH_BINARY);//二值化阈值处理
+    // // binary_map = ~binary_map;
+    // // imshow("binary_map",binary_map);
+    // // *sdf_map = binary_map.clone();
+    // cv::Mat sdf_img;
+    // cv::distanceTransform(binary_map,sdf_img,DIST_L2,DIST_MASK_3);
+    // // 1 pixel = xy_resolution_ m
+    // sdf_img = sdf_img * xy_resolution_;
+    // *sdf_map = sdf_img;
+    //// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 	return true;
 
 

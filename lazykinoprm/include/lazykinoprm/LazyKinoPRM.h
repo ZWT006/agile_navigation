@@ -46,6 +46,7 @@ class LazyKinoPRM {
   double time_interval_; //time interval for dynamic model
   double vel_factor_; //velocity factor for dynamic model
   double ome_factor_; //angular velocity factor for dynamic model
+  double heur_factor_; //heuristic factor for A star search
   double weightR_; //weight for R as angle obvp cost
   
   /* map for obsticle*/
