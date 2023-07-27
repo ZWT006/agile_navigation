@@ -70,7 +70,7 @@ void NonTrajOpt::setParam(ros::NodeHandle &nh,OptParas &paras) {
     nh.param("nontrajopt/nlopt_max_iteration_num", paras.nlopt_max_iteration_num_, 100);
     nh.param("nontrajopt/nlopt_max_iteration_time", paras.nlopt_max_iteration_time_, 0.1);
 
-    nh.param("search/weightR", paras.wq, 0.8);
+    nh.param("nontrajopt/wq", paras.wq, 0.8);
     nh.param("search/vel_factor", paras.ref_vel, 1.0);
     nh.param("search/ome_factor", paras.ref_ome, 1.0);
 
@@ -234,6 +234,22 @@ bool NonTrajOpt::setWaypoints(const std::vector<Eigen::Vector3d> &_waypoints,
         double q_dist = angles::shortest_angular_distance(Vecyaw(idx),Vecyaw(idx+1));
         InitT(idx) = std::max(xy_dist/ref_vel,q_dist/ref_ome);
     }
+    //// Step 3: yaw 角的数值连续性处理 用于数值优化 #########################################################
+    std::cout << "shortest distance: " << 0.0 << " ";
+    for (int idx = 1; idx <= N; idx++) { ////Note: 这里的第 N 个点会不会有问题? 比原定的点偏离? 应该不会吧?
+        VecyawSmooth(idx) = VecyawSmooth(idx-1) + angles::shortest_angular_distance(Vecyaw(idx-1),Vecyaw(idx));
+        std::cout << angles::shortest_angular_distance(Vecyaw(idx-1),Vecyaw(idx)) << " ";
+    }
+    std::cout << std::endl;
+    VecyawSmooth(0) = Vecyaw(0); 
+    std::cout << "continus Vecyaw: " << VecyawSmooth.transpose() << std::endl;
+    for (int idx = 0; idx <= N; idx++) {
+        Initwaypoints(2,idx) = VecyawSmooth(idx);
+    }
+    //// Step 4: init waypoints and start/end states for polynomial trajectory optimization
+    initWaypoints(Initwaypoints,InitT,StartStates,EndStates);
+    return true;
+}
     // std::cout << "InitT : " << InitT.transpose() << std::endl;
     //// start and end time &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     // std::cout << "initT: " << InitT.transpose() << std::endl;
@@ -255,20 +271,7 @@ bool NonTrajOpt::setWaypoints(const std::vector<Eigen::Vector3d> &_waypoints,
     // InitT.tail(1) = InitT.tail(1) * (1.0 + std::max(std::abs(dotvel.norm()-ref_vel)/ref_vel,std::abs(dotome-ref_ome)/ref_ome));
     // std::cout << "initT: " << InitT.transpose() << std::endl;
     //// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    //// Step 3: yaw 角的数值连续性处理 用于数值优化 #########################################################
-    
-    for (int idx = 1; idx <= N; idx++) { ////Note: 这里的第 N 个点会不会有问题? 比原定的点偏离? 应该不会吧?
-        VecyawSmooth(idx) = VecyawSmooth(idx-1) + angles::shortest_angular_distance(Vecyaw(idx-1),Vecyaw(idx));
-    }
-    VecyawSmooth(0) = Vecyaw(0); 
-    std::cout << "continus Vecyaw: " << VecyawSmooth.transpose() << std::endl;
-    for (int idx = 0; idx <= N; idx++) {
-        Initwaypoints(2,idx) = VecyawSmooth(idx);
-    }
-    //// Step 4: init waypoints and start/end states for polynomial trajectory optimization
-    initWaypoints(Initwaypoints,InitT,StartStates,EndStates);
-    return true;
-}
+
 
 /*****************************************************************************************************
  * @description: push Waypoints without any modification

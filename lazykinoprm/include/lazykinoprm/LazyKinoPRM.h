@@ -121,9 +121,12 @@ class LazyKinoPRM {
              Eigen::Vector3d start_acc, Eigen::Vector3d goal_pos,
              Eigen::Vector3d goal_vel,  Eigen::Vector3d goal_acc);
   bool resetLocalMap(Eigen::Vector3d _pose,double radius);
-  void updataObsMap(pcl::PointCloud<pcl::PointXYZ> cloud);
+  void updataObsMap(pcl::PointCloud<pcl::PointXYZ> &cloud);
+  int getSampleNum();
+  GridNodePtr getNodePtr(int index);
   cv::Mat* getObsMap();
   cv::Mat* getSdfMap();
+  cv::Mat* getFatMap();
   
 
 //check Trajectory is obstacle feasible or not

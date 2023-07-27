@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-07-26
+ * @LastEditTime: 2023-07-27
  * @Description: 
  * @reference: 
  * 
@@ -42,8 +42,8 @@ LazyKinoPRM::~LazyKinoPRM()
   }
   delete[] pose_map;
   delete[] obs_map;
-	delete[] fat_map;
-	delete[] sdf_map;
+    delete[] fat_map;
+    delete[] sdf_map;
   delete[] raw_pcl_map;
 }
 
@@ -78,7 +78,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
   }
   // Goal Feasible Manage ##########################################################################
   // 处理机制就是，如果goal点不可行，就在周围找一个可行的点，作为goal点，搜索范围是DIR_GRID_M(找一个距离最近的点)
-  bool goalOBS = isObstacleFree(goal_pos);
+  bool goalOBS = isFatObstacleFree(goal_pos);
   sdf = getPoseSDF(goal_pos);
   // bool goalOBS = false or sdf < sdf_th; Goal is infesible
   if(!goalOBS || sdf < sdf_th_)
@@ -119,7 +119,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
             }
           GridNodePtr newGridNodePtr = pose_map[new_row][new_col][new_dep];
           //3.4:check if the node is obstacle free
-          bool neighbour = isObstacleFree(newGridNodePtr->pose);
+          bool neighbour = isFatObstacleFree(newGridNodePtr->pose);
           sdf = getPoseSDF(newGridNodePtr->pose);
           // double sdf = getPoseSDF(goal_pos);
           // cout << "[\033[34mSearchNode\033[0m]" << YELLOW << "neigubour pose " << RESET << newGridNodePtr->pose.transpose() << endl;
@@ -318,7 +318,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
             continue;
           }
           // 因为有地图更新的因素,所以这里的mid点可能是障碍物
-          bool feasible = isObstacleFree(newGridNodePtr->pose);
+          bool feasible = isFatObstacleFree(newGridNodePtr->pose);
           if (!feasible)
           {
             newGridNodePtr->setType(Invalid);
@@ -533,7 +533,7 @@ inline bool LazyKinoPRM::getPathCost(NodeStatePtr _parnodestate,NodeStatePtr _cu
   _curnodestate->trajectory_length = pathlength;
   _curnodestate->angle_cost = angcost;
 	// print_count++;
-	// if (print_count >= 10) {
+	// if (print_count >= 20) {
 	// 	std::cout << "angcost: " << angcost << " pathlength: " << pathlength << std::endl;
 	// 	print_count = 0;	
 	// }
@@ -591,15 +591,14 @@ inline bool LazyKinoPRM::isObstacleFree(Eigen::Vector3d _pose)
  */
 inline bool LazyKinoPRM::isFatObstacleFree(Eigen::Vector3d _pose)
 {
-  bool feasible=true;
   ////real pose in map
   int map_rows = floor((_pose[0]+map_origin_[0])/xy_resolution_); 
   int map_cols = floor((_pose[1]+map_origin_[1])/xy_resolution_);
   //out map or is not free
   if ( map_rows < 0 || map_cols < 0 || map_cols >= MAX_OBS_MAP_COL || map_rows >= MAX_OBS_MAP_ROW
       || fat_map->at<uchar>(cv::Point(map_rows,map_cols)) == IMG_OBS)
-    {feasible=false;return feasible;}
-  return feasible;
+    return false;
+  return true;
 }
 
 /**********************************************************************************************************************
@@ -768,6 +767,9 @@ void LazyKinoPRM::init()
   MAX_POSE_MAP_X  = (uint16_t)ceil(map_size_[0] / xy_sample_size_); //for x
   MAX_POSE_MAP_Y  = (uint16_t)ceil(map_size_[1] / xy_sample_size_); //for y
   MAX_POSE_MAP_D  = (uint16_t)ceil(2 * M_PI / q_sample_size_); //for q
+  cout  << "[\033[34mLazyKinoPRM\033[0m]PoseMap: [" 
+        << GREEN << MAX_POSE_MAP_X << " " << MAX_POSE_MAP_Y << " " << MAX_POSE_MAP_D 
+        << RESET << "]"  << endl;
   //init obs map as all free 255 = white
   // in opencv Mat :row == heigh == Point.y;col == width == Point.x;Mat::at(Point(x, y)) == Mat::at(y,x)
 	raw_pcl_map = new cv::Mat(MAX_OBS_MAP_COL, MAX_OBS_MAP_ROW, CV_8UC1, cv::Scalar(255));
@@ -1009,10 +1011,30 @@ bool LazyKinoPRM::resetLocalMap(Eigen::Vector3d _pose,double radius)
 	if (min_idx_y < 0) min_idx_y = 0;
 	if (max_idx_x >= MAX_OBS_MAP_ROW) max_idx_x = MAX_OBS_MAP_ROW - 1;
 	if (max_idx_y >= MAX_OBS_MAP_COL) max_idx_y = MAX_OBS_MAP_COL - 1;
+    // cout << "min_idx_x: " << min_idx_x << " min_idx_y: " << min_idx_y << endl;
+	// cout << "max_idx_x: " << max_idx_x << " max_idx_y: " << max_idx_y << endl;
 	for (int idx = min_idx_x; idx < max_idx_x; idx++)
 		for (int idy = min_idx_y; idy < max_idx_y; idy++) 
 			raw_pcl_map->at<uchar>(cv::Point(idx,idy)) = IMG_FREE;
+
+    //// for debug
+    cv::erode(*raw_pcl_map,*obs_map,pcl_element);
+	// obs map erode to fat map
+    cv::erode(*obs_map,*fat_map,obs_element);
+    cv::Mat binary_map;
+    cv::threshold(*obs_map, binary_map, 127, 255, THRESH_BINARY);//二值化阈值处理
+    // binary_map = ~binary_map;
+    // imshow("binary_map",binary_map);
+    // *sdf_map = binary_map.clone();
+    cv::Mat sdf_img;
+    cv::distanceTransform(binary_map,sdf_img,DIST_L2,DIST_MASK_3);
+    // 1 pixel = xy_resolution_ m
+    sdf_img = sdf_img * xy_resolution_;
+    *sdf_map = sdf_img;
+            
 	return true;
+
+
 }
 
 /**********************************************************************************************************************
@@ -1021,12 +1043,12 @@ bool LazyKinoPRM::resetLocalMap(Eigen::Vector3d _pose,double radius)
   * @param {pcl::PointCloud<pcl::PointXYZ>} cloud
   * @return {*}
 */
-void LazyKinoPRM::updataObsMap(pcl::PointCloud<pcl::PointXYZ> cloud)
+void LazyKinoPRM::updataObsMap(pcl::PointCloud<pcl::PointXYZ> &cloud)
 {
-  if ((int)cloud.points.size() == 0)
+  if (cloud.points.size() == 0)
     return;
   pcl::PointXYZ pt;
-  for (int idx = 0; idx < (int)cloud.points.size(); idx++)
+  for (uint idx = 0; idx < cloud.points.size(); idx++)
   {
     pt = cloud.points[idx];
     setObstacleMap(pt.x, pt.y, pt.z);
@@ -1038,7 +1060,7 @@ void LazyKinoPRM::updataObsMap(pcl::PointCloud<pcl::PointXYZ> cloud)
 	// pcl map erode to obs map
   cv::erode(*raw_pcl_map,*obs_map,pcl_element);
 	// obs map erode to fat map
-	cv::erode(*obs_map,*fat_map,obs_element);
+  cv::erode(*obs_map,*fat_map,obs_element);
   cv::Mat binary_map;
   cv::threshold(*obs_map, binary_map, 127, 255, THRESH_BINARY);//二值化阈值处理
   // binary_map = ~binary_map;
@@ -1053,6 +1075,19 @@ void LazyKinoPRM::updataObsMap(pcl::PointCloud<pcl::PointXYZ> cloud)
   // cv::minMaxLoc(*sdf_map, &minVal, &maxVal);
   // cout << "minVal: " << minVal << " maxVal: " << maxVal << endl;
   ROS_DEBUG("update sdf map size: %d, %d",sdf_map->rows,sdf_map->cols);
+//   ROS_INFO("update sdf map size: %d, %d",sdf_map->rows,sdf_map->cols);
+}
+
+int LazyKinoPRM::getSampleNum()
+{
+    return MAX_POSE_MAP_X * MAX_POSE_MAP_Y;
+}
+
+GridNodePtr LazyKinoPRM::getNodePtr(int index)
+{
+    Eigen::Vector3i pose_index;
+    pose_index << index/MAX_POSE_MAP_Y, index%MAX_POSE_MAP_Y, 0;
+    return Index2PoseNode(pose_index);
 }
 
 cv::Mat* LazyKinoPRM::getObsMap()
@@ -1063,6 +1098,11 @@ cv::Mat* LazyKinoPRM::getObsMap()
 cv::Mat* LazyKinoPRM::getSdfMap()
 {
   return sdf_map;
+}
+
+cv::Mat* LazyKinoPRM::getFatMap()
+{
+  return fat_map;
 }
 
 /**********************************************************************************************************************

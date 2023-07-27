@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-07-26
+ * @LastEditTime: 2023-07-27
  * @Description: 
  * @reference: 
  * 
@@ -110,7 +110,7 @@ class Tracking
     // std::vector<double> vxtraj,vytraj,vqtraj; // 用于存储轨迹的vx,vy,vq for tracking
     std::vector<int> segtrajpoints; // 用于存储每段轨迹的离散点数
     // std::vector<double> timevector; // 用于存储每段轨迹的时间向量  这个时间向量没必要了,可以用下边的 tracksegsets
-    std::vector<TrackSeg> StatesSegSets; // 用于存储轨迹段集合 离散的状态轨迹去除,节省内存
+    // std::vector<TrackSeg> StatesSegSets; // 用于存储轨迹段集合 离散的状态轨迹去除,节省内存
     // 默认状态下存储的是整个搜索的轨迹，并将优化的部分插入替换
 
     // ROS 相关 Publisher/Subscriber/message
@@ -125,7 +125,7 @@ class Tracking
 	bool BAIS_FLAG = false;	// 跟踪轨迹是否偏离(较大) 使用NMPC不会有非常大的偏差,这里是作为一个标志用于线段轨迹局部重规划
 
     public: // ##################################################################################################
-
+    std::vector<TrackSeg> StatesSegSets;
     nav_msgs::Path _nav_seq_msg;    // 控制轨迹序列msgs NMPC的TargetTrajectory
 
     double _persuit_factor;         // 速度缩放因子,调整预瞄步长后缩放速度

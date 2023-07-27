@@ -37,15 +37,17 @@
 <arg name="SAMPLE_RANDOM"   default="true"/>
 <!-- raw map erode as xy_resolution -->
 <arg name="erode_pcl_size"  default="6.0"/>
-<arg name="erode_obs_size"  default="2.0"/>
+<arg name="erode_obs_size"  default="6.0"/>
 <arg name="sdf_th"          default="0.4"/>
+<arg name="local_width"     default="2.0"/>
 
 <arg name="nav_seq_vis"     default="true"/>
 
 
 <node pkg="fast_navigation" type="swift_planner_node" name="swift_planner_node" output="screen" required = "true">
     <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
-    <remap from="~map" to="/image_map/local_map"/>
+    <!-- <remap from="~map" to="/image_map/local_map"/> -->
+    <remap from="~map" to="/image_map/global_map"/>
     <remap from="~odom" to="/ground_truth/state"/>
 
     <!-- %%%%%%%%%%%%%% search parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
@@ -70,7 +72,7 @@
     <param name="map/erode_pcl_size"    value="$(arg erode_pcl_size)" /> <!-- 原始点云膨胀 -->
     <param name="map/erode_obs_size"    value="$(arg erode_obs_size)"/> <!-- 障碍物膨胀 -->
     <param name="map/sdf_threshold"     value="$(arg sdf_th)"/>
-    <param name="map/local_width"       value="2"/>
+    <param name="map/local_width"       value="$(arg local_width)"/>
     <param name="map/resolution"        value="$(arg xy_resolution)"/>
     <param name="map/mini_dist"         value="0.01"/>
     
@@ -89,8 +91,8 @@
     <param name="planner/vis_obspcl"    value="true"/>
     <param name="planner/vis_sdf_img"   value="true"/>
     <param name="planner/nav_seq_vis"   value="$(arg nav_seq_vis)"/>
-    <param name="planner/vis_osqp_traj" value="true"/>
-    <param name="planner/vis_nlopt_traj" value="true"/>
+    <param name="planner/vis_osqp_traj" value="false"/>
+    <param name="planner/vis_nlopt_traj" value="false"/>
     <param name="planner/vis_tracking_traj" value="false"/>
 
     <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
@@ -121,6 +123,7 @@
     <param name="nontrajopt/OVA_SWITCH"     value="true"/>
     <param name="nontrajopt/dist_th"        value="0.5"/>
     <param name="nontrajopt/discredist"     value="0.05"/>
+    <param name="nontrajopt/wq"             value="0.8"/>
     <param name="nontrajopt/pv_max"         value="2.1"/>
     <param name="nontrajopt/pa_max"         value="2.1"/>
     <param name="nontrajopt/wv_max"         value="2.1"/>
