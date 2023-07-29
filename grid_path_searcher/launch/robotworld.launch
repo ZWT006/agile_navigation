@@ -10,7 +10,7 @@
 <arg name="map_orign_y" default="10.0"/>
 <arg name="map_orign_z" default=" 0.1"/>
 
-<arg name="map_name" default="map11.png"/>
+<arg name="map_name" default="map13.png"/>
 
 <arg name="erode_kernel_size" default="30.0"/>
 <arg name="erode_switch" default="true"/>

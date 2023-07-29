@@ -364,6 +364,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
   }
   else
   { //clear the path
+  if(!pathstateSets.empty())
     pathstateSets.clear();
     for (;list_idx != 0;)
     {
@@ -958,28 +959,30 @@ void LazyKinoPRM::reset()
   // Eigen::Vector3d rand_pose;
   // double pose_x, pose_y;
   // Eigen::Vector3i rand_pose_index;
-	if (!astaropenlist.nodestateSets.empty()) {
-		for (uint32_t idx = 0; idx < int(astaropenlist.nodestateSets.size()); idx++)
-		{
-			GridNodePtr gridnodeptr = astaropenlist.nodestateSets[idx].CurrGridNodePtr;
-			bool feasible = isFatObstacleFree(gridnodeptr->pose);
-			if (feasible)
-			    gridnodeptr->setType(Mid);
-			else
-			    gridnodeptr->setType(Invalid);
-		}
-	}
-	if (!astarcloselist.node_index.empty()) {
-		for (uint32_t idx = 0; idx < int(astarcloselist.node_index.size()); idx++)
-		{
-			GridNodePtr gridnodeptr = Index2PoseNode(astarcloselist.node_index.at(idx));
-			bool feasible = isFatObstacleFree(gridnodeptr->pose);
-			if (feasible)
-			    gridnodeptr->setType(Mid);
-			else
-			    gridnodeptr->setType(Invalid);
-		}
-	}
+    ROS_INFO("astaropenlist.nodestateSets.size(): %d", int(astaropenlist.nodestateSets.size()));
+    if (!astaropenlist.nodestateSets.empty()) {
+        for (uint32_t idx = 0; idx < int(astaropenlist.nodestateSets.size()); idx++)
+        {
+            GridNodePtr gridnodeptr = astaropenlist.nodestateSets[idx].CurrGridNodePtr;
+            bool feasible = isFatObstacleFree(gridnodeptr->pose);
+            if (feasible)
+                gridnodeptr->setType(Mid);
+            else
+                gridnodeptr->setType(Invalid);
+        }
+    }
+    ROS_INFO("astarcloselist.node_index.size(): %d", int(astarcloselist.node_index.size()));
+    if (!astarcloselist.node_index.empty()) {
+        for (uint32_t idx = 0; idx < int(astarcloselist.node_index.size()); idx++)
+        {
+            GridNodePtr gridnodeptr = Index2PoseNode(astarcloselist.node_index.at(idx));
+            bool feasible = isFatObstacleFree(gridnodeptr->pose);
+            if (feasible)
+                gridnodeptr->setType(Mid);
+            else
+                gridnodeptr->setType(Invalid);
+        }
+    }
   //############################################################################################################
   //reset search parameters
   iter_num_ = 0;

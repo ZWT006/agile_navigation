@@ -374,6 +374,7 @@ int main(int argc, char** argv)
                         lazykinoPRM.reset();
                     }
                 }
+                //// useless code &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
                 // else{ // 重新规划失败 再搞近点重新规划
                 //     // TODO: 重新规划失败解决方案 1.重采样再规划 2.刹车等待摆烂
                 //     lazykinoPRM.sample();
@@ -402,6 +403,7 @@ int main(int argc, char** argv)
                 //         ROS_INFO("[\033[31mPlanNode\033[0m]: re-replan failed");
                 //     }
                 // }
+                //// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
             }
         }
         //// step 轨迹的优化 ##########################################################################################################
@@ -482,7 +484,7 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
     _HAS_PATH = !lazykinoPRM.search(currPose,currVel,currAcc,goalPose,zeros_pt,zeros_pt);
     if (_vis_sample)
         visLazyPRM();
-
+    lazykinoPRM.reset();
     if (_HAS_PATH) {
         _NEW_PATH = true;
         _REACH_GOAL = false;
@@ -501,8 +503,8 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
         std::vector<double> dotposq(dot_num + 1);
         dottime[0] = 0;
         dotposq[0] = tracking.StatesSegSets[0].startState.col(0)(2);
-        std::cout   << "dotposq[0]: " << tracking.StatesSegSets[0].startState.col(0)(2)
-                    << " " << tracking.StatesSegSets[0].startState.col(0).tail(1) << std::endl;
+        // std::cout   << "dotposq[0]: " << tracking.StatesSegSets[0].startState.col(0)(2)
+        //             << " " << tracking.StatesSegSets[0].startState.col(0).tail(1) << std::endl;
         for (int i = 0; i < dot_num; i++) {
             dottime[i + 1] = dottime[i] + tracking.StatesSegSets[i].duration;
             dotposq[i + 1] = tracking.StatesSegSets[i].endState.col(0)(2);
@@ -532,31 +534,30 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
         plt::save("/home/zwt/motion_ws/src/navigation/velocity.png"); // 保存图像
 
 
-        // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-        // ROS_INFO("[\033[32mPlanNode\033[0m]: insertSegTraj success");
-        // if (OptimalSegPop()) { // 待优化的轨迹不为空 进行优化
-        //     // auto start_time = std::chrono::steady_clock::now();
-        //     if (!nloptopt.NLoptSolve()) {
-        //         ROS_INFO("[\033[31mPlanNode\033[0m]: optimal trajectory failed");
-        //     } else {
-        //         // step 2 Push 优化后轨迹
-        //         // auto end_time = std::chrono::steady_clock::now();
-        //         // auto opt_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-        //         // ROS_INFO("[\033[32mPlanNode\033[0m]: optimal trajectory success, time: %ld ms", opt_time.count());
-        //         ROS_INFO("[\033[32mPlanNode\033[0m]: optimal trajectory success");
-        //         OptimalSegPush();
-        //         tracking.insertSegTraj(tracking._opt_start_seg_index,&optimalTraj);
-        //     }
-        // }
-        // else {
-        //     ROS_INFO("[\033[31mPlanNode\033[0m]: optimal trajectory too short");
-        // }
+        //// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+        //// ROS_INFO("[\033[32mPlanNode\033[0m]: insertSegTraj success");
+        if (OptimalSegPop()) { // 待优化的轨迹不为空 进行优化
+            // auto start_time = std::chrono::steady_clock::now();
+            if (!nloptopt.NLoptSolve()) {
+                ROS_INFO("[\033[31mPlanNode\033[0m]: optimal trajectory failed");
+            } else {
+                // step 2 Push 优化后轨迹
+                // auto end_time = std::chrono::steady_clock::now();
+                // auto opt_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+                // ROS_INFO("[\033[32mPlanNode\033[0m]: optimal trajectory success, time: %ld ms", opt_time.count());
+                ROS_INFO("[\033[32mPlanNode\033[0m]: optimal trajectory success");
+                OptimalSegPush();
+                tracking.insertSegTraj(tracking._opt_start_seg_index,&optimalTraj);
+            }
+        }
+        else {
+            ROS_INFO("[\033[31mPlanNode\033[0m]: optimal trajectory too short");
+        }
         // save trajectory as .CSV
         // csvPtraj();
     }
     // ####################################################################################
     // 可视化轨迹后再清空搜索列表
-    lazykinoPRM.reset();
     ROS_INFO("[\033[34mPlanNode\033[0m]: reset planning done");
 }
 
@@ -795,7 +796,9 @@ void SearchSegPush()
     _endStates.col(1) = lazykinoPRM.pathstateSets.back().Velocity;
     _endStates.col(2) = lazykinoPRM.pathstateSets.back().Acceleration;
 
-    std::cout << "LazyPRMwaypoints q: " ;
+    cout.setf(ios::fixed); 
+    cout << setprecision(4) ;
+    std::cout << "LazyPRM q: " ;
     for (int idx = 0; idx < piece_num + 1; idx++) {
         std::cout << _waypoints[idx](2) << " ";
     }
@@ -817,6 +820,7 @@ void SearchSegPush()
     std::cout << "OSQPopt endState :" << std::endl;
     std::cout << OSQPopt.EndStates << std::endl;
 
+    cout.unsetf(ios::fixed);
     // step: 1 OSQP 优化求解
     OSQPopt.OSQPSolve();
     // step: 2 优化后的轨迹段 push 到 searchTraj 列表
@@ -1209,7 +1213,7 @@ void visLazyPRM()
     ++marker_id;
     ISpheres.id = marker_id;
     ++marker_id;
-    std::cout << "lazykinoPRM.getSampleNum() = " << lazykinoPRM.getSampleNum() << std::endl;
+    ROS_DEBUG("[visLazyPRM]getSampleNum() = %d", lazykinoPRM.getSampleNum());
     for (int idx = 0; idx < lazykinoPRM.getSampleNum(); idx++)
     {
         GridNodePtr gridnodeptr = lazykinoPRM.getNodePtr(idx);
@@ -1362,7 +1366,7 @@ void visNLOptTraj()
 void visObsMap()
 {
     pcl::PointXYZ pt_image;
-    const cv::Mat* obsimg = lazykinoPRM.getObsMap();
+    const cv::Mat* obsimg = lazykinoPRM.getFatMap();
     if (obsimg == nullptr)
         return;
     sensor_msgs::PointCloud2 _obs_map_pcl_msg; // 全局障碍物点云

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-26
+ * @LastEditTime: 2023-07-27
  * @Description: Nonlinear Trajectory Optimization
  * @reference: 
  * 
@@ -72,9 +72,12 @@ struct OptParas {
 
     bool INIT_OPT_VALUE;   // init coeffs and time to  nonlinear optimization
 
+    int QPC; // QP problem cost function order v=1 a=2 j=3 s=4; 4th order QP problem
+
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     int    nlopt_max_iteration_num_;  // stopping criteria that can be used
     double nlopt_max_iteration_time_;  // stopping criteria that can be used
+    double nlopt_xtol_rel_;  // stopping criteria that can be used
     // int    nlopt_max_iteration_num_;  // stopping criteria that can be used
     // double nlopt_max_iteration_time_;  // stopping criteria that can be used
     // int    nlopt_max_iteration_num_;  // stopping criteria that can be used
@@ -104,6 +107,7 @@ class NonTrajOpt
     int D;  // dimension of the trajectory
     int E;  // number of equality constraints(p v a j)
     int C;  // cost function order v=1 a=2 j=3 s=4; 4th order cost function
+    int QPC; // QP problem cost function order v=1 a=2 j=3 s=4; 4th order QP problem  
 
     public://##############################################################################################################
     /// @brief: Nonlinear Optimization
@@ -148,6 +152,7 @@ class NonTrajOpt
     double coeff_bound;
     int    nlopt_max_iteration_num_;  // stopping criteria that can be used
     double nlopt_max_iteration_time_;  // stopping criteria that can be used
+    double nlopt_xtol_rel_;  // stopping criteria that can be used
 
     bool SMO_SWITCH;
     bool OBS_SWITCH;

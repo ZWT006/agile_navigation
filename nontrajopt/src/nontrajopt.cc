@@ -52,6 +52,7 @@ void NonTrajOpt::setParam(ros::NodeHandle &nh,OptParas &paras) {
     nh.param("nontrajopt/DYN_SWITCH", paras.DYN_SWITCH, false);
     nh.param("nontrajopt/TIM_SWITCH", paras.TIM_SWITCH, false);
     nh.param("nontrajopt/OVA_SWITCH", paras.OVA_SWITCH, false);
+    nh.param("nontrajopt/QPC", paras.QPC, 4);
     nh.param("nontrajopt/dist_th", paras.dist_th, 0.1);
     nh.param("nontrajopt/discredist", paras.discredist, 0.1);
     nh.param("nontrajopt/pv_max", paras.pv_max, 2.0);
@@ -69,6 +70,7 @@ void NonTrajOpt::setParam(ros::NodeHandle &nh,OptParas &paras) {
     nh.param("nontrajopt/INIT_OPT_VALUE", paras.INIT_OPT_VALUE, false);
     nh.param("nontrajopt/nlopt_max_iteration_num", paras.nlopt_max_iteration_num_, 100);
     nh.param("nontrajopt/nlopt_max_iteration_time", paras.nlopt_max_iteration_time_, 0.1);
+    nh.param("nontrajopt/nlopt_xtol_rel", paras.nlopt_xtol_rel_,1e-4);
 
     nh.param("nontrajopt/wq", paras.wq, 0.8);
     nh.param("search/vel_factor", paras.ref_vel, 1.0);
@@ -92,6 +94,9 @@ void NonTrajOpt::initParameter(const OptParas &paras) {
     DYN_SWITCH = paras.DYN_SWITCH;
     TIM_SWITCH = paras.TIM_SWITCH;
     OVA_SWITCH = paras.OVA_SWITCH;
+
+    QPC        = paras.QPC; // cost function order
+    nlopt_xtol_rel_  = paras.nlopt_xtol_rel_; // relative tolerance on optimization variables
     
     wq         = paras.wq; // weight of state.q coefficients 
     dist_th    = paras.dist_th; // distance threshold of obstacle   
@@ -134,6 +139,7 @@ void NonTrajOpt::showParam() {
     std::cout << "; Dimensions: " << D ;
     std::cout << "; Equations: " << E ;
     std::cout << "; Cost: " << C << std::endl;
+    std::cout << "[\033[34mnontrajopt\033[0m]QPC: " << QPC << std::endl;
 
 
     std::cout << std::boolalpha << "[\033[34mnontrajopt\033[0m]TIME_OPTIMIZATION: " << TIME_OPTIMIZATION << std::endl;
@@ -154,7 +160,8 @@ void NonTrajOpt::showParam() {
     std::cout << "[\033[34mnontrajopt\033[0m]OVAL_TH: " << OVAL_TH << "; ORIEN_VEL " << ORIEN_VEL << "; VERDIT_VEL " << VERDIT_VEL <<std::endl;
     std::cout << "[\033[34mnontrajopt\033[0m]coeff_bound: " << coeff_bound << std::endl;
     std::cout << "[\033[34mnontrajopt\033[0m]MaxIterNum: " << nlopt_max_iteration_num_ ;
-    std::cout << "; MaxIterTime: " <<  std::setprecision(2) << nlopt_max_iteration_time_ << std::endl;
+    std::cout << "; MaxIterTime: "  << nlopt_max_iteration_time_ << std::endl; //<<  std::setprecision(2)
+    std::cout << "[\033[34mnontrajopt\033[0m]nlopt_xtol_rel_: " << nlopt_xtol_rel_ << std::endl;
 
     std::cout << "[\033[34mnontrajopt\033[0m]map_width: " << edfmap._map_size_x << "; map_height: " << edfmap._map_size_y << std::endl;
     std::cout << "[\033[34mnontrajopt\033[0m]map_origin_x: " << edfmap._map_origin_x << "; _map_origin_y: " << edfmap._map_origin_y << std::endl;
@@ -247,6 +254,8 @@ bool NonTrajOpt::setWaypoints(const std::vector<Eigen::Vector3d> &_waypoints,
         Initwaypoints(2,idx) = VecyawSmooth(idx);
     }
     //// Step 4: init waypoints and start/end states for polynomial trajectory optimization
+    StartStates.col(0) = Initwaypoints.col(0);
+    EndStates.col(0) = Initwaypoints.col(N);
     initWaypoints(Initwaypoints,InitT,StartStates,EndStates);
     return true;
 }
@@ -645,9 +654,9 @@ void NonTrajOpt::updateMatQ() {
     for (int n = 0; n < N; n++) {
         Eigen::MatrixXd Qn = Eigen::MatrixXd::Zero(O, O);
         double ts = initT(n);
-        for (int i = C; i < O;i++){
-            for (int j = C; j < O;j++){
-                Qn(i,j) = factorial(i)/factorial(i-C)*factorial(j)/factorial(j-C)*pow(ts, i+j-2*C+1)/(i+j-2*C+1);
+        for (int i = QPC; i < O;i++){
+            for (int j = QPC; j < O;j++){
+                Qn(i,j) = factorial(i)/factorial(i-QPC)*factorial(j)/factorial(j-QPC)*pow(ts, i+j-2*QPC+1)/(i+j-2*QPC+1);
             }
         }
         int nOD = n*O*D;
@@ -1019,7 +1028,7 @@ bool NonTrajOpt::NLoptSolve() {
     Eigen::VectorXd initc = Eigen::VectorXd::Constant(OptDof,INIT_COEFFS);
     Eigen::VectorXd initt = Eigen::VectorXd::Constant(N,INIT_TIME_TAU);
 
-    opt.set_xtol_rel(1e-4);
+    opt.set_xtol_rel(nlopt_xtol_rel_);
     opt.set_maxeval(nlopt_max_iteration_num_);
     opt.set_maxtime(nlopt_max_iteration_time_);
 

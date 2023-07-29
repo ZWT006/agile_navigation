@@ -273,17 +273,17 @@ Visualization Manager:
       Marker Topic: /swift_planner_node/planner_path_vis
       Name: SearchPathVis
       Namespaces:
-        {}
+        planner_node/TraLibrary: true
       Queue Size: 1
       Value: true
     - Class: rviz/MarkerArray
-      Enabled: false
+      Enabled: true
       Marker Topic: /swift_planner_node/planner_osqp_vis
       Name: OSQPPathVis
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/MarkerArray
       Enabled: false
       Marker Topic: /swift_planner_node/planner_nlopt_vis
@@ -322,7 +322,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 21.137863159179688
+      Distance: 9.816510200500488
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
