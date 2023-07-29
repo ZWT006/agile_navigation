@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-07-27
+ * @LastEditTime: 2023-07-29
  * @Description: 
  * @reference: 
  * 
@@ -175,14 +175,14 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
   mid_node->setPose(start_pos,start_pose_index_);
   mid_node->setType(Start);
   
-  // cout << "[\033[34mSearchNode\033[0m]start_pose_index_:" << start_pose_index_.transpose() << endl;
-  // cout << "[\033[34mSearchNode\033[0m]start_pos :" << start_pos.transpose() << endl;
-  // cout << "[\033[34mSearchNode\033[0m]goal_pose_index_ :" << goal_pose_index_.transpose() << endl;
-  // cout << "[\033[34mSearchNode\033[0m]goal_pos:" << goal_pos.transpose() << endl;
-  // cout << "[\033[34mSearchNode\033[0m]vel_factor:" << vel_factor_ << endl;
-  // cout << "[\033[34mSearchNode\033[0m]ome_factor:" << ome_factor_ << endl;
-  // cout << "[\033[34mSearchNode\033[0m]DIR_GRID_M:" << DIR_GRID_M << endl;
-  // cout << "[\033[34mSearchNode\033[0m]c_angle:" << c_angle_ << endl;
+  cout << "[\033[34mSearchNode\033[0m]start_pose_index_:" << start_pose_index_.transpose() << endl;
+  cout << "[\033[34mSearchNode\033[0m]start_pos :" << start_pos.transpose() << endl;
+  cout << "[\033[34mSearchNode\033[0m]goal_pose_index_ :" << goal_pose_index_.transpose() << endl;
+  cout << "[\033[34mSearchNode\033[0m]goal_pos:" << goal_pos.transpose() << endl;
+  cout << "[\033[34mSearchNode\033[0m]vel_factor:" << vel_factor_ << endl;
+  cout << "[\033[34mSearchNode\033[0m]ome_factor:" << ome_factor_ << endl;
+  cout << "[\033[34mSearchNode\033[0m]DIR_GRID_M:" << DIR_GRID_M << endl;
+  cout << "[\033[34mSearchNode\033[0m]c_angle:" << c_angle_ << endl;
   // TODO: check if start and goal are in the same voxel
 
   //##################################################################################################################
@@ -192,15 +192,15 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
   astarcloselist.reset();
   astaropenlist.reset();
   // expend the start node
-  NodeState newNodeState;
-  newNodeState.CurrGridNodePtr = mid_node;
-  newNodeState.PareGridNodePtr = nullptr;
-  newNodeState.Position = PointStart;
-  newNodeState.Velocity = VelStart;
-  newNodeState.Acceleration = AccStart;
-  goal_cost = getHeuristic(PointStart,PointGoal,&newNodeState);
+  NodeState startNodeState;
+  startNodeState.CurrGridNodePtr = mid_node;
+  startNodeState.PareGridNodePtr = nullptr;
+  startNodeState.Position = PointStart;
+  startNodeState.Velocity = VelStart;
+  startNodeState.Acceleration = AccStart;
+  goal_cost = getHeuristic(PointStart,PointGoal,&startNodeState);
   // start to start so the obvp is not needed
-  astaropenlist.insert(&newNodeState,&newNodeState);
+  astaropenlist.insert(&startNodeState,&startNodeState);
   // mid_node = astarcloselist.insert(mid_node);
   no_path_ = true;
   DIR_GRID = 1;
@@ -282,12 +282,13 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
             }
           search_node_num_ ++;
           GridNodePtr newGridNodePtr = pose_map[new_row][new_col][new_dep];
-          newNodeState.clear();
+          NodeState newNodeState;
           newNodeState.CurrGridNodePtr = newGridNodePtr;
 
           //3.4:check if the node is Goal
           if (newGridNodePtr->type == Goal)
           {
+            ROS_INFO("[\033[34mSearchNode\033[0m] find goal = [%d,%d,%d]",new_row,new_col,new_dep);
             //calculate the new node angle
             Vector3d newPose = newGridNodePtr->pose;
             // init the new node state
@@ -369,6 +370,12 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
     for (;list_idx != 0;)
     {
       nodestate = astaropenlist.nodestateSets.at(list_idx);
+      cout.setf(ios::fixed);
+      cout<<fixed<<setprecision(4);            
+      cout  << "[\033[34mSearchNode\033[0m]" << "nodestate: idx=" << list_idx << "; fn_cost" << nodestate.fncost
+            << "; pathlength=" << nodestate.trajectory_length << "angle_cost=" << nodestate.angle_cost 
+            << "; heur_cost=" << nodestate.heurcost << "; path_cost=" << nodestate.pathcost << endl;
+      cout.unsetf(ios::fixed);
       pathstateSets.push_back(nodestate);
       list_idx = nodestate.Parenodelistindex;
     }
@@ -533,13 +540,21 @@ inline bool LazyKinoPRM::getPathCost(NodeStatePtr _parnodestate,NodeStatePtr _cu
   angcost = pow(angdelta,2)*c_angle_;
   _curnodestate->trajectory_length = pathlength;
   _curnodestate->angle_cost = angcost;
-	// print_count++;
-	// if (print_count >= 20) {
-	// 	std::cout << "angcost: " << angcost << " pathlength: " << pathlength << std::endl;
+  _curnodestate->pathcost = _parnodestate->pathcost + pathlength + angcost;
+////   all waypoints path cost
+  	// print_count++;
+	// if (print_count >= 1) {    
+    //     cout.setf(ios::fixed);
+    //     cout<<fixed<<setprecision(4);    
+	// 	std::cout   << "pathlength: " << pathlength << "; angcost: " << angcost 
+    //                 << "; distcost: " << pathlength + angcost 
+    //                 << "; goal_cost: " << _curnodestate->heurcost 
+    //                 << "; path_cost: " << _curnodestate->pathcost 
+    //                 << "; parent_path_cost: " << _parnodestate->pathcost 
+    //                 << "; parent_fncost: " << _parnodestate->fncost << std::endl;
+    //     cout.unsetf(ios::fixed);
 	// 	print_count = 0;	
 	// }
-  //all waypoints path cost
-  _curnodestate->pathcost = _parnodestate->pathcost + pathlength + angcost;
   return collision_flag;
 }
 
@@ -959,7 +974,7 @@ void LazyKinoPRM::reset()
   // Eigen::Vector3d rand_pose;
   // double pose_x, pose_y;
   // Eigen::Vector3i rand_pose_index;
-    ROS_INFO("astaropenlist.nodestateSets.size(): %d", int(astaropenlist.nodestateSets.size()));
+    // ROS_INFO("astaropenlist.nodestateSets.size(): %d", int(astaropenlist.nodestateSets.size()));
     if (!astaropenlist.nodestateSets.empty()) {
         for (uint32_t idx = 0; idx < int(astaropenlist.nodestateSets.size()); idx++)
         {
@@ -970,8 +985,9 @@ void LazyKinoPRM::reset()
             else
                 gridnodeptr->setType(Invalid);
         }
+        astaropenlist.reset();
     }
-    ROS_INFO("astarcloselist.node_index.size(): %d", int(astarcloselist.node_index.size()));
+    // ROS_INFO("astarcloselist.node_index.size(): %d", int(astarcloselist.node_index.size()));
     if (!astarcloselist.node_index.empty()) {
         for (uint32_t idx = 0; idx < int(astarcloselist.node_index.size()); idx++)
         {
@@ -982,6 +998,7 @@ void LazyKinoPRM::reset()
             else
                 gridnodeptr->setType(Invalid);
         }
+        astarcloselist.reset();
     }
   //############################################################################################################
   //reset search parameters
@@ -991,8 +1008,6 @@ void LazyKinoPRM::reset()
   extendflag_ = false;
   use_node_num_ = 0;
   //reset the search 
-  astaropenlist.reset();
-  astarcloselist.reset();
 }
 
 /**********************************************************************************************************************

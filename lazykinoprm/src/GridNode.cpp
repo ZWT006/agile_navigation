@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-05-04
+ * @LastEditTime: 2023-07-29
  * @Description: 
  * @reference: 
  * 
@@ -34,6 +34,34 @@ void GridNode::setType(GridNodeType_Set _Type)
 // ############################################################################
 //
 // node state structure
+NodeState::NodeState()
+{
+    Position = Eigen::Vector3d::Zero();
+    Velocity = Eigen::Vector3d::Zero();
+    Acceleration = Eigen::Vector3d::Zero();
+    ParePosition = Eigen::Vector3d::Zero();
+    PareVelocity = Eigen::Vector3d::Zero();
+    PareAcceleration = Eigen::Vector3d::Zero();
+
+    Currnodelistindex = 0;
+    Parenodelistindex = 0;
+
+    CurrGridNodePtr = nullptr;
+    PareGridNodePtr = nullptr;
+    
+    referT = 0.0;
+    dt = 0.0;
+    distance = 0.0;
+    angledelta = 0.0;
+    angle_cost = 0.0;        //angle delta cost
+    trajectory_length = 0.0; //tarjectory length cost
+    trajectory_cost = 0.0;   //tarjectory cost by dynamic model
+    fncost = 0.0;
+    heurcost = 0.0;
+    pathcost = 0.0;  // fncost = heuristiccost + pathcost; pathcost = angle_cost + trajectory_length + parnodestate.pathcost;
+    collision_check = false; // True -> no collision, False -> collision
+    dynamic_flag = false;    // False -> not optimal in TraLibrary, True -> not optimal in TraLibrary,
+}
 void NodeState::setCollisioncheck(bool _collision_check)
 {
   collision_check = _collision_check;

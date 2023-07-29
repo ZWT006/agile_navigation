@@ -36,6 +36,8 @@
 <arg name="heur_factor"     default="1.0"/>
 <arg name="weightR"         default="1.0"/>
 <arg name="SAMPLE_RANDOM"   default="true"/>
+<arg name="OSQP_CostOdr"    default="4.0"/>
+<arg name="OSQP_Costwq"     default="0.8"/>
 <!-- raw map erode as xy_resolution -->
 <arg name="erode_pcl_size"  default="8.0"/> <!-- make sure >= 1 -->
 <arg name="erode_obs_size"  default="3.0"/> <!-- make sure >= 1 -->
@@ -125,8 +127,8 @@
     <param name="nontrajopt/OVA_SWITCH"     value="true"/>
     <param name="nontrajopt/dist_th"        value="0.5"/>
     <param name="nontrajopt/discredist"     value="0.05"/>
-    <param name="nontrajopt/QPC"            value="3.0"/>
-    <param name="nontrajopt/wq"             value="1.0"/>
+    <param name="nontrajopt/QPC"            value="$(arg OSQP_CostOdr)"/>
+    <param name="nontrajopt/wq"             value="$(arg OSQP_Costwq)"/>
     <param name="nontrajopt/pv_max"         value="2.1"/>
     <param name="nontrajopt/pa_max"         value="2.1"/>
     <param name="nontrajopt/wv_max"         value="2.1"/>

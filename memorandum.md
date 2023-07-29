@@ -28,7 +28,7 @@
 - [x] Traj 离散化参数计算 Debug 离散段数量/dt/离散状态计算
 - [x] Time 多次幂计算/exp()/log()
 - [ ] 角度q变化的光滑处理
-- [ ] 参考时间计算以及初末时间缩放
+- [x] 参考时间计算以及初末时间缩放 没啥用不要
 - [ ] QP优化和NLopt优化如何区分 长距离 QP + 短距离 NLopt?
 
 #### OSQP Solver
@@ -42,6 +42,7 @@ The problem seems to be non-convex
 ```
 - [x] ~~add waypoints states inequality constraints~~ 还是不要的好 效果差
 - [ ] maybe 可以把求解的输出给关了
+- [ ] OSQP的解有时候也不好，但是可以很明显看出来是 系数非常大 可以加个判断系数太大就重搜索
 
 #### NLopt Solver
 - [x] updateOptAxb Debug
@@ -65,6 +66,7 @@ The problem seems to be non-convex
 - [ ] replanning 的逻辑有些问题，貌似一直从 currPose 开始重规划不行，或者说得在别的地方一直更新 currPose
 - [x] 现在的逻辑是从距离障碍物最近的轨迹点开始重规划,可能造成多走冤枉路的情况出现,这个可以考虑比较一下 障碍物的段索引和当前跟踪的段索引，找一个阈值来确定重规划的段索引
 - [ ] `swift_planner`第一次搜索失败后再重设终点会直接死掉
+- [x] `lazykinoprm`搜索非常不稳定，查找到bug，在`search`的`newNodeState`重置不完全
 #### Warry
 
 #### Easy
@@ -96,7 +98,7 @@ The problem seems to be non-convex
 
 ## Navigation
 - [ ] 10Hz or 5Hz and gait frequancy make different
-- [ ] Time State givened by navigation
+- [x] Time State givened by navigation
 ## bspline
 - [ ] CLF-TRO build and roslaunch
 - [ ] CLF-TRO State Trajectory
@@ -106,7 +108,7 @@ The problem seems to be non-convex
 ~~everything is OK~~对不起不该这样说
 - [x] add obs_map and fat_map 避免机器人本体形状的影响
 - [x] fix bug about obsmap update, add resetLocalObstmap to avoid obstacle pcl accumulative
-- [ ] search trajectory smooth 对比 MATLAB 与 C++ 中的 cost 数量级
+- [x] search trajectory smooth 对比 MATLAB 与 C++ 中的 cost 数量级
 
 ## Opt
 - [ ] mini jerk smoothcost ?

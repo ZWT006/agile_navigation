@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-06-15
+ * @LastEditTime: 2023-07-29
  * @Description: 
  * @reference: 
  * 
@@ -167,7 +167,7 @@ struct NodeState
     //   collision_check = false;
     //   optimal_flag = false;
     // }
-    NodeState(){};
+    NodeState();
     ~NodeState(){};
     void setCollisioncheck(bool _collision_check);
     void setSelfPose(Eigen::Vector3d _Position);

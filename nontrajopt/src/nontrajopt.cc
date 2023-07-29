@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-24
- * @LastEditTime: 2023-07-27
+ * @LastEditTime: 2023-07-29
  * @Description: trajectory optimization
  * @reference: 
  * 
@@ -1002,6 +1002,12 @@ bool NonTrajOpt::OSQPSolve() {
 
     OSQP_optx = QPoptx;
     Vecx = QPoptx;
+    double maxval = QPoptx.array().abs().maxCoeff();
+    if (maxval > coeff_bound) {
+        std::cout << YELLOW << "OSQP Solution is out of bound: " << maxval << RESET << std::endl;
+        flag = false;
+        return flag;
+    }
 
     // step: 3 update the trajectory
     updateTraj();
@@ -1137,14 +1143,15 @@ bool NonTrajOpt::NLoptSolve() {
         std::cout << "NLopt time: " << nlopt_time_duration.count() << " ms" << std::endl;
     }
 
-    Non_optx = Eigen::Map<const Eigen::VectorXd>(NLoptx.data(), NLoptx.size());
-    
-    // 更新优化变量
-    updateOptVars(Non_optx);
-    // 更新优化变量对应的矩阵 并求解 Ax=b
-    updateOptAxb();
-    // 将求解后的系数放入 Traj 中
-    updateTraj();
+    if (flag) {
+        Non_optx = Eigen::Map<const Eigen::VectorXd>(NLoptx.data(), NLoptx.size());
+        // 更新优化变量
+        updateOptVars(Non_optx);
+        // 更新优化变量对应的矩阵 并求解 Ax=b
+        updateOptAxb();
+        // 将求解后的系数放入 Traj 中
+        updateTraj();
+    }
     return flag;
 }
 

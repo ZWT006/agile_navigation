@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-07-27
+ * @LastEditTime: 2023-07-29
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -133,7 +133,7 @@ void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg);
 // search trajectory checking
 bool TrackTrajCheck();
 // 搜索到的 tracksegs 从 lazykinoprm 类 push 到 searchTraj 列表
-void SearchSegPush();
+bool SearchSegPush();
 // 待优化的 tracksegs 从 Tracking tracking 类 pop 到 optimalTraj 列表 
 bool OptimalSegPop();
 // 优化后的 tracksegs 从 NonTrajOpt nloptopt 类 push 到 optimalTraj 列表中
@@ -344,25 +344,30 @@ int main(int argc, char** argv)
                 _HAS_PATH = false;
                 Vector3d goalPose,currPose,currVel,currAcc,zeros_pt(0,0,0);
                 int re_plan_cnt = 0;
-                while (_HAS_PATH == false || re_plan_cnt < REPLAN_CNT_TH){
+                while (_HAS_PATH == false && re_plan_cnt < REPLAN_CNT_TH){
                     re_plan_cnt++;
                     // step 重新规划轨迹 ####################
                     if(tracking.getReplanState(&currPose,&currVel,&currAcc,&goalPose)){
                         ros::Time start_time = ros::Time::now();
+                        lazykinoPRM.reset();
                         _HAS_PATH = !lazykinoPRM.search(currPose,currVel,currAcc,goalPose,zeros_pt,zeros_pt);
                         ros::Duration elapsed_time = ros::Time::now() - start_time;
                         double elapsed_seconds = elapsed_time.toSec();
                         ROS_INFO("[\033[34mPlanNode\033[0m]: search time: %2.4f", elapsed_seconds);
                     }
                     else {
-                        lazykinoPRM.reset();
+                        // lazykinoPRM.reset();
                         lazykinoPRM.sample();
                         ROS_INFO("[\033[31mPlanNode\033[0m]: get replan state failed");
                         continue;
                     }
                     if (_HAS_PATH){ // 重新规划成功
                         tracking._goalPose = lazykinoPRM._goal_pose;
-                        SearchSegPush();
+                        if(!SearchSegPush()) {
+                            _HAS_PATH = false;
+                            lazykinoPRM.sample();
+                            continue;
+                        }
                         ROS_INFO("[\033[32mPlanNode\033[0m]searchindex:%d,search traj size:%ld",tracking._search_seg_index,searchTraj.size());
                         tracking.insertSegTraj(tracking._search_seg_index,&searchTraj);
                         ROS_INFO("[\033[32mPlanNode\033[0m]: replan success");
@@ -371,39 +376,13 @@ int main(int argc, char** argv)
                         visLazyPRM(); // 可视化搜索轨迹 感觉就是DEBUG的时候用
                         // 可视化轨迹后再清空搜索列表
                         // ROS_INFO("[\033[34mPlanNode\033[0m]: reset planning done");
-                        lazykinoPRM.reset();
                     }
                 }
-                //// useless code &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-                // else{ // 重新规划失败 再搞近点重新规划
-                //     // TODO: 重新规划失败解决方案 1.重采样再规划 2.刹车等待摆烂
-                //     lazykinoPRM.sample();
-                //     if(tracking.getLocalState(&currPose,&currVel,&currAcc,&goalPose)){
-                //         _HAS_PATH = !lazykinoPRM.search(currPose,currVel,currAcc,goalPose,zeros_pt,zeros_pt);
-                //     }
-                //     else {
-                //         ROS_INFO("[\033[31mPlanNode\033[0m]: get re-replan state failed");
-                //         continue;
-                //     }
-                //     if (_HAS_PATH){ // 重新规划成功
-                //         tracking._goalPose = lazykinoPRM._goal_pose;
-                //         SearchSegPush();
-                //         ROS_INFO("[\033[32mPlanNode\033[0m]searchindex:%d,search traj size:%ld",tracking._search_seg_index,searchTraj.size());
-                //         tracking.insertSegTraj(tracking._search_seg_index,&searchTraj);
-                //         ROS_INFO("[\033[32mPlanNode\033[0m]: re-replan success");
-                //         tracking.OBS_FLAG = false;
-                //         _TRACKING = true;
-                //         visLazyPRM(); // 可视化搜索轨迹 感觉就是DEBUG的时候用
-                //         // 可视化轨迹后再清空搜索列表
-                //         // ROS_INFO("[\033[34mPlanNode\033[0m]: reset planning done");
-                //         lazykinoPRM.reset();
-                //     }
-                //     else {
-                //         lazykinoPRM.sample();
-                //         ROS_INFO("[\033[31mPlanNode\033[0m]: re-replan failed");
-                //     }
-                // }
-                //// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+                if (re_plan_cnt >= REPLAN_CNT_TH){
+                    ROS_INFO("[\033[31mPlanNode\033[0m]: replan failed");
+                    ROS_INFO("[\033[31mPlanNode\033[0m]: 放弃治疗 planner 就地摆烂");
+                    return 0;
+                }
             }
         }
         //// step 轨迹的优化 ##########################################################################################################
@@ -476,89 +455,102 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
     ROS_INFO("[\033[34mPlanNode\033[0m]:currAcc:   %2.2f, %2.2f, %2.2f", currAcc(0), currAcc(1), currAcc(2));
     ROS_INFO("[\033[34mTarget\033[0m]:position:    %2.2f, %2.2f, %2.2f", wp.poses[0].pose.position.x, wp.poses[0].pose.position.y, wp.poses[0].pose.position.z);
     ROS_INFO("[\033[34mTarget\033[0m]:orientation: %2.2f, %2.2f, %2.2f, %2.2f", wp.poses[0].pose.orientation.x, wp.poses[0].pose.orientation.y, wp.poses[0].pose.orientation.z, wp.poses[0].pose.orientation.w);
-    ROS_INFO("[\033[34mTarget\033[0m]: x:%2.2f, y:%2.2f, q:%2.2f", goalPose(0), goalPose(1), yaw_deg);
-
+    ROS_INFO("[\033[34mTarget\033[0m]: x:%2.2f, y:%2.2f, q:%2.2frad, q:%2.2fdeg", goalPose(0), goalPose(1), yaw_rad, yaw_deg);
     // ####################################################################################
-    lazykinoPRM.sample(); // 设置 Goal 后重新采用
-    // ROS_INFO("[\033[34mTarget\033[0m]:yaw angle %f", yaw_deg);
-    _HAS_PATH = !lazykinoPRM.search(currPose,currVel,currAcc,goalPose,zeros_pt,zeros_pt);
-    if (_vis_sample)
-        visLazyPRM();
-    lazykinoPRM.reset();
-    if (_HAS_PATH) {
-        _NEW_PATH = true;
-        _REACH_GOAL = false;
-        tracking.initPlanner(goalPose);
-        tracking._goalPose = lazykinoPRM._goal_pose;
-        SearchSegPush();
-        tracking.insertSegTraj(0,&searchTraj);
-        // //// visulization &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-        uint32_t num = static_cast<int>(tracking.pxtraj.size());
-        std::vector<double> time(num);
-        for (int i = 0; i < num; i++) {
-            time[i] = i * _time_interval;
-        }
-        int dot_num = static_cast<int>(tracking.StatesSegSets.size());
-        std::vector<double> dottime(dot_num + 1);
-        std::vector<double> dotposq(dot_num + 1);
-        dottime[0] = 0;
-        dotposq[0] = tracking.StatesSegSets[0].startState.col(0)(2);
-        // std::cout   << "dotposq[0]: " << tracking.StatesSegSets[0].startState.col(0)(2)
-        //             << " " << tracking.StatesSegSets[0].startState.col(0).tail(1) << std::endl;
-        for (int i = 0; i < dot_num; i++) {
-            dottime[i + 1] = dottime[i] + tracking.StatesSegSets[i].duration;
-            dotposq[i + 1] = tracking.StatesSegSets[i].endState.col(0)(2);
-        }
-        plt::figure_size(1200, 800);
-        plt::plot(tracking.pxtraj, tracking.pytraj,"g.");
-        plt::title("[x.y] position figure");
-        plt::save("/home/zwt/motion_ws/src/navigation/xyposition.png"); // 保存图像
-        plt::figure_size(1200, 800);
-        // Plot line from given x and y data. Color is selected automatically.
-        plt::plot(time, tracking.pqtraj,"b-");
-        // plt::scatter(dottime, dotposq, 2.0, "rx");
-        plt::plot(dottime, dotposq,"r--");
-        // Add graph title
-        plt::title("[q] position figure");
-        plt::save("/home/zwt/motion_ws/src/navigation/qposition.png"); // 保存图像
-        plt::figure_size(1200, 800);
-        // Plot line from given x and y data. Color is selected automatically.
-        plt::plot(time, tracking.vxtraj,"r-");
-        plt::plot(time, tracking.vytraj,"g-");
-        plt::plot(time, tracking.vqtraj,"b-");
-        // Add graph title
-        plt::title("velocity figure");
-        // Enable legend.
-        // plt::legend({"vx", "vy", "vq"});
-        // plt::show(); // 显示图像(阻塞 并且显示所有图像)
-        plt::save("/home/zwt/motion_ws/src/navigation/velocity.png"); // 保存图像
-
-
-        //// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-        //// ROS_INFO("[\033[32mPlanNode\033[0m]: insertSegTraj success");
-        if (OptimalSegPop()) { // 待优化的轨迹不为空 进行优化
-            // auto start_time = std::chrono::steady_clock::now();
-            if (!nloptopt.NLoptSolve()) {
-                ROS_INFO("[\033[31mPlanNode\033[0m]: optimal trajectory failed");
-            } else {
-                // step 2 Push 优化后轨迹
-                // auto end_time = std::chrono::steady_clock::now();
-                // auto opt_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-                // ROS_INFO("[\033[32mPlanNode\033[0m]: optimal trajectory success, time: %ld ms", opt_time.count());
-                ROS_INFO("[\033[32mPlanNode\033[0m]: optimal trajectory success");
-                OptimalSegPush();
-                tracking.insertSegTraj(tracking._opt_start_seg_index,&optimalTraj);
+    _HAS_PATH = false; // new goal need replan
+    int re_plan_cnt = 0;
+    while (_HAS_PATH == false && re_plan_cnt < REPLAN_CNT_TH){
+        lazykinoPRM.sample(); // 设置 Goal 后重新采用
+        re_plan_cnt++;
+        lazykinoPRM.reset();
+        // ROS_INFO("[\033[34mTarget\033[0m]:yaw angle %f", yaw_deg);
+        _HAS_PATH = !lazykinoPRM.search(currPose,currVel,currAcc,goalPose,zeros_pt,zeros_pt);
+        if (_vis_sample)
+            visLazyPRM();
+        if (_HAS_PATH) {
+            _NEW_PATH = true;
+            _REACH_GOAL = false;
+            tracking.initPlanner(goalPose);
+            tracking._goalPose = lazykinoPRM._goal_pose;
+            if (!SearchSegPush()) {
+                ROS_INFO("[\033[31mPlanNode\033[0m]: search trajectory failed");
+                _HAS_PATH = false;
+                lazykinoPRM.sample();
+                continue;
             }
+            tracking.insertSegTraj(0,&searchTraj);
+            // //// visulization &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+            uint32_t num = static_cast<int>(tracking.pxtraj.size());
+            std::vector<double> time(num);
+            for (int i = 0; i < num; i++) {
+                time[i] = i * _time_interval;
+            }
+            int dot_num = static_cast<int>(tracking.StatesSegSets.size());
+            std::vector<double> dottime(dot_num + 1);
+            std::vector<double> dotposq(dot_num + 1);
+            dottime[0] = 0;
+            dotposq[0] = tracking.StatesSegSets[0].startState.col(0)(2);
+            // std::cout   << "dotposq[0]: " << tracking.StatesSegSets[0].startState.col(0)(2)
+            //             << " " << tracking.StatesSegSets[0].startState.col(0).tail(1) << std::endl;
+            for (int i = 0; i < dot_num; i++) {
+                dottime[i + 1] = dottime[i] + tracking.StatesSegSets[i].duration;
+                dotposq[i + 1] = tracking.StatesSegSets[i].endState.col(0)(2);
+            }
+            plt::figure_size(1200, 800);
+            plt::plot(tracking.pxtraj, tracking.pytraj,"g.");
+            plt::title("[x.y] position figure");
+            plt::save("/home/zwt/motion_ws/src/navigation/xyposition.png"); // 保存图像
+            plt::figure_size(1200, 800);
+            // Plot line from given x and y data. Color is selected automatically.
+            plt::plot(time, tracking.pqtraj,"b-");
+            // plt::scatter(dottime, dotposq, 2.0, "rx");
+            plt::plot(dottime, dotposq,"r--");
+            // Add graph title
+            plt::title("[q] position figure");
+            plt::save("/home/zwt/motion_ws/src/navigation/qposition.png"); // 保存图像
+            plt::figure_size(1200, 800);
+            // Plot line from given x and y data. Color is selected automatically.
+            plt::plot(time, tracking.vxtraj,"r-");
+            plt::plot(time, tracking.vytraj,"g-");
+            plt::plot(time, tracking.vqtraj,"b-");
+            // Add graph title
+            plt::title("velocity figure");
+            // Enable legend.
+            // plt::legend({"vx", "vy", "vq"});
+            // plt::show(); // 显示图像(阻塞 并且显示所有图像)
+            plt::save("/home/zwt/motion_ws/src/navigation/velocity.png"); // 保存图像
+
+
+            //// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+            //// ROS_INFO("[\033[32mPlanNode\033[0m]: insertSegTraj success");
+            if (OptimalSegPop()) { // 待优化的轨迹不为空 进行优化
+                // auto start_time = std::chrono::steady_clock::now();
+                if (!nloptopt.NLoptSolve()) {
+                    ROS_INFO("[\033[31mPlanNode\033[0m]: optimal trajectory failed");
+                } else {
+                    // step 2 Push 优化后轨迹
+                    // auto end_time = std::chrono::steady_clock::now();
+                    // auto opt_time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+                    // ROS_INFO("[\033[32mPlanNode\033[0m]: optimal trajectory success, time: %ld ms", opt_time.count());
+                    ROS_INFO("[\033[32mPlanNode\033[0m]: optimal trajectory success");
+                    OptimalSegPush();
+                    tracking.insertSegTraj(tracking._opt_start_seg_index,&optimalTraj);
+                }
+            }
+            else {
+                ROS_INFO("[\033[31mPlanNode\033[0m]: optimal trajectory too short");
+            }
+            // save trajectory as .CSV
+            // csvPtraj();
         }
         else {
-            ROS_INFO("[\033[31mPlanNode\033[0m]: optimal trajectory too short");
+            // ROS_INFO("[\033[31mPlanNode\033[0m]: search trajectory failed");
+            lazykinoPRM.sample();
         }
-        // save trajectory as .CSV
-        // csvPtraj();
     }
     // ####################################################################################
     // 可视化轨迹后再清空搜索列表
-    ROS_INFO("[\033[34mPlanNode\033[0m]: reset planning done");
+    // ROS_INFO("[\033[34mPlanNode\033[0m]: reset planning done");
 }
 
 // 点云回调函数，负责设置障碍物
@@ -771,10 +763,11 @@ bool NavSeqCheck(const nav_msgs::Path *navseq)
 /*******************************************************************************************
  * @description: 搜索到的 tracksegs 使用OSQP优化后 从 lazykinoprm 类 push 到 searchTraj 列表
  * @reference: 
- * @return {*}
+ * @return {bool} true if success false if not
  */
-void SearchSegPush()
+bool SearchSegPush()
 {
+    bool flag = true;
     double trajectory_length = 0, trajectory_time = 0;
     if (!searchTraj.empty())
     searchTraj.clear();
@@ -796,33 +789,34 @@ void SearchSegPush()
     _endStates.col(1) = lazykinoPRM.pathstateSets.back().Velocity;
     _endStates.col(2) = lazykinoPRM.pathstateSets.back().Acceleration;
 
-    cout.setf(ios::fixed); 
-    cout << setprecision(4) ;
-    std::cout << "LazyPRM q: " ;
-    for (int idx = 0; idx < piece_num + 1; idx++) {
-        std::cout << _waypoints[idx](2) << " ";
-    }
-    std::cout << std::endl;
+    // cout.setf(ios::fixed); 
+    // cout << setprecision(4) ;
+    // std::cout << "LazyPRM q: " ;
+    // for (int idx = 0; idx < piece_num + 1; idx++) {
+    //     std::cout << _waypoints[idx](2) << " ";
+    // }
+    // std::cout << std::endl;
     
     OSQPopt.setWaypoints(_waypoints,_startStates, _endStates);
 
-    std::cout << "OSQPopt waypoints: " ;
-    std::cout << OSQPopt.Waypoints.row(2) << std::endl;
+    // std::cout << "OSQPopt waypoints: " ;
+    // std::cout << OSQPopt.Waypoints.row(2) << std::endl;
 
     // for (int idx = 0; idx < piece_num + 1; idx++) {
     //     std::cout << OSQPopt.Waypoints.row(2) << " ";
     // }
     // std::cout << std::endl;
 
-    std::cout << "OSQPopt segments: " << OSQPopt.N << std::endl;
-    std::cout << "OSQPopt startState :" << std::endl;
-    std::cout << OSQPopt.StartStates << std::endl;
-    std::cout << "OSQPopt endState :" << std::endl;
-    std::cout << OSQPopt.EndStates << std::endl;
-
-    cout.unsetf(ios::fixed);
+    // std::cout << "OSQPopt segments: " << OSQPopt.N << std::endl;
+    // std::cout << "OSQPopt startState :" << std::endl;
+    // std::cout << OSQPopt.StartStates << std::endl;
+    // std::cout << "OSQPopt endState :" << std::endl;
+    // std::cout << OSQPopt.EndStates << std::endl;
+    // cout.unsetf(ios::fixed);
     // step: 1 OSQP 优化求解
-    OSQPopt.OSQPSolve();
+    if(!OSQPopt.OSQPSolve()) {
+        return false;
+    }
     // step: 2 优化后的轨迹段 push 到 searchTraj 列表
     for (int idx = 0; idx < piece_num; idx++) {
         TrackSeg _trackseg;
@@ -849,6 +843,10 @@ void SearchSegPush()
             _trackseg.vytraj.push_back(OSQPopt.Traj[idx].getVel(t)(1));
             _trackseg.vqtraj.push_back(OSQPopt.Traj[idx].getVel(t)(2));
         }
+        int _index = 0;
+        if(!lazykinoPRM.LongTrajCheck(&_trackseg.pxtraj,&_trackseg.pytraj,&_index)) {
+           flag = false;
+        }
         searchTraj.push_back(_trackseg);
     }
     // std::cout << "OSQPopt time: " << OSQPopt.initT.transpose() << std::endl;
@@ -857,6 +855,7 @@ void SearchSegPush()
 
     if (_vis_osqp_traj) 
         visOSQPTraj();
+    return flag;
 }
 
 /*******************************************************************************************
@@ -899,6 +898,7 @@ bool OptimalSegPop()
     //// nlopt local optimization set waypoints without any modification
     if(!nloptopt.pushWaypoints(_waypoints,_initt,_startStates, _endStates)){
         ROS_WARN("[\033[31mPlannerNode\033[0m]: pushWaypoints failed!");
+        return false;
     }
     // step: 1 设置优化初始值
     // std::cout << "_opt_init full: " << _opt_init.transpose() << std::endl;
