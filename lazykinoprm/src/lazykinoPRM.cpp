@@ -370,12 +370,12 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
     for (;list_idx != 0;)
     {
       nodestate = astaropenlist.nodestateSets.at(list_idx);
-      cout.setf(ios::fixed);
-      cout<<fixed<<setprecision(4);            
-      cout  << "[\033[34mSearchNode\033[0m]" << "nodestate: idx=" << list_idx << "; fn_cost" << nodestate.fncost
-            << "; pathlength=" << nodestate.trajectory_length << "angle_cost=" << nodestate.angle_cost 
-            << "; heur_cost=" << nodestate.heurcost << "; path_cost=" << nodestate.pathcost << endl;
-      cout.unsetf(ios::fixed);
+    //   cout.setf(ios::fixed);
+    //   cout<<fixed<<setprecision(4);            
+    //   cout  << "[\033[34mSearchNode\033[0m]" << "nodestate: idx=" << list_idx << "; fn_cost=" << nodestate.fncost
+    //         << "; pathlength=" << nodestate.trajectory_length << "; angle_cost=" << nodestate.angle_cost 
+    //         << "; heur_cost=" << nodestate.heurcost << "; path_cost=" << nodestate.pathcost << endl;
+    //   cout.unsetf(ios::fixed);
       pathstateSets.push_back(nodestate);
       list_idx = nodestate.Parenodelistindex;
     }

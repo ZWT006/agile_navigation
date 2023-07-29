@@ -222,15 +222,15 @@ bool NonTrajOpt::setWaypoints(const std::vector<Eigen::Vector3d> &_waypoints,
     //// Step 0: yaw 角归一化到 [-pi pi] ##################################################################
         Vecyaw(idx) = angles::normalize_angle(_waypoints[idx](2));
     }
-    std::cout << "waypoint q: " << Initwaypoints.row(2) << std::endl;
-    std::cout << "Raw Vecyaw: " << Vecyaw.transpose() << std::endl;
+    // std::cout << "waypoint q: " << Initwaypoints.row(2) << std::endl;
+    // std::cout << "Raw Vecyaw: " << Vecyaw.transpose() << std::endl;
     //// Step 1: yaw 角的平滑处理 缩小使转向角变化
     Eigen::VectorXd VecyawSmooth = Eigen::VectorXd::Zero(_waypoints.size());
     for (int idx = 1; idx < N ; idx++) {
         VecyawSmooth(idx) = angles::shortest_angular_distance(Vecyaw(idx),Vecyaw(idx+1))/2.0 + Vecyaw(idx);
     }
     VecyawSmooth(0) = Vecyaw(0); VecyawSmooth(N) = Vecyaw(N);
-    std::cout << "Smooth Vecyaw: " << VecyawSmooth.transpose() << std::endl;
+    // std::cout << "Smooth Vecyaw: " << VecyawSmooth.transpose() << std::endl;
     Vecyaw = VecyawSmooth;
     //// Step 2: reference time 参考优化时间计算 ###########################################################
     for (int idx = 0; idx < N; idx++) {
@@ -242,14 +242,16 @@ bool NonTrajOpt::setWaypoints(const std::vector<Eigen::Vector3d> &_waypoints,
         InitT(idx) = std::max(xy_dist/ref_vel,q_dist/ref_ome);
     }
     //// Step 3: yaw 角的数值连续性处理 用于数值优化 #########################################################
-    std::cout << "shortest distance: " << 0.0 << " ";
+    // std::cout << "shortest distance: " << 0.0 << " ";
     for (int idx = 1; idx <= N; idx++) { ////Note: 这里的第 N 个点会不会有问题? 比原定的点偏离? 应该不会吧?
         VecyawSmooth(idx) = VecyawSmooth(idx-1) + angles::shortest_angular_distance(Vecyaw(idx-1),Vecyaw(idx));
-        std::cout << angles::shortest_angular_distance(Vecyaw(idx-1),Vecyaw(idx)) << " ";
+        // std::cout << angles::shortest_angular_distance(Vecyaw(idx-1),Vecyaw(idx)) << " ";
     }
-    std::cout << std::endl;
+    // std::cout << std::endl;
     VecyawSmooth(0) = Vecyaw(0); 
-    std::cout << "continus Vecyaw: " << VecyawSmooth.transpose() << std::endl;
+    
+    // std::cout << "continus Vecyaw: " << VecyawSmooth.transpose() << std::endl;
+
     for (int idx = 0; idx <= N; idx++) {
         Initwaypoints(2,idx) = VecyawSmooth(idx);
     }

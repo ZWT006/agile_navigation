@@ -36,21 +36,19 @@
 <arg name="heur_factor"     default="1.0"/>
 <arg name="weightR"         default="1.0"/>
 <arg name="SAMPLE_RANDOM"   default="true"/>
-<arg name="OSQP_CostOdr"    default="4.0"/>
-<arg name="OSQP_Costwq"     default="0.8"/>
+<arg name="OSQP_CostOdr"    default="3.0"/>
+<arg name="OSQP_Costwq"     default="1.0"/>
 <!-- raw map erode as xy_resolution -->
 <arg name="erode_pcl_size"  default="8.0"/> <!-- make sure >= 1 -->
 <arg name="erode_obs_size"  default="3.0"/> <!-- make sure >= 1 -->
 <arg name="sdf_th"          default="0.4"/>
-<arg name="local_width"     default="2.0"/>
-
-<arg name="nav_seq_vis"     default="true"/>
+<arg name="local_width"     default="3.0"/>
 
 
 <node pkg="fast_navigation" type="swift_planner_node" name="swift_planner_node" output="screen" required = "true">
     <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
-    <!-- <remap from="~map" to="/image_map/local_map"/> -->
-    <remap from="~map" to="/image_map/global_map"/>
+    <remap from="~map" to="/image_map/local_map"/>
+    <!-- <remap from="~map" to="/image_map/global_map"/> -->
     <remap from="~odom" to="/ground_truth/state"/>
 
     <!-- %%%%%%%%%%%%%% search parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
@@ -92,23 +90,24 @@
     <param name="planner/vis_Robot"     value="true"/>
     <param name="planner/vis_sample"    value="true"/>
     <param name="planner/vis_traj"      value="false"/>
-    <param name="planner/vis_obspcl"    value="true"/>
+    <param name="planner/vis_obs_pcl"   value="true"/>
+    <param name="planner/vis_obs_img"   value="true"/>
     <param name="planner/vis_sdf_img"   value="true"/>
-    <param name="planner/nav_seq_vis"   value="$(arg nav_seq_vis)"/>
+    <param name="planner/nav_seq_vis"   value="true"/>
     <param name="planner/vis_osqp_traj" value="true"/>
-    <param name="planner/vis_nlopt_traj" value="false"/>
+    <param name="planner/vis_nlopt_traj" value="true"/>
     <param name="planner/vis_tracking_traj" value="false"/>
 
     <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
     <param name="planner/optHorizon"    value="1.0"/> <!-- 3.0 [s]-->
     <param name="planner/opt_seg"       value="4.0"/> 
     <!-- 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度 -->
-    <param name="planner/persuit_factor"    value="0.2"/>
+    <param name="planner/persuit_factor"    value="0.4"/>
     <!-- reverse_odom for real world SLAM -->
     <param name="planner/offset_odom"      value="false"/>
-    <param name="planner/track_ctrl"       value="false"/>
+    <param name="planner/track_ctrl"       value="true"/>
     <!-- 是否使用预先设计的轨迹进行跟踪 用于测试 -->
-    <param name="planner/debug_replan"      value="true"/>
+    <param name="planner/debug_replan"      value="false"/>
     <param name="planner/pure_tracking"     value="false"/>
     <param name="planner/orign_biasx"       value="-0.5"/>
     <param name="planner/orign_biasy"       value="-0.5"/>
@@ -137,14 +136,14 @@
     <param name="nontrajopt/OVAL_TH"        value="0.8"/>
     <param name="nontrajopt/ORIEN_VEL"      value="2.0"/>
     <param name="nontrajopt/VERDIT_VEL"     value="1.0"/>
-    <param name="nontrajopt/coeff_bound"    value="1000.0"/>
+    <param name="nontrajopt/coeff_bound"    value="1500.0"/>
     <param name="nontrajopt/TIME_OPTIMIZATION" value="true"/>
     <param name="nontrajopt/REDUCE_ORDER"      value="true"/>
     <param name="nontrajopt/BOUND_OPTIMIZATION" value="true"/>
     <param name="nontrajopt/INIT_OPT_VALUE"    value="true"/>
     <param name="nontrajopt/nlopt_max_iteration_num" value="200"/>
     <param name="nontrajopt/nlopt_max_iteration_time" value="0.1"/>
-    <param name="nontrajopt/nlopt_xtol_rel"     value="0.0001"/>
+    <param name="nontrajopt/nlopt_xtol_rel"     value="0.00001"/>
 
 </node>
 

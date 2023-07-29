@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-07-27
+ * @LastEditTime: 2023-07-29
  * @Description: 
  * @reference: 
  * 
@@ -544,7 +544,7 @@ void Tracking::NavSeqUpdate()
     nav_traj_msg.pose.orientation.x = 0;
     nav_traj_msg.pose.orientation.y = 0;
     nav_traj_msg.pose.orientation.z = 0;
-    nav_traj_msg.pose.orientation.w = _traj_time_interval;
+    nav_traj_msg.pose.orientation.w = 0;
     _nav_seq_msg.poses.insert(_nav_seq_msg.poses.begin(),nav_traj_msg);
 }
 
