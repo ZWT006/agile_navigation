@@ -18,3 +18,5 @@ roslaunch fast_navigation fast_planner.launch
 2023-7-29
 `ff7a237`: **debug** swift realtime navigation
 使用局部地图，在初始搜索的后，使用OSQP(全局优化初始解)+NLopt(局部轨迹优化)，进行完整的导航工作流程(标准规划速度`0.4`，OSQP成功率`50%`，NLopt成功率`<10%`，如同鸡肋，不能复现MATLAB中的效果)
+2023/7/31
+`45b49e2`: **pref** swift tracking offline trajectory

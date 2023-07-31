@@ -22,19 +22,48 @@ It's a fast realtime navigation ros package for quadraped robot swift motion in 
 
 ### 源码
 
-1.  本项目的Gitee地址：[Hi-ZWT/swift_nav](https://gitee.com/hi-zwt/swift_nav)
-```
-git clone https://gitee.com/hi-zwt/swift_nav
-```
-2.  源码依赖`nlopt`：`sudo apt-get install ros_noetic_nlopt`
-3.  源码依赖`Eigen`：`sudo apt-get install libeigen3-dev`
-4.  源码依赖`OSQP`：[OSQP/Get Start](https://osqp.org/docs/get_started/)
-
+1. 本项目的Gitee地址：[Hi-ZWT/swift_nav](https://gitee.com/hi-zwt/swift_nav)
+    ```
+    git clone https://gitee.com/hi-zwt/swift_nav
+    ```
+2. 源码依赖`nlopt`：[NLopt Documentation](https://nlopt.readthedocs.io/en/latest/)
+    ```
+    git clone https://github.com/stevengj/nlopt.git
+    cd nlopt
+    mkdir build
+    cd build
+    cmake ..
+    make
+    sudo make install
+    ```
+3. 源码依赖`Eigen`：`sudo apt-get install libeigen3-dev`
+4. 源码依赖`OSQP`：[OSQP/Get Start](https://osqp.org/docs/get_started/)
+    ```
+    git clone --recursive -b release-0.6.3 https://github.com/oxfordcontrol/osqp.git
+    cd osqp
+    mkdir build && cd build
+    cmake .. 
+    make
+    sudo make install
+    ```
+5. 源码依赖`osqp-eigen`:[osqp-eigen](https://robotology.github.io/osqp-eigen/)
+    ```
+    git clone https://github.com/robotology/osqp-eigen.git
+    cd osqp-eigen
+    mkdir build && cd build
+    cmake .. 
+    make
+    sudo make install
+    ```
+6. 编译项目
+    ```
+    catkin build fast_navigation grid_path_search 
+    ```
 ### Control
 1. legged control [reference](https://gitee.com/hi-zwt/legged_control) 切换到`tracking`分支
-```
-git clone https://gitee.com/hi-zwt/legged_control
-```
+    ```
+    git clone https://gitee.com/hi-zwt/legged_control
+    ```
 2. 安装legged control的相关依赖
 
 ### SLAM
