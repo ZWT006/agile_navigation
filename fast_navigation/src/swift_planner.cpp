@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-07-29
+ * @LastEditTime: 2023-07-31
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -146,6 +146,7 @@ bool NavSeqCheck(const nav_msgs::Path *navseq);
 
 // 可视化函数 ############################################################################################################
 // visulization search trajectory
+void visTrackingTraj();
 void visLazyPRM();
 void visOSQPTraj();
 void visNLOptTraj();
@@ -250,24 +251,31 @@ int main(int argc, char** argv)
     // 读取给定轨迹并跟踪 ################################################################################################################
     nh.param("planner/pure_tracking", _PURE_TRACKING, false);
     nh.param("planner/debug_replan", _DEBUG_REPLAN, false);
+    std::string traj_address;
+    nh.param("planner/traj_address",traj_address,std::string("datas/TRAJ_DATA_LONG.csv"));
     // FileName: TRAJ_DATA_LONG.csv | TRAJ_DATA_SHORT.csv
     if (_PURE_TRACKING) {
         // nh.param("planner/orign_biasx",biasx,0.0);
         // nh.param("planner/orign_biasy",biasy,0.0);
         // nh.param("planner/orign_biasq",biasq,0.0);
-        readcsv.setFileName("/media/zwt/UbuntuFiles/datas/Swift/Trajectory/TRAJ_DATA_LONG.csv");
+        readcsv.setFileName(traj_address);
         readcsv.setOrign(0.01);
         TrackSeg _trackseg;
         cout << BLUE << "====================================================================" << RESET << endl;
+        ROS_INFO("[\033[32mPlanNode\033[0m]: read trajectory from =>%s",traj_address.c_str());
         if (readcsv.readFile(_trackseg.pxtraj,_trackseg.pytraj,_trackseg.pqtraj,_trackseg.vxtraj,_trackseg.vytraj,_trackseg.vqtraj))
+        {
             ROS_INFO("[\033[32mPlanNode\033[0m]: read trajectory success, size: %ld",_trackseg.pxtraj.size());
+            _trackseg.duration = _trackseg.pxtraj.size() * _time_interval;
+            std::vector<TrackSeg> _tracksegsets;
+            _tracksegsets.push_back(_trackseg);
+            tracking.insertSegTraj(0,&_tracksegsets);
+            tracking._goalPose << _trackseg.pxtraj.back(),_trackseg.pytraj.back(),_trackseg.pqtraj.back();
+            ROS_INFO("[\033[32mPlanNode\033[0m]: goalPose: [%2.4f,%2.4f,%2.4f]",tracking._goalPose(0),tracking._goalPose(1),tracking._goalPose(2));
+            if (_vis_tracking_traj) visTrackingTraj();
+        }
         else ROS_INFO("[\033[31mPlanNode\033[0m]: read trajectory failed");
         cout << BLUE << "====================================================================" << RESET << endl;
-        _trackseg.duration = _trackseg.pxtraj.size() * _time_interval;
-        if (!optimalTraj.empty()) optimalTraj.clear();
-        optimalTraj.push_back(_trackseg);
-        tracking.insertSegTraj(0,&optimalTraj);
-        optimalTraj.clear();
     }
     
     // 坐标系转换相关参数 ################################################################################################################
@@ -441,6 +449,7 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
         _HAS_PATH = true;
         _NEW_PATH = true;
         _REACH_GOAL = false;
+        _TRACKING = true;
         return;
     }
     double yaw_rad,yaw_deg;
@@ -1085,6 +1094,45 @@ void csvPtraj()
     csv_record_num++;
 }
 
+/*******************************************************************************************
+ * @description:  可视化 Tracking 的轨迹
+ * @reference: 
+ * @return {*}
+ */
+void visTrackingTraj()
+{
+    double _vis_resolution = 0.02;
+    visualization_msgs::MarkerArray  LineArray;
+    visualization_msgs::Marker       Line;
+    Line.header.frame_id = "world";
+    Line.header.stamp    = ros::Time::now();
+    Line.ns              = "planner_node/nloptVis";
+    Line.action          = visualization_msgs::Marker::ADD;
+
+    Line.pose.orientation.w = 1.0;
+    Line.type            = visualization_msgs::Marker::LINE_STRIP;
+    Line.scale.x         = _vis_resolution;
+
+    Line.color.r         = 0.0;
+    Line.color.g         = 1.0;
+    Line.color.b         = 0.0;
+    Line.color.a         = 0.5;
+    Line.id = 33;
+
+    geometry_msgs::Point p;
+    p.z = DEFAULT_HIGH;
+    for (int idx = 0; idx < static_cast<int>(tracking.pxtraj.size()); idx+=5)
+    {
+        if (idx >= static_cast<int>(tracking.pxtraj.size()))
+            break;
+        p.x = tracking.pxtraj[idx];
+        p.y = tracking.pytraj[idx];
+        Line.points.push_back(p);
+    }
+    LineArray.markers.push_back(Line);    
+
+    _path_vis_pub.publish(LineArray);
+}
 
 /*******************************************************************************************
  * @description:  可视化搜索到的: 轨迹 采样点 终点
