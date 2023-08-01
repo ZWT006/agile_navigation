@@ -1,0 +1,6 @@
+<launch>
+
+    <node pkg="udpros_bridge" type="udp_test" name="udp_test" output="screen" required = "true">
+    </node>
+
+</launch>

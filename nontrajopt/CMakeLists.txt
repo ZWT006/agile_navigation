@@ -105,17 +105,6 @@ target_link_libraries(nlopt_test
 # )
 
 
-
-#############
-## Install ##
-#############
-
-
-
-#############
-## Testing ##
-#############
-
 ## Add gtest based cpp test target and link libraries
 # catkin_add_gtest(nontraj_test test/nontraj_test.cpp)
 # if(TARGET nontraj_test)
