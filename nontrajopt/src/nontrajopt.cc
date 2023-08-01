@@ -1125,6 +1125,8 @@ bool NonTrajOpt::OSQPSolveDiv() {
             Vecx.segment(idx * O * D + O, O) = QPyDiv.segment(idx*O, O);
             Vecx.segment(idx * O * D + 2*O, O) = QPqDiv.segment(idx*O, O);
         }
+        // step: 3 update the trajectory
+        updateTraj();
     }
     else {
         flag = false;

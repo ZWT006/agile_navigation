@@ -89,6 +89,7 @@ bool _TRACKING  = false;    // 是否正在跟踪轨迹 安全检查不通过就
 bool _OFFESET_ODOM = false; // 是否需要反向里程计信息
 bool _PURE_TRACKING = false; // 是否纯跟踪模式
 bool _DEBUG_REPLAN = false; // 是否 debug replan 模式
+bool _OPT_TRAJ = false; // 是否优化轨迹
 
 ////####################################################################################
 // trajectory optimization parameters 
@@ -237,6 +238,7 @@ int main(int argc, char** argv)
     // 计算优化相关的参数 ################################################################################################################
     double _opt_seg = 0,xy_sample_size_ = 0;
     nh.param("planner/opt_seg", _opt_seg, 0.0);
+    nh.param("planner/opt_traj",_OPT_TRAJ,false);
     nh.param("search/xy_sample_size", xy_sample_size_, 0.4);
     _OPT_SEG = int(_opt_seg);
     // if (_OPT_SEG > 0){ // 根据采样区间和参考速度计算优化长度
@@ -303,6 +305,7 @@ int main(int argc, char** argv)
     ROS_INFO("[\033[34mPlanNode\033[0m]_optHorizon  : %2.4f",   _optHorizon);
     ROS_INFO("[\033[34mPlanNode\033[0m]_opt_seg     : %6d",     _OPT_SEG);
     ROS_INFO("[\033[34mPlanNode\033[0m]_REACH_GOAL  : %6d",     _REACH_GOAL);
+    ROS_INFO("[\033[34mPlanNode\033[0m]_OPT_TRAJ    : %s",     _OPT_TRAJ ? "true" : "false");
     // ROS_INFO("[\033[34mPlanNode\033[0m]planner/time_horizon: %2.4f",        tracking._time_horizon);
     // ROS_INFO("[\033[34mPlanNode\033[0m]planner/traj_time_interval: %2.4f",  tracking._traj_time_interval);
     // ROS_INFO("[\033[34mPlanNode\033[0m]planner/time_step_interval: %d",     tracking._time_step_interval);
@@ -375,11 +378,16 @@ int main(int argc, char** argv)
                     }
                     if (_HAS_PATH){ // 重新规划成功
                         tracking._goalPose = lazykinoPRM._goal_pose;
-                        if(!OSQPSegPush()) {
-                            _HAS_PATH = false;
-                            lazykinoPRM.sample();
-                            continue;
+                        if (_OPT_TRAJ) {
+                            if(!OSQPSegPush()) {
+                                _HAS_PATH = false;
+                                lazykinoPRM.sample();
+                                continue;
+                            }
                         }
+                        else
+                            SearchSegPush();
+                        
                         ROS_INFO("[\033[32mPlanNode\033[0m]searchindex:%d,search traj size:%ld",tracking._search_seg_index,searchTraj.size());
                         tracking.insertSegTraj(tracking._search_seg_index,&searchTraj);
                         ROS_INFO("[\033[32mPlanNode\033[0m]: replan success");
@@ -397,7 +405,7 @@ int main(int argc, char** argv)
             }
         }
         //// step 轨迹的优化 ##########################################################################################################
-        if (!_REACH_GOAL){
+        if (!_REACH_GOAL && _OPT_TRAJ){
             if (_TRACKING){
                 // step 1 Pop 待优化轨迹
                 if (OptimalSegPop()) { // 待优化的轨迹不为空 进行优化
@@ -471,7 +479,7 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
     // ####################################################################################
     _HAS_PATH = false; // new goal need replan
     int re_plan_cnt = 0;
-    while (_HAS_PATH == false && re_plan_cnt < SEARCH_CNT_TH){
+    while (_HAS_PATH == false && re_plan_cnt < SEARCH_CNT_TH && _OPT_TRAJ){
         lazykinoPRM.sample(); // 设置 Goal 后重新采用
         re_plan_cnt++;
         lazykinoPRM.reset();
@@ -559,7 +567,8 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
             lazykinoPRM.sample();
         }
     }
-    if (re_plan_cnt >= SEARCH_CNT_TH){
+
+    if (re_plan_cnt >= SEARCH_CNT_TH || !_OPT_TRAJ){
         lazykinoPRM.reset();
         // ROS_INFO("[\033[34mTarget\033[0m]:yaw angle %f", yaw_deg);
         _HAS_PATH = !lazykinoPRM.search(currPose,currVel,currAcc,goalPose,zeros_pt,zeros_pt);
@@ -571,12 +580,16 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
             _REACH_GOAL = false;
             tracking.initPlanner(goalPose);
             tracking._goalPose = lazykinoPRM._goal_pose;
-            if (!OSQPSegPush()) {
-                ROS_INFO("[\033[31mPlanNode\033[0m]: OSQP trajectory failed");
-                lazykinoPRM.sample();
-                SearchSegPush();
-                tracking.insertSegTraj(0,&searchTraj);
+            if (_OPT_TRAJ) {
+                if (!OSQPSegPush()) {
+                    ROS_INFO("[\033[31mPlanNode\033[0m]: OSQP trajectory failed");
+                    lazykinoPRM.sample();
+                    SearchSegPush();
+                }
             }
+            else
+                SearchSegPush();
+            tracking.insertSegTraj(0,&searchTraj);
         }
         else {
             ROS_INFO("[\033[31mPlanNode\033[0m]: search trajectory failed");
@@ -831,19 +844,21 @@ bool SearchSegPush()
         _trackseg.xcoeff.resize(8);
         _trackseg.ycoeff.resize(8);
         _trackseg.qcoeff.resize(8);
-        int coeff_size = _xcoeff.size();
-        int copy_size = min(coeff_size, 8);
+        int coeff_size;
+        int copy_size;
+        coeff_size = _xcoeff.size();
+        copy_size = min(coeff_size, 8);
         _trackseg.xcoeff.head(copy_size) = _xcoeff.head(copy_size);
         coeff_size = _ycoeff.size();
         copy_size = min(coeff_size, 8);
-        _trackseg.xcoeff.head(copy_size) = _ycoeff.head(copy_size);
+        _trackseg.ycoeff.head(copy_size) = _ycoeff.head(copy_size);
         coeff_size = _qcoeff.size();
         copy_size = min(coeff_size, 8);
-        _trackseg.xcoeff.head(copy_size) = _qcoeff.head(copy_size);
+        _trackseg.qcoeff.head(copy_size) = _qcoeff.head(copy_size);
 
-        std::cout << "xcoeff: " << _trackseg.xcoeff << std::endl;
-        std::cout << "ycoeff: " << _trackseg.ycoeff << std::endl;
-        std::cout << "qcoeff: " << _trackseg.qcoeff << std::endl;
+        // std::cout << "xcoeff: " << _trackseg.xcoeff << std::endl;
+        // std::cout << "ycoeff: " << _trackseg.ycoeff << std::endl;
+        // std::cout << "qcoeff: " << _trackseg.qcoeff << std::endl;
         _trackseg.duration = lazykinoPRM.pathstateSets[idx].referT;
 
         searchTraj.push_back(_trackseg);
