@@ -5,7 +5,7 @@
 
 使用MATLAB优化出来的轨迹，保存在`.csv`中，读入`swift_planner`中进行跟踪
 - [x] 轨迹的读入`Readcsv`类
-- [ ] 离线轨迹的可视化
+- [x] 离线轨迹的可视化
 - [ ] 如何解决跟踪误差偏大造成失控翻车
 - [ ] 坐标系的转化 SLAM <=> Robot
 - [ ] 手动输入 Goal (非GUI输入)
@@ -27,9 +27,9 @@
 - [x] 优化问题降维需要构建一个线性方程组$Ax=b$并且求解，其中的系数矩阵$A$是一个带状矩阵,确定这个矩阵的上下界`lowerBd`和`upperBd`,可以使用带状矩阵的LU分解快速求解方程组
 - [x] Traj 离散化参数计算 Debug 离散段数量/dt/离散状态计算
 - [x] Time 多次幂计算/exp()/log()
-- [ ] 角度q变化的光滑处理
+- [x] 角度q变化的光滑处理
 - [x] 参考时间计算以及初末时间缩放 没啥用不要
-- [ ] QP优化和NLopt优化如何区分 长距离 QP + 短距离 NLopt?
+- [x] QP优化和NLopt优化如何区分 全局 QP + 局部 NLopt
 
 #### OSQP Solver
 - [x] updateQ,updateAeqbeq Debug
@@ -41,9 +41,9 @@ ERROR in osqp_setup: KKT matrix factorization.
 The problem seems to be non-convex
 ```
 - [x] ~~add waypoints states inequality constraints~~ 还是不要的好 效果差
-- [ ] maybe 可以把求解的输出给关了
-- [ ] OSQP的解有时候也不好，但是可以很明显看出来是 系数非常大 可以加个判断系数太大就重搜索
-
+- [x] maybe 可以把求解的输出给关了
+- [x] OSQP的解有时候也不好，但是可以很明显看出来是 系数非常大 可以加个判断系数太大就重搜索
+- [ ] OSQP 分离三个维度$[x,y,q]$求解
 #### NLopt Solver
 - [x] updateOptAxb Debug
 - [x] update Ax=b solve Debug
@@ -65,7 +65,7 @@ The problem seems to be non-convex
 - [ ] `tracking.NavSeqFixed(tracking._local_odom);` 造成机器人原地偏移, Odometry根据机器人的踏步在漂
 - [ ] replanning 的逻辑有些问题，貌似一直从 currPose 开始重规划不行，或者说得在别的地方一直更新 currPose
 - [x] 现在的逻辑是从距离障碍物最近的轨迹点开始重规划,可能造成多走冤枉路的情况出现,这个可以考虑比较一下 障碍物的段索引和当前跟踪的段索引，找一个阈值来确定重规划的段索引
-- [ ] `swift_planner`第一次搜索失败后再重设终点会直接死掉
+- [x] `swift_planner`第一次搜索失败后再重设终点会直接死掉
 - [x] `lazykinoprm`搜索非常不稳定，查找到bug，在`search`的`newNodeState`重置不完全
 #### Warry
 
@@ -80,10 +80,10 @@ The problem seems to be non-convex
 - [x] ESDF Update Switch => `esdf_update` bool flag
 
 ## legged control
-- [ ] merge low state publish & nav seq subscribe
+- [x] merge low state publish & nav seq subscribe
 
 ### Target Trajectory
-- [ ] timestate 序列变成可调,由轨迹跟踪的`nav_seq`控制
+- [x] timestate 序列变成可调,由轨迹跟踪的`nav_seq`控制
 
 ### NMPC
 - [ ] Oval Constrain: 添加线速度与方向角的椭圆形约束

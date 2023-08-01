@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-07-31
+ * @LastEditTime: 2023-08-01
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -907,8 +907,8 @@ bool OSQPSegPush()
     // std::cout << "OSQPopt endState :" << std::endl;
     // std::cout << OSQPopt.EndStates << std::endl;
     // cout.unsetf(ios::fixed);
-    // step: 1 OSQP 优化求解
-    if(!OSQPopt.OSQPSolve()) {
+    // step: 1 OSQP 优化求解 // OSQPSolve [x,y,q] | OSQPSolveDiv [x],[y],[q] 
+    if(!OSQPopt.OSQPSolveDiv()) {
         return false;
     }
     // step: 2 优化后的轨迹段 push 到 searchTraj 列表

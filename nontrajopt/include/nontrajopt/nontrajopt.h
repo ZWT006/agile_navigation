@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-27
+ * @LastEditTime: 2023-08-01
  * @Description: Nonlinear Trajectory Optimization
  * @reference: 
  * 
@@ -169,6 +169,20 @@ class NonTrajOpt
     Eigen::VectorXd QPx;    // QP problem x
     Eigen::MatrixXd MatAeq; // QP problem Aeq
     Eigen::VectorXd Vecbeq; // QP problem beq
+    //// OSQP div solver
+    Eigen::MatrixXd MatkQ;  // QP problem Q for [x,y,q] 
+    Eigen::MatrixXd MatAeqx; // QP problem Aeq for x
+    Eigen::MatrixXd MatAeqy; // QP problem Aeq for y
+    Eigen::MatrixXd MatAeqq; // QP problem Aeq for q
+    
+    Eigen::VectorXd Vecbeqx; // QP problem beq for x
+    Eigen::VectorXd Vecbeqy; // QP problem beq for y
+    Eigen::VectorXd Vecbeqq; // QP problem beq for q
+    Eigen::VectorXd QPxDiv; // QP problem x for [x,y,q]
+    Eigen::VectorXd QPyDiv; // QP problem y for [x,y,q]
+    Eigen::VectorXd QPqDiv; // QP problem q for [x,y,q]
+    int EquDimDiv; // dimension of equality constraints for [x,y,q]
+    int MatDimDiv; // dimension of matrix A for [x,y,q]
     
     // Temp variables
     // Eigen::MatrixXd RawA;   // Raw A matrix 
@@ -267,6 +281,7 @@ class NonTrajOpt
     
 
     bool OSQPSolve();   //TUDO： 革命尚未成功，同志仍需努力
+    bool OSQPSolveDiv();
     bool NLoptSolve();
     bool LBFGSSolve();
 
@@ -299,6 +314,8 @@ class NonTrajOpt
     // for QP problem
     inline void updateAeqbeq();    // update MatA, Vecb by time initT  
     inline void updateMatQ();      // update MatQ by time initT
+    inline void updateAeqbeqDiv(); // update MatAeq, Vecbeq by time initT as [x,y,q]
+    inline void updateMatQDiv();   // update MatQ by time initT as [x,y,q]
     // for Trajectory Traj
     inline void updateTraj();      // update Traj by Vecx and Vect
     private:

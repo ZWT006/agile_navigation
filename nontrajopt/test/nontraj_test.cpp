@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-07
- * @LastEditTime: 2023-07-26
+ * @LastEditTime: 2023-08-01
  * @Description: trajectory optimization class test
  * @reference: 
  * 
@@ -30,9 +30,9 @@ int main(int argc, char **argv) {
     // ros::init (argc,argv, "tester" );
     // ros::NodeHandle nh;
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NontrajOptClass";
-    testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
+    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.LBFGSSolver";
-    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.OSQPSolve";
+    testing::GTEST_FLAG(filter) = "NonTrajOptTest.OSQPSolve";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.CostGradDebug";
     return RUN_ALL_TESTS();
 }
@@ -951,8 +951,67 @@ TEST(NonTrajOptTest, OSQPSolve) {
 
     nontrajopt.initWaypoints(_waypoints, _initT, _startStates, _endStates);
 
-    nontrajopt.updateAeqbeq();    // update MatA, Vecb by time initT  
-    nontrajopt.updateMatQ();      // update MatQ by time initT
+    nontrajopt.updateMatQDiv();
+    nontrajopt.updateAeqbeqDiv();
+
+    std::cout << "MatAeqx : " << nontrajopt.MatAeqx.rows() << " " << nontrajopt.MatAeqx.cols() << std::endl;
+    std::cout << nontrajopt.MatAeqx << std::endl;
+    std::cout << "MatAeqy : " << nontrajopt.MatAeqy.rows() << " " << nontrajopt.MatAeqy.cols() << std::endl;
+    std::cout << nontrajopt.MatAeqy << std::endl;
+    std::cout << "MatAeqq : " << nontrajopt.MatAeqq.rows() << " " << nontrajopt.MatAeqq.cols() << std::endl;
+    std::cout << nontrajopt.MatAeqq << std::endl;
+    std::cout << "Vecbeqx : " << nontrajopt.Vecbeqx.rows() << " " << nontrajopt.Vecbeqx.cols() << std::endl;
+    std::cout << nontrajopt.Vecbeqx.transpose() << std::endl;
+    std::cout << "Vecbeqy : " << nontrajopt.Vecbeqy.rows() << " " << nontrajopt.Vecbeqy.cols() << std::endl;
+    std::cout << nontrajopt.Vecbeqy.transpose() << std::endl;
+    std::cout << "Vecbeqq : " << nontrajopt.Vecbeqq.rows() << " " << nontrajopt.Vecbeqq.cols() << std::endl;
+    std::cout << nontrajopt.Vecbeqq.transpose() << std::endl;
+
+    if (nontrajopt.OSQPSolveDiv()) {
+        nontrajopt.updateTraj();
+        double dt = 0.01;
+        double allT = nontrajopt.Traj.getTotalDuration();
+        int num = allT / dt;
+        std::vector<double> time(num);
+        std::vector<double> px(num), py(num), pq(num);
+        std::vector<double> vx(num), vy(num), vq(num);
+        Eigen::MatrixXd _traj;
+        _traj.resize(num, 7);
+        for (int i = 0; i < num; i++) {
+            double t = i * dt;
+            time[i] = t;
+            px[i] = nontrajopt.Traj.getPos(t)(0);
+            py[i] = nontrajopt.Traj.getPos(t)(1);
+            pq[i] = nontrajopt.Traj.getPos(t)(2);
+            vx[i] = nontrajopt.Traj.getVel(t)(0);
+            vy[i] = nontrajopt.Traj.getVel(t)(1);
+            vq[i] = nontrajopt.Traj.getVel(t)(2);
+            _traj.row(i) << t, px[i], py[i], pq[i], vx[i], vy[i], vq[i];
+        }
+        plt::figure_size(1200, 800);
+        plt::plot(px, py,"g.");
+        plt::title("[x.y] position figure");
+
+        plt::figure_size(1200, 800);
+        // Plot line from given x and y data. Color is selected automatically.
+        plt::plot(time, pq,"b-");
+        // Add graph title
+        plt::title("[q] position figure");
+
+        plt::figure_size(1200, 800);
+        // Plot line from given x and y data. Color is selected automatically.
+        plt::plot(time, vx,"r-");
+        plt::plot(time, vy,"g-");
+        plt::plot(time, vq,"b-");
+        // Add graph title
+        plt::title("velocity figure");
+        // Enable legend.
+        // plt::legend({"vx", "vy", "vq"});
+        plt::show(); // 显示图像(阻塞 并且显示所有图像)
+    }
+
+    // nontrajopt.updateAeqbeq();    // update MatA, Vecb by time initT  
+    // nontrajopt.updateMatQ();      // update MatQ by time initT
 
     // eigen_csv.WriteMatrix(nontrajopt.MatQ, "/media/zwt/UbuntuFiles/datas/Swift/MatQ.csv");
     // std::cout << "nontrajopt.MatQ: rank = "<< nontrajopt.MatQ.fullPivLu().rank() << std::endl;
@@ -963,5 +1022,5 @@ TEST(NonTrajOptTest, OSQPSolve) {
     // eigen_csv.WriteVector(nontrajopt.Vecbeq, "/media/zwt/UbuntuFiles/datas/Swift/Vecbeq.csv");
     // std::cout << "nontrajopt.Vecbeq: " << std::endl;
 
-    nontrajopt.OSQPSolve();
+    // nontrajopt.OSQPSolve();
 }

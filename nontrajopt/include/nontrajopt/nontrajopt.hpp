@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-07-24
+ * @LastEditTime: 2023-08-01
  * @Description: Nonlinear Trajectory Optimization
  * @reference: 
  * 
@@ -160,7 +160,21 @@ class NonTrajOpt
     Eigen::VectorXd QPx;    // QP problem x
     Eigen::MatrixXd MatAeq; // QP problem Aeq
     Eigen::VectorXd Vecbeq; // QP problem beq
+    ////&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    Eigen::MatrixXd MatkQ;  // QP problem Q for [x,y,q] 
+    Eigen::MatrixXd MatAeqx; // QP problem Aeq for x
+    Eigen::MatrixXd MatAeqy; // QP problem Aeq for y
+    Eigen::MatrixXd MatAeqq; // QP problem Aeq for q
     
+    Eigen::VectorXd Vecbeqx; // QP problem beq for x
+    Eigen::VectorXd Vecbeqy; // QP problem beq for y
+    Eigen::VectorXd Vecbeqq; // QP problem beq for q
+    Eigen::VectorXd QPxDiv; // QP problem x for [x,y,q]
+    Eigen::VectorXd QPyDiv; // QP problem y for [x,y,q]
+    Eigen::VectorXd QPqDiv; // QP problem q for [x,y,q]
+    int EquDimDiv; // dimension of equality constraints for [x,y,q]
+    int MatDimDiv; // dimension of matrix A for [x,y,q]
+
     public:
     // Temp variables
     // Eigen::MatrixXd RawA;   // Raw A matrix 
@@ -282,6 +296,8 @@ class NonTrajOpt
     // for QP problem
     inline void updateAeqbeq();    // update MatA, Vecb by time initT  
     inline void updateMatQ();      // update MatQ by time initT
+    inline void updateAeqbeqDiv(); // update MatAeq, Vecbeq by time initT as [x,y,q]
+    inline void updateMatQDiv();   // update MatQ by time initT as [x,y,q]
     // for Trajectory Traj
     inline void updateTraj();      // update Traj by Vecx and Vect
     
@@ -291,6 +307,7 @@ class NonTrajOpt
     static double LBFGSobjection(void* ptrObj,const double* optx,double* grad,const int n);
 
     bool OSQPSolve();   //TUDO： 革命尚未成功，同志仍需努力
+    bool OSQPSolveDiv();
     bool NLoptSolve();
     bool LBFGSSolve();
 };
@@ -541,6 +558,8 @@ inline void NonTrajOpt::reset(const int &pieceNum) {
     N = pieceNum;
     MatDim = N * O * D;
     EquDim = 2*E*D + E*(N-1)*D + (N-1)*D;
+    MatDimDiv = N * O;
+    EquDimDiv = 2*E + E*(N-1) + (N-1);
     // opt 问题的自由度 整个自由度 减去 等式约束 (waypoints连续性约束+waypoints固定点约束)
     OptDof = MatDim - EquDim;
     MatA.resize(MatDim, MatDim);
@@ -575,6 +594,14 @@ inline void NonTrajOpt::reset(const int &pieceNum) {
     QPx.resize(MatDim);
     MatAeq.resize(EquDim, MatDim);
     Vecbeq.resize(EquDim);
+
+    MatkQ.resize(MatDimDiv, MatDimDiv);
+    MatAeqx.resize(EquDimDiv, MatDimDiv);
+    MatAeqy.resize(EquDimDiv, MatDimDiv);
+    MatAeqq.resize(EquDimDiv, MatDimDiv);
+    Vecbeqx.resize(EquDimDiv);
+    Vecbeqy.resize(EquDimDiv);
+    Vecbeqq.resize(EquDimDiv);
 
     isOpt.resize(MatDim);
     gdcoe.resize(MatDim); // gradient of coefficients full size
@@ -851,6 +878,65 @@ void NonTrajOpt::updateAeqbeq() {
     Vecbeq.segment(beq_start.rows()+beq_wp.rows(), beq_end.rows()) = beq_end;
 }
 
+inline void NonTrajOpt::updateAeqbeqDiv() {
+    // set zero
+    MatAeqx.setZero();  MatAeqy.setZero();  MatAeqq.setZero();
+    Vecbeqx.setZero();  Vecbeqy.setZero();  Vecbeqq.setZero();
+    // StartState Constraints &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    MatAeqx.block(0, 0, E, O) = getCoeffCons(0.0);
+    MatAeqy.block(0, 0, E, O) = getCoeffCons(0.0);
+    MatAeqq.block(0, 0, E, O) = getCoeffCons(0.0);
+    Vecbeqx.segment(0, E) = StartStates.row(0).transpose();
+    Vecbeqy.segment(0, E) = StartStates.row(1).transpose();
+    Vecbeqq.segment(0, E) = StartStates.row(2).transpose();
+    // Waypoints and Equality Constraints &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    Eigen::MatrixXd Matn = -1*getCoeffCons(0.0);
+    for (int k = 0; k < N-1; k++) {
+        double ti = initT(k);
+        Eigen::MatrixXd coeff = getCoeffCons(ti,O,1);
+        Eigen::MatrixXd Matp = getCoeffCons(ti);
+        int row_index = E + k * (E + 1);
+        int col_index = k * O;
+        MatAeqx.block(row_index, col_index, 1, O) = coeff;
+        MatAeqx.block(row_index + 1, col_index, E, O) = Matp;
+        MatAeqx.block(row_index + 1, col_index + O, E, O) = Matn;
+        Vecbeqx(row_index,0) = Waypoints(0,k+1); // x mid point as pose
+
+        MatAeqy.block(row_index, col_index, 1, O) = coeff;
+        MatAeqy.block(row_index + 1, col_index, E, O) = Matp;
+        MatAeqy.block(row_index + 1, col_index + O, E, O) = Matn;
+        Vecbeqy(row_index,0) = Waypoints(1,k+1); // y mid point as pose
+        
+        MatAeqq.block(row_index, col_index, 1, O) = coeff;
+        MatAeqq.block(row_index + 1, col_index, E, O) = Matp;
+        MatAeqq.block(row_index + 1, col_index + O, E, O) = Matn;
+        Vecbeqq(row_index,0) = Waypoints(2,k+1); // q mid point as pose
+    }
+    // EndState Constraints &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    double te = initT(N-1); // last element
+    int row_index = E + (N-1) * (E + 1);
+    int col_index = (N-1) * O;
+    MatAeqx.block(row_index, col_index, E, O) = getCoeffCons(te);
+    Vecbeqx.segment(row_index, E) = EndStates.row(0).transpose();
+    MatAeqy.block(row_index, col_index, E, O) = getCoeffCons(te);
+    Vecbeqy.segment(row_index, E) = EndStates.row(1).transpose();
+    MatAeqq.block(row_index, col_index, E, O) = getCoeffCons(te);
+    Vecbeqq.segment(row_index, E) = EndStates.row(2).transpose();
+}
+
+inline void NonTrajOpt::updateMatQDiv() {
+    MatkQ.setZero();
+    for (int n = 0; n < N; n++) {
+        Eigen::MatrixXd Qn = Eigen::MatrixXd::Zero(O, O);
+        double ts = initT(n);
+        for (int i = C; i < O;i++){
+            for (int j = C; j < O;j++){
+                Qn(i,j) = factorial(i)/factorial(i-C)*factorial(j)/factorial(j-C)*pow(ts, i+j-2*C+1)/(i+j-2*C+1);
+            }
+        }
+        MatkQ.block(n*O, n*O, O, O) = Qn;
+    }
+}
 
 // ##############################################################################################################
 // Objective Functions 
@@ -1092,6 +1178,110 @@ double NonTrajOpt::LBFGSobjection(void* ptrObj,const double* optx,double* grad,c
 // Optimization Solvers #########################################################################################
 // ##############################################################################################################
 // OSQP Function //TODO: add inequality constraints for waypoints max/min states
+bool NonTrajOpt::OSQPSolveDiv() {
+    //// OSQP prepare
+    bool flag = false;
+    int succeed = 0;
+    Eigen::SparseMatrix<double> Hessian_sparse = MatkQ.sparseView();
+    Eigen::VectorXd gradient = Eigen::VectorXd::Zero(MatDimDiv);
+    Eigen::VectorXd QPoptx = Eigen::VectorXd::Zero(MatDimDiv);
+    Eigen::SparseMatrix<double> MatAeq_sparse ;
+    Eigen::VectorXd lowerBound ;
+    Eigen::VectorXd upperBound ;
+
+    //// OSQP for x
+    flag = false;
+    MatAeq_sparse = MatAeqx.sparseView();
+    lowerBound = Vecbeqx;
+    upperBound = Vecbeqx;
+    OsqpEigen::Solver x_solver;
+    x_solver.settings()->setWarmStart(true);
+    x_solver.settings()->setVerbosity(false);
+    x_solver.data()->setNumberOfVariables(MatDimDiv);
+    x_solver.data()->setNumberOfConstraints(EquDimDiv);
+    if(!x_solver.data()->setHessianMatrix(Hessian_sparse)) return flag;
+    if(!x_solver.data()->setGradient(gradient)) return flag;
+    if(!x_solver.data()->setLinearConstraintsMatrix(MatAeq_sparse)) return flag;
+    if(!x_solver.data()->setLowerBound(lowerBound)) return flag;
+    if(!x_solver.data()->setUpperBound(upperBound)) return flag;
+    if(!x_solver.initSolver()) return flag;
+    if(x_solver.solveProblem() != OsqpEigen::ErrorExitFlag::NoError) return flag;
+    else {
+        flag = true;
+        QPoptx = x_solver.getSolution();
+        QPxDiv = QPoptx;
+        succeed ++;
+        // std::cout << "[\033[32mOptimization\033[0m]: OSQP for [x] succeed happy!!!" << std::endl;
+    }
+    
+    //// OSQP for y
+    flag = false;
+    MatAeq_sparse = MatAeqy.sparseView();
+    lowerBound = Vecbeqy;
+    upperBound = Vecbeqy;
+    OsqpEigen::Solver y_solver;
+    y_solver.settings()->setWarmStart(true);
+    y_solver.settings()->setVerbosity(false);
+    y_solver.data()->setNumberOfVariables(MatDimDiv);
+    y_solver.data()->setNumberOfConstraints(EquDimDiv);
+    if(!y_solver.data()->setHessianMatrix(Hessian_sparse)) return flag;
+    if(!y_solver.data()->setGradient(gradient)) return flag;
+    if(!y_solver.data()->setLinearConstraintsMatrix(MatAeq_sparse)) return flag;
+    if(!y_solver.data()->setLowerBound(lowerBound)) return flag;
+    if(!y_solver.data()->setUpperBound(upperBound)) return flag;
+    if(!y_solver.initSolver()) return flag;
+    if(y_solver.solveProblem() != OsqpEigen::ErrorExitFlag::NoError) return flag;
+    else {
+        flag = true;
+        QPoptx = y_solver.getSolution();
+        QPyDiv = QPoptx;
+        succeed ++;
+        // std::cout << "[\033[32mOptimization\033[0m]: OSQP for [y] succeed happy!!!" << std::endl;
+    }
+
+    //// OSQP for q
+    flag = false;
+    MatAeq_sparse = MatAeqq.sparseView();
+    lowerBound = Vecbeqq;
+    upperBound = Vecbeqq;
+    OsqpEigen::Solver q_solver;
+    q_solver.settings()->setWarmStart(true);
+    q_solver.settings()->setVerbosity(false);
+    q_solver.data()->setNumberOfVariables(MatDimDiv);
+    q_solver.data()->setNumberOfConstraints(EquDimDiv);
+    if(!q_solver.data()->setHessianMatrix(Hessian_sparse)) return flag;
+    if(!q_solver.data()->setGradient(gradient)) return flag;
+    if(!q_solver.data()->setLinearConstraintsMatrix(MatAeq_sparse)) return flag;
+    if(!q_solver.data()->setLowerBound(lowerBound)) return flag;
+    if(!q_solver.data()->setUpperBound(upperBound)) return flag;
+    if(!q_solver.initSolver()) return flag;
+    if(q_solver.solveProblem() != OsqpEigen::ErrorExitFlag::NoError) return flag;
+    else {
+        flag = true;
+        QPoptx = q_solver.getSolution();
+        QPqDiv = QPoptx;
+        succeed ++;
+        // std::cout << "[\033[32mOptimization\033[0m]: OSQP for [q] succeed happy!!!" << std::endl;
+    }
+
+    if (succeed == 3) {
+        flag = true;
+        std::cout << "[\033[32mOptimization\033[0m]: OSQP for [x,y,q] succeed happy!!!" << std::endl;
+        for (int idx = 0; idx < N; idx ++) {
+            Vecx.segment(idx * O * D, O) = QPxDiv.segment(idx*O, O);
+            Vecx.segment(idx * O * D + O, O) = QPyDiv.segment(idx*O, O);
+            Vecx.segment(idx * O * D + 2*O, O) = QPqDiv.segment(idx*O, O);
+        }
+    }
+    else {
+        flag = false;
+        std::cout << "[\033[31mOptimization\033[0m]: OSQP for [x,y,q] failed!!!" << std::endl;
+    }
+
+    return flag;
+}
+
+
 bool NonTrajOpt::OSQPSolve() {
     bool flag = false;
 
