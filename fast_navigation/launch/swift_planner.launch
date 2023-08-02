@@ -79,6 +79,7 @@
     <param name="map/local_width"       value="$(arg local_width)"/>
     <param name="map/resolution"        value="$(arg xy_resolution)"/>
     <param name="map/mini_dist"         value="0.01"/>
+    <param name="map/local_pcl"         value="true"/>
     
     <!-- %%%%%%%%%%%%%% planner parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
     <param name="planner/frame_x"       value="0"/>

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-08-01
+ * @LastEditTime: 2023-08-02
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -79,6 +79,7 @@ double _DIST_RES = 0.04; // 4cm
 ////####################################################################################
 // trajectory tracking GLOBAL FLAGS
 bool _HAS_MAP   = false;    // 是否有地图
+bool _LOCAL_PCL = false;    // 是是局部点云地图 yes 就是局部点云地图 no 就是全局点云地图
 bool _HAS_ODOM  = false;    // 是否有里程计信息
 bool _HAS_PATH  = false;    // 搜索到路径，每次 lazykinoprm 搜索到路径后，就会置为true; Obstacle check infeasible 会置为false
 bool _NEW_PATH  = true;     // 是否是新的路径 重新设置目标点后,就是新的路径
@@ -213,6 +214,7 @@ int main(int argc, char** argv)
 
     // 读取参数 ################################################################################################################
     // 地图相关参数
+    nh.param("map/local_pcl",_LOCAL_PCL,true);
     nh.param("map/local_width", _local_width, 2.0);
     nh.param("map/resolution", _resolution, 0.05); // obs_map grid 5cm
 
@@ -623,7 +625,8 @@ void rcvPointCloudCallback(const sensor_msgs::PointCloud2 & pointcloud_map)
 
     _HAS_MAP = true;
     // 先重置局部地图 再更新障碍物
-    lazykinoPRM.resetLocalMap(tracking._current_odom,_local_width);
+    if (_LOCAL_PCL)
+        lazykinoPRM.resetLocalMap(tracking._current_odom,_local_width);
     lazykinoPRM.updataObsMap(cloud);
     const cv::Mat* obsimg = lazykinoPRM.getFatMap();
     // cv::Mat obsptr = *lazykinoPRM.obs_map;
