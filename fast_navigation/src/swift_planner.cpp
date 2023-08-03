@@ -15,10 +15,10 @@
 #include <nontrajopt/nontrajopt.h>
 #include <fast_navigation/navigation.hpp>
 #include <fast_navigation/readwritecsv.hpp>
-// for visualization
-#include "matplotlibcpp.h"
-// 绘图函数
-namespace plt = matplotlibcpp;
+// // for visualization
+// #include "matplotlibcpp.h"
+// // 绘图函数
+// namespace plt = matplotlibcpp;
 
 using namespace std;
 using namespace Eigen;
