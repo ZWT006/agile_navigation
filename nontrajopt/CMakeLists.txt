@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(nontrajopt)
 
-SET(CMAKE_BUILD_TYPE "Debug")
+# SET(CMAKE_BUILD_TYPE "Debug")
+SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
 set(CMAKE_CXX_FLAGS "-std=c++14 ${CMAKE_CXX_FLAGS} -O3 -Wall")
 
@@ -87,17 +88,17 @@ target_link_libraries(nontrajopt
 # message(WARNING "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
 # message(WARNING "Python3_LIBRARIES: ${Python3_LIBRARIES}")
 
-add_executable(MPCExample test/MPCExample.cpp)
-target_link_libraries(MPCExample OsqpEigen::OsqpEigen)
+# add_executable(MPCExample test/MPCExample.cpp)
+# target_link_libraries(MPCExample OsqpEigen::OsqpEigen)
 
-add_executable(PlotTest test/PlotTest.cpp)
-target_link_libraries(PlotTest ${Python3_LIBRARIES})
+# add_executable(PlotTest test/PlotTest.cpp)
+# target_link_libraries(PlotTest ${Python3_LIBRARIES})
 
-add_executable(nlopt_test test/nlopt_test.cpp)
-target_link_libraries(nlopt_test 
-        ${PROJECT_NAME}
-        ${catkin_LIBRARIES}
-        nlopt)
+# add_executable(nlopt_test test/nlopt_test.cpp)
+# target_link_libraries(nlopt_test 
+#         ${PROJECT_NAME}
+#         ${catkin_LIBRARIES}
+#         nlopt)
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -112,25 +113,25 @@ target_link_libraries(nlopt_test
 #                         ${PROJECT_NAME}
 #                         ${catkin_LIBRARIES})
 # endif()
-add_executable(nontraj_test test/nontraj_test.cpp)
-target_link_libraries(nontraj_test 
-                      ${PROJECT_NAME}
-                      ${catkin_LIBRARIES}
-                      ${OpenCV_LIBRARIES}
-                      gtest
-                      OsqpEigen::OsqpEigen
-                      ${Python3_LIBRARIES}
-                      nlopt)
+# add_executable(nontraj_test test/nontraj_test.cpp)
+# target_link_libraries(nontraj_test 
+#                       ${PROJECT_NAME}
+#                       ${catkin_LIBRARIES}
+#                       ${OpenCV_LIBRARIES}
+#                       gtest
+#                       OsqpEigen::OsqpEigen
+#                       ${Python3_LIBRARIES}
+#                       nlopt)
 
-add_executable(nlopt_TO test/nlopt_TO.cpp)
-target_link_libraries(nlopt_TO 
-                      ${PROJECT_NAME}
-                      ${catkin_LIBRARIES}
-                      ${OpenCV_LIBRARIES}
-                      gtest
-                      OsqpEigen::OsqpEigen
-                      ${Python3_LIBRARIES}
-                      nlopt)
+# add_executable(nlopt_TO test/nlopt_TO.cpp)
+# target_link_libraries(nlopt_TO 
+#                       ${PROJECT_NAME}
+#                       ${catkin_LIBRARIES}
+#                       ${OpenCV_LIBRARIES}
+#                       gtest
+#                       OsqpEigen::OsqpEigen
+#                       ${Python3_LIBRARIES}
+#                       nlopt)
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
