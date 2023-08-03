@@ -65,6 +65,10 @@ It's a fast realtime navigation ros package for quadraped robot swift motion in 
     git clone https://gitee.com/hi-zwt/legged_control
     ```
 2. 安装legged control的相关依赖
+3. udpros_bridge [reference](https://gitee.com/coralab/udpros-bridge) SLAM与NMPC设备间通讯
+    ```
+    git clone https://gitee.com/coralab/udpros-bridge.git
+    ```
 
 ### SLAM
 
@@ -97,13 +101,25 @@ strictness: 0
 start_asap: false
 timeout: 0.0" 
 
-4. 开启虚拟地图
+4. 开启UDP通讯接收
+```
+roslaunch udpros_bridge navseq_server.launch
+```
+
+5. 开启虚拟地图
+```
 roslaunch grid_path_searcher mapworld.launch
+```
 
-5. 开启规划
+6. 开启规划
+```
 roslaunch fast_navigation swift_planner.launch
+```
 
-PS: 使用 3D goal 设定目标点
+PS: 使用 3D goal 设定目标点 or 手动发布 [x,y,q(deg)]
+```
+rosrun fast_navigation pub_goalpose 0.0 0.0 0.0
+```
 
 ## [备注](./memorandum.md)
 

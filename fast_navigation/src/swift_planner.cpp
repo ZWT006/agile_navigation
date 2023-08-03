@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-08-02
+ * @LastEditTime: 2023-08-03
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -37,6 +37,7 @@ using namespace cv;
 
 // ros related global variables
 ros::Subscriber _map_sub, _pts_sub, _odom_sub;  // 订阅地图;导航点;里程计
+ros::Subscriber _goal_sub;                      // 订阅目标点
 int _map_sub_cnt = 5, _odom_sub_cnt = 5;        // 计数器 判断是否正常sub
 #define SUB_CNT_TH 10                           // 订阅计数器阈值 Hz = 10
 #define REPLAN_CNT_TH 3                         // 重规划计数器阈值
@@ -175,6 +176,7 @@ int main(int argc, char** argv)
     _map_sub  = nh.subscribe( "map",       1, rcvPointCloudCallback );
     _pts_sub  = nh.subscribe( "waypoints", 1, rcvWaypointsCallback );
     _odom_sub = nh.subscribe( "odom",      1, rcvOdomCallback );
+    _goal_sub = nh.subscribe( "goal",      1, rcvWaypointsCallback );
 
     // 路径和地图可视化
     _path_vis_pub       = nh.advertise<visualization_msgs::MarkerArray>("planner_path_vis",1);
@@ -443,6 +445,7 @@ int main(int argc, char** argv)
         rate.sleep();
     }
 
+    tracking.udp_bridge.closeUDP();
     return 0;
 }
 
@@ -455,11 +458,14 @@ int main(int argc, char** argv)
 void rcvWaypointsCallback(const nav_msgs::Path &wp)
 {
     if (_PURE_TRACKING){
-        
         _HAS_PATH = true;
         _NEW_PATH = true;
         _REACH_GOAL = false;
         _TRACKING = true;
+        tracking._goalPose << tracking.pxtraj.back(),tracking.pytraj.back(),tracking.pqtraj.back();
+        ROS_INFO("[\033[32mPlanNode\033[0m]: goalPose: [%2.4f,%2.4f,%2.4f]",
+                tracking._goalPose(0),tracking._goalPose(1),tracking._goalPose(2));
+        if (_vis_tracking_traj) visTrackingTraj();
         return;
     }
     double yaw_rad,yaw_deg;
@@ -1124,7 +1130,7 @@ void visTrackingTraj()
     visualization_msgs::Marker       Line;
     Line.header.frame_id = "world";
     Line.header.stamp    = ros::Time::now();
-    Line.ns              = "planner_node/nloptVis";
+    Line.ns              = "planner_node/TraLibrary";
     Line.action          = visualization_msgs::Marker::ADD;
 
     Line.pose.orientation.w = 1.0;
@@ -1148,7 +1154,7 @@ void visTrackingTraj()
         Line.points.push_back(p);
     }
     LineArray.markers.push_back(Line);    
-
+    ROS_INFO("[\033[32mPlanNode\033[0m]: visTrackingTraj.size() = %ld", Line.points.size());
     _path_vis_pub.publish(LineArray);
 }
 

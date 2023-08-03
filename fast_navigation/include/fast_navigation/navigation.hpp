@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-07-29
+ * @LastEditTime: 2023-08-02
  * @Description: 
  * @reference: 
  * 
@@ -37,6 +37,8 @@
 #include <Eigen/Eigen>
 #include <vector>
 
+#include <fast_navigation/UDPbridge.hpp>
+
 // lazykinoprm path searching
 // #include <lazykinoprm/LazyKinoPRM.h>
 // nontrajopt trajectory optimization
@@ -58,6 +60,13 @@
 
 #define REPLAN_BIAS 2 // 重规划偏差阈值 当前seg_index + REPLAN_BIAS 为重规划起始段
 #define NLOPT_BIAS 2    // 优化偏差阈值 当前seg_index + OPT_BIAS 为优化起始段
+
+//// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+#define LOCAL_PORT 1024
+#define LOCAL_IP_ADDRESS    "127.0.0.1" //"192.168.2.240"
+#define DEST_PORT 2048
+#define DSET_IP_ADDRESS     "127.0.0.1"
+//// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double currq,double goalq);
 
@@ -105,6 +114,16 @@ class Tracking
     int _time_step_pursuit;  // 10Hz的期望轨迹周期 每个周期的期望轨迹步长(缩放与 _traj_time_interval / _time_interval有关)
     double _loop_rate;  // 10Hz的控制频率(默认)
     double _mpcHorizon; // MPC预测时间长度
+
+    /// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    bool udp_switch;
+    std::string local_ip = LOCAL_IP_ADDRESS;
+    std::string dest_ip = DSET_IP_ADDRESS;
+    int local_port = LOCAL_PORT;
+    int dest_port = DEST_PORT;
+    int udp_timeout;
+    int loop_rate_hz;
+    /// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
     // std::vector<double> pxtraj,pytraj,pqtraj; // 用于存储轨迹的px,py,pq for tracking
     // std::vector<double> vxtraj,vytraj,vqtraj; // 用于存储轨迹的vx,vy,vq for tracking
@@ -163,6 +182,8 @@ class Tracking
     int _search_seg_index,_search_traj_index;	// 搜索轨迹所在的轨迹段
 
     // ##################################################################################################
+    UDPBridge udp_bridge; // 用于发送控制指令的UDP通信
+
     void setParam(ros::NodeHandle& nh); // 设置参数
     void initPlanner(Eigen::Vector3d new_goal_odom);
     // void ReachGoal(); // 到达目标点
@@ -222,6 +243,25 @@ void Tracking::setParam(ros::NodeHandle& nh)
     ROS_INFO("[\033[34mTrackNode\033[0m]mpc_step_interval : %4d",    _mpc_step_interval);
     ROS_INFO("[\033[34mTrackNode\033[0m]time_step_pursuit : %4d",    _time_step_pursuit);
     ROS_INFO("[\033[34mTrackNode\033[0m]persuit_factor    : %2.2f",  _persuit_factor);
+
+    nh.param<bool>("udp_switch",udp_switch,false);
+    nh.param<std::string>("local_ip_address", local_ip, LOCAL_IP_ADDRESS);
+    nh.param<std::string>("dest_ip_address", dest_ip, DSET_IP_ADDRESS);
+    nh.param<int>("local_port", local_port, LOCAL_PORT);
+    nh.param<int>("dest_port", dest_port, DEST_PORT);
+    nh.param<int>("timeout", udp_timeout, 2);
+    nh.param<int>("loop_rate", loop_rate_hz, 10);
+
+    char ip[64] = {0};
+    udp_bridge.setUDP(local_port,local_ip.c_str());
+    printf(" Local IP: %s, Port: %d\n",
+    inet_ntop(AF_INET, &udp_bridge.addr_local.sin_addr.s_addr, ip, sizeof(ip)),
+    ntohs(udp_bridge.addr_local.sin_port));
+
+    udp_bridge.setserverUDP(dest_port,dest_ip.c_str());
+    printf(" Server IP: %s, Port: %d\n",
+    inet_ntop(AF_INET, &udp_bridge.addr_server.sin_addr.s_addr, ip, sizeof(ip)),
+    ntohs(udp_bridge.addr_server.sin_port));
 }
 
 /***********************************************************************************************************************
@@ -614,6 +654,12 @@ void Tracking::NavSeqPublish()
     }
     _nav_seq_msg.header.frame_id = "world";
     _nav_seq_msg.header.stamp = ros::Time::now();
+    if (udp_switch) {
+        udp_bridge.resetsend();
+        udp_bridge.setROSNavseq(_nav_seq_msg);
+        udp_bridge.setHeaderandBail();
+        udp_bridge.send();
+    }
     if (CTRL_SWITCH)
         _nav_seq_pub.publish(_nav_seq_msg);
     _nav_seq_msg.poses.clear();

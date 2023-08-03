@@ -31,10 +31,10 @@
 <arg name="xy_resolution"   default="0.05"/>
 <!-- <arg name="q_resolution"    default="M_PI*2"/> -->
 <arg name="time_interval"   default="0.01"/>
-<!-- <arg name="vel_factor"      default="1.4"/>
-<arg name="ome_factor"      default="1.4"/> -->
-<arg name="vel_factor"      default="2.0"/>
-<arg name="ome_factor"      default="2.0"/>
+<arg name="vel_factor"      default="1.4"/>
+<arg name="ome_factor"      default="1.4"/>
+<!-- <arg name="vel_factor"      default="2.0"/>
+<arg name="ome_factor"      default="2.0"/> -->
 <arg name="heur_factor"     default="1.0"/>
 <arg name="weightR"         default="1.0"/>
 <arg name="SAMPLE_RANDOM"   default="true"/>
@@ -49,6 +49,7 @@
 
 <node pkg="fast_navigation" type="swift_planner_node" name="swift_planner_node" output="screen" required = "true">
     <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
+    <remap from="~goal"      to="/goal_pose"/>
     <remap from="~map" to="/image_map/local_map"/>
     <!-- <remap from="~map" to="/image_map/global_map"/> -->
     <remap from="~odom" to="/ground_truth/state"/>
@@ -82,13 +83,6 @@
     <param name="map/local_pcl"         value="true"/>
     
     <!-- %%%%%%%%%%%%%% planner parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
-    <param name="planner/frame_x"       value="0"/>
-    <param name="planner/frame_y"       value="0"/>
-    <param name="planner/frame_z"       value="0"/>
-    <param name="planner/frame_roll"    value="0"/>
-    <param name="planner/frame_pitch"   value="0"/>
-    <param name="planner/frame_yaw"     value="0"/>
-
     <param name="planner/loop_rate"     value="10"/>
     <param name="planner/vis_Robot"     value="true"/>
     <param name="planner/vis_sample"    value="true"/>
@@ -106,7 +100,7 @@
     <param name="planner/opt_seg"       value="4.0"/> 
     <param name="planner/opt_traj"      value="false"/>
     <!-- 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度 -->
-    <param name="planner/persuit_factor"    value="0.8"/>
+    <param name="planner/persuit_factor"    value="1.0"/>
     <!-- reverse_odom for real world SLAM -->
     <param name="planner/offset_odom"      value="false"/>
     <param name="planner/track_ctrl"       value="true"/>
@@ -114,10 +108,18 @@
     <param name="planner/debug_replan"      value="false"/>
     <!-- 是否使用预先设计的轨迹进行跟踪 用于测试 -->
     <param name="planner/traj_address"      value="$(find fast_navigation)/datas/TRAJ_DATA_LONGMEN.csv"/>
-    <param name="planner/pure_tracking"     value="false"/>
+    <param name="planner/pure_tracking"     value="true"/>
     <param name="planner/orign_biasx"       value="-0.5"/>
     <param name="planner/orign_biasy"       value="-0.5"/>
     <param name="planner/orign_biasq"       value="3.1415926"/>
+    <!-- %%%%%%%%%%%%%% udp communication %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
+    <param name="udp_switch"        value="true"/>
+    <param name="local_ip_address"  value="192.168.2.240"/>
+    <param name="dest_ip_address"   value="192.168.2.147"/>
+    <param name="local_port"        value="1024"/>
+    <param name="dest_port"         value="2048"/>
+    <param name="timeout"           value="2"/>
+    <param name="loop_rate"         value="10"/>
 
     <!-- %%%%%%%%%%%%%% optimization parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
     <param name="nontrajopt/lambda_smo"     value="0.1"/>
@@ -134,14 +136,14 @@
     <param name="nontrajopt/discredist"     value="0.05"/>
     <param name="nontrajopt/QPC"            value="$(arg OSQP_CostOdr)"/>
     <param name="nontrajopt/wq"             value="$(arg OSQP_Costwq)"/>
-    <!-- <param name="nontrajopt/pv_max"         value="2.1"/>
+    <param name="nontrajopt/pv_max"         value="2.1"/>
     <param name="nontrajopt/pa_max"         value="2.1"/>
     <param name="nontrajopt/wv_max"         value="2.1"/>
-    <param name="nontrajopt/wa_max"         value="2.1"/> -->
-    <param name="nontrajopt/pv_max"         value="2.8"/>
+    <param name="nontrajopt/wa_max"         value="2.1"/>
+    <!-- <param name="nontrajopt/pv_max"         value="2.8"/>
     <param name="nontrajopt/pa_max"         value="2.8"/>
     <param name="nontrajopt/wv_max"         value="2.8"/>
-    <param name="nontrajopt/wa_max"         value="2.8"/>
+    <param name="nontrajopt/wa_max"         value="2.8"/> -->
     <param name="nontrajopt/dyn_rate"       value="0.8"/>
     <param name="nontrajopt/OVAL_TH"        value="0.8"/>
     <param name="nontrajopt/ORIEN_VEL"      value="2.0"/>

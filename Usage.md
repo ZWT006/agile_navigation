@@ -167,7 +167,6 @@ Mid360网口IP为`192.168.11.156`(可以根据用户手册使用LivoxViewer进�
 
 
 
-
 `osqp` CMakeList.txt add include directory as: `/usr/local/include/osqp`
 
 ## NMPC
@@ -175,7 +174,6 @@ Mid360网口IP为`192.168.11.156`(可以根据用户手册使用LivoxViewer进�
 ```
 source ~/motion_ws/devel/setup.bash
 ```
-
 
 2D goal legged_control 使用
 3D goal swaft_planner 使用
