@@ -52,7 +52,8 @@
     <remap from="~goal"      to="/goal_pose"/>
     <remap from="~map" to="/image_map/local_map"/>
     <!-- <remap from="~map" to="/image_map/global_map"/> -->
-    <remap from="~odom" to="/ground_truth/state"/>
+<!-- <remap from="~odom" to="/ground_truth/state"/> -->
+    <remap from="~odom" to="/Odometry"/>
 
     <!-- %%%%%%%%%%%%%% search parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
     <param name="search/dir_grid_m"     value="$(arg dir_grid_m)"/>
@@ -87,12 +88,12 @@
     <param name="planner/vis_Robot"     value="true"/>
     <param name="planner/vis_sample"    value="true"/>
     <param name="planner/vis_traj"      value="false"/>
-    <param name="planner/vis_obs_pcl"   value="true"/>
+    <param name="planner/vis_obs_pcl"   value="false"/>
     <param name="planner/vis_obs_img"   value="true"/>
     <param name="planner/vis_sdf_img"   value="true"/>
     <param name="planner/nav_seq_vis"   value="true"/>
-    <param name="planner/vis_osqp_traj" value="true"/>
-    <param name="planner/vis_nlopt_traj" value="true"/>
+    <param name="planner/vis_osqp_traj" value="false"/>
+    <param name="planner/vis_nlopt_traj" value="false"/>
     <param name="planner/vis_tracking_traj" value="true"/>
 
     <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
@@ -100,24 +101,24 @@
     <param name="planner/opt_seg"       value="4.0"/> 
     <param name="planner/opt_traj"      value="false"/>
     <!-- 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度 -->
-    <param name="planner/persuit_factor"    value="1.0"/>
+    <param name="planner/persuit_factor"    value="0.2"/>
     <!-- reverse_odom for real world SLAM -->
-    <param name="planner/offset_odom"      value="false"/>
+    <param name="planner/offset_odom"      value="true"/>
     <param name="planner/track_ctrl"       value="true"/>
     <!-- skip replan or not -->
     <param name="planner/debug_replan"      value="false"/>
     <!-- 是否使用预先设计的轨迹进行跟踪 用于测试 -->
-    <param name="planner/traj_address"      value="$(find fast_navigation)/datas/TRAJ_DATA_LONGMEN.csv"/>
+    <param name="planner/traj_address"      value="$(find fast_navigation)/datas/TRAJ_DATA_SHORT.csv"/>
     <param name="planner/pure_tracking"     value="true"/>
     <param name="planner/orign_biasx"       value="-0.5"/>
     <param name="planner/orign_biasy"       value="-0.5"/>
     <param name="planner/orign_biasq"       value="3.1415926"/>
     <!-- %%%%%%%%%%%%%% udp communication %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
     <param name="udp_switch"        value="true"/>
-    <param name="local_ip_address"  value="192.168.2.240"/>
-    <param name="dest_ip_address"   value="192.168.2.147"/>
-    <param name="local_port"        value="1024"/>
-    <param name="dest_port"         value="2048"/>
+    <param name="local_ip_address"  value="192.168.123.12"/>
+    <param name="dest_ip_address"   value="192.168.123.88"/>
+    <param name="local_port"        value="2048"/>
+    <param name="dest_port"         value="1024"/>
     <param name="timeout"           value="2"/>
     <param name="loop_rate"         value="10"/>
 

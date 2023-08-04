@@ -1,0 +1,10 @@
+<launch>
+
+<node name="robot_rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/swift_rviz.rviz"/>
+
+<!-- %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 添加SLAM等的坐标系转化关系 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
+<node pkg="tf" type="static_transform_publisher" name="tf_world_to_odom" 
+    args="0 0 0 0 0 0 1 world odom 100 " />
+<!--static_transform_publisher x y z yaw pitch roll frame_id child_frame_id-->
+<!--static_transform_publisher x y z qx qy qz qw frame_id child_frame_id-->
+</launch>

@@ -39,7 +39,7 @@ using namespace cv;
 ros::Subscriber _map_sub, _pts_sub, _odom_sub;  // 订阅地图;导航点;里程计
 ros::Subscriber _goal_sub;                      // 订阅目标点
 int _map_sub_cnt = 5, _odom_sub_cnt = 5;        // 计数器 判断是否正常sub
-#define SUB_CNT_TH 10                           // 订阅计数器阈值 Hz = 10
+#define SUB_CNT_TH 5                           // 订阅计数器阈值 Hz = 10
 #define REPLAN_CNT_TH 3                         // 重规划计数器阈值
 #define SEARCH_CNT_TH 5                         // 搜索计数器阈值
 
@@ -325,18 +325,18 @@ int main(int argc, char** argv)
         // step.2 pointcloud callback   update obs map
         // step.3 odom callback         track trajectory
         ros::spinOnce();
-        _map_sub_cnt++;
-        if (_map_sub_cnt > SUB_CNT_TH) {
-            _HAS_MAP = false;
-            ROS_INFO("[\033[31mPlanNode\033[0m]: !!! don't receive map !!!");
-            _map_sub_cnt = 5;
-        }
-        _odom_sub_cnt++;
-        if (_odom_sub_cnt > SUB_CNT_TH) {
-            _HAS_ODOM = false;
-            ROS_INFO("[\033[31mPlanNode\033[0m]: !!! don't receive odom !!!");
-            _odom_sub_cnt = 5;
-        }
+        // _map_sub_cnt++;
+        // if (_map_sub_cnt > SUB_CNT_TH) {
+        //     // _HAS_MAP = false;
+        //     ROS_INFO("[\033[31mPlanNode\033[0m]: !!! don't receive map !!!");
+        //     _map_sub_cnt = 5;
+        // }
+        // _odom_sub_cnt++;
+        // if (_odom_sub_cnt > SUB_CNT_TH) {
+        //     // _HAS_ODOM = false;
+        //     ROS_INFO("[\033[31mPlanNode\033[0m]: !!! don't receive odom !!!");
+        //     _odom_sub_cnt = 5;
+        // }
         
         // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         // 如果纯跟踪预定义轨迹,就不需要规划了 直接跳过规划 &
