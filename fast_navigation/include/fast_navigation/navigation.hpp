@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-08-02
+ * @LastEditTime: 2023-08-05
  * @Description: 
  * @reference: 
  * 
@@ -683,17 +683,23 @@ bool Tracking::getCurrentState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVe
         currAcc->setZero();
         flag = false;
     }
-    else{
-        if (pxtraj.empty() || pytraj.empty() || pqtraj.empty())
-            (*currPose) = _current_odom;
-        else
-            (*currPose) = _currPose;        
-        if (vxtraj.empty() || vytraj.empty() || vqtraj.empty())
-            currVel->setZero();
-        else
-            (*currVel)  = Eigen::Vector3d(vxtraj.at(_curr_time_step),vytraj.at(_curr_time_step),vqtraj.at(_curr_time_step));
+    // else{
+    //     if (pxtraj.empty() || pytraj.empty() || pqtraj.empty())
+    //         (*currPose) = _current_odom;
+    //     else
+    //         (*currPose) = _currPose;        
+    //     if (vxtraj.empty() || vytraj.empty() || vqtraj.empty())
+    //         currVel->setZero();
+    //     else
+    //         (*currVel)  = Eigen::Vector3d(vxtraj.at(_curr_time_step),vytraj.at(_curr_time_step),vqtraj.at(_curr_time_step));
 
-        (*currAcc)  = Eigen::Vector3d(0,0,0);
+    //     (*currAcc)  = Eigen::Vector3d(0,0,0);
+    //     flag = true;
+    // }
+    else{
+        (*currPose) = _current_odom;
+        currVel->setZero();
+        currAcc->setZero();
         flag = true;
     }
     return flag;

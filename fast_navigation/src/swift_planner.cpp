@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-08-03
+ * @LastEditTime: 2023-08-05
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -625,7 +625,7 @@ void rcvPointCloudCallback(const sensor_msgs::PointCloud2 & pointcloud_map)
     // ROS_DEBUG("[Node]cloud.points.size() = %d", (int)cloud.points.size());
     
     if( cloud.points.size() == 0 ) { // 如果点云为空，就不进行地图更新，但是可能是正常的(没有障碍物)
-        ROS_INFO("[\033[33m !!!!! rcvPCL\033 none points !!!!![0m]:");
+        ROS_INFO("[\033[33m !!!!! rcvPCL none points !!!!!\033[0m]:");
         return;
     }
 
@@ -633,6 +633,8 @@ void rcvPointCloudCallback(const sensor_msgs::PointCloud2 & pointcloud_map)
     // 先重置局部地图 再更新障碍物
     if (_LOCAL_PCL)
         lazykinoPRM.resetLocalMap(tracking._current_odom,_local_width);
+    else 
+        lazykinoPRM.raw_pcl_map->setTo(255);
     lazykinoPRM.updataObsMap(cloud);
     const cv::Mat* obsimg = lazykinoPRM.getFatMap();
     // cv::Mat obsptr = *lazykinoPRM.obs_map;
@@ -1085,7 +1087,7 @@ void visPtraj()
 {
     return;
     nav_msgs::Path path;
-    path.header.frame_id = "world";
+    path.header.frame_id = "planner";
     path.header.stamp = ros::Time::now();
 }
 
@@ -1128,7 +1130,7 @@ void visTrackingTraj()
     double _vis_resolution = 0.02;
     visualization_msgs::MarkerArray  LineArray;
     visualization_msgs::Marker       Line;
-    Line.header.frame_id = "world";
+    Line.header.frame_id = "planner";
     Line.header.stamp    = ros::Time::now();
     Line.ns              = "planner_node/TraLibrary";
     Line.action          = visualization_msgs::Marker::ADD;
@@ -1176,27 +1178,27 @@ void visLazyPRM()
     visualization_msgs::Marker       ISpheres;
 
     // Path State Sets Visualization
-    Spheres.header.frame_id =  Line.header.frame_id = "world";
+    Spheres.header.frame_id =  Line.header.frame_id = "planner";
     Spheres.header.stamp    =  Line.header.stamp    = ros::Time::now();
     Spheres.ns              =  Line.ns              = "planner_node/TraLibrary";
     Spheres.action          =  Line.action          = visualization_msgs::Marker::ADD;
     // Search Tree Visualization
-    ESpheres.header.frame_id =  OSpheres.header.frame_id = "world";
+    ESpheres.header.frame_id =  OSpheres.header.frame_id = "planner";
     ESpheres.header.stamp    =  OSpheres.header.stamp    = ros::Time::now();
     ESpheres.ns              =  OSpheres.ns              = "planner_node/TraLibrary";
     ESpheres.action          =  OSpheres.action          = visualization_msgs::Marker::ADD;
     // Goal Point Visualization
-    GSphere.header.frame_id = "world";
+    GSphere.header.frame_id = "planner";
     GSphere.header.stamp    = ros::Time::now();
     GSphere.ns              = "planner_node/TraLibrary";
     GSphere.action          = visualization_msgs::Marker::ADD;
     // Sample Point Visualization Mid point
-    SSpheres.header.frame_id = "world";
+    SSpheres.header.frame_id = "planner";
     SSpheres.header.stamp    = ros::Time::now();
     SSpheres.ns              = "planner_node/TraLibrary";
     SSpheres.action          = visualization_msgs::Marker::ADD;
     // Sample Point Visualization Invalid point
-    ISpheres.header.frame_id = "world";
+    ISpheres.header.frame_id = "planner";
     ISpheres.header.stamp    = ros::Time::now();
     ISpheres.ns              = "planner_node/TraLibrary";
     ISpheres.action          = visualization_msgs::Marker::ADD;
@@ -1408,7 +1410,7 @@ void visOSQPTraj()
     visualization_msgs::Marker       Line;
     visualization_msgs::Marker       Spheres;
      // Path State Sets Visualization
-    Spheres.header.frame_id =  Line.header.frame_id = "world";
+    Spheres.header.frame_id =  Line.header.frame_id = "planner";
     Spheres.header.stamp    =  Line.header.stamp    = ros::Time::now();
     Spheres.ns              =  Line.ns              = "planner_node/osqpVis";
     Spheres.action          =  Line.action          = visualization_msgs::Marker::ADD;
@@ -1478,7 +1480,7 @@ void visNLOptTraj()
     visualization_msgs::Marker       Line;
     visualization_msgs::Marker       Spheres;
      // Path State Sets Visualization
-    Line.header.frame_id = "world";
+    Line.header.frame_id = "planner";
     Line.header.stamp    = ros::Time::now();
     Line.ns              = "planner_node/nloptVis";
     Line.action          = visualization_msgs::Marker::ADD;
@@ -1552,7 +1554,7 @@ void visObsMap()
     _obs_map_pcl.is_dense = true;
     pcl::toROSMsg(_obs_map_pcl, _obs_map_pcl_msg);
     _obs_map_pcl_msg.header.stamp = ros::Time::now();
-    _obs_map_pcl_msg.header.frame_id = "world";
+    _obs_map_pcl_msg.header.frame_id = "planner";
     // ROS_INFO("[\033[34mvisObsMap\033[0m]obs_map_pcl_msg.size() = %ld", _obs_map_pcl_msg.data.size());
     _obs_map_pub.publish(_obs_map_pcl_msg);
 }
@@ -1574,13 +1576,18 @@ void visRobot(const nav_msgs::Odometry::Ptr& msg)
     visualization_msgs::Marker       Line;
     visualization_msgs::Marker       Body;
     visualization_msgs::Marker       Spheres;
+
+    // if(_OFFESET_ODOM) {
+    //     pose.position.x = -pose.position.x;
+    //     pose.position.y = -pose.position.y;
+    // }
     
-    Body.header.frame_id =  Line.header.frame_id = "world";
+    Body.header.frame_id =  Line.header.frame_id = "planner";
     Body.header.stamp    =  Line.header.stamp    = ros::Time::now();
     Body.ns              =  Line.ns              = "planner_node/visRobot";
     Body.action          =  Line.action          = visualization_msgs::Marker::ADD;
 
-    Spheres.header.frame_id = "world";
+    Spheres.header.frame_id = "planner";
     Spheres.header.stamp    = ros::Time::now();
     Spheres.ns              = "planner_node/visRobot";
     Spheres.action          = visualization_msgs::Marker::ADD;

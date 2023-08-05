@@ -41,10 +41,12 @@
 <arg name="OSQP_CostOdr"    default="4.0"/>
 <arg name="OSQP_Costwq"     default="1.0"/>
 <!-- raw map erode as xy_resolution -->
-<arg name="erode_pcl_size"  default="8.0"/> <!-- make sure >= 1 -->
+<arg name="erode_pcl_size"  default="6.0"/> <!-- make sure >= 1 -->
 <arg name="erode_obs_size"  default="3.0"/> <!-- make sure >= 1 -->
 <arg name="sdf_th"          default="0.4"/>
 <arg name="local_width"     default="3.0"/>
+<arg name="offset_odom"     default="true"/>
+<arg name="local_pcl"       default="false"/>
 
 
 <node pkg="fast_navigation" type="swift_planner_node" name="swift_planner_node" output="screen" required = "true">
@@ -79,7 +81,7 @@
     <param name="map/local_width"       value="$(arg local_width)"/>
     <param name="map/resolution"        value="$(arg xy_resolution)"/>
     <param name="map/mini_dist"         value="0.01"/>
-    <param name="map/local_pcl"         value="true"/>
+    <param name="map/local_pcl"         value="$(arg local_pcl)"/>
     
     <!-- %%%%%%%%%%%%%% planner parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
     <param name="planner/loop_rate"     value="10"/>
@@ -90,8 +92,8 @@
     <param name="planner/vis_obs_img"   value="true"/>
     <param name="planner/vis_sdf_img"   value="true"/>
     <param name="planner/nav_seq_vis"   value="true"/>
-    <param name="planner/vis_osqp_traj" value="true"/>
-    <param name="planner/vis_nlopt_traj" value="true"/>
+    <param name="planner/vis_osqp_traj" value="false"/>
+    <param name="planner/vis_nlopt_traj" value="false"/>
     <param name="planner/vis_tracking_traj" value="true"/>
 
     <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
@@ -101,7 +103,7 @@
     <!-- 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度 -->
     <param name="planner/persuit_factor"    value="0.2"/>
     <!-- reverse_odom for real world SLAM -->
-    <param name="planner/offset_odom"      value="true"/>
+    <param name="planner/offset_odom"      value="$(arg offset_odom)"/>
     <param name="planner/track_ctrl"       value="true"/>
     <!-- skip replan or not -->
     <param name="planner/debug_replan"      value="false"/>
@@ -112,7 +114,7 @@
     <param name="planner/orign_biasy"       value="0.0"/>
     <param name="planner/orign_biasq"       value="3.1415926"/>
     <!-- %%%%%%%%%%%%%% udp communication %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
-    <param name="udp_switch"        value="true"/>
+    <param name="udp_switch"        value="false"/>
     <param name="local_ip_address"  value="192.168.123.12"/>
     <param name="dest_ip_address"   value="192.168.123.88"/>
     <param name="local_port"        value="2048"/>
@@ -157,5 +159,14 @@
     <param name="nontrajopt/nlopt_xtol_rel"     value="0.00001"/>
 
 </node>
+
+    <group if="$(arg offset_odom)">
+		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
+            args="0 0 0 0 0 1 0 world planner 100 " />
+    </group>
+    <group unless="$(arg offset_odom)">
+		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
+            args="0 0 0 0 0 0 1 world planner 100 " />
+    </group>
 
 </launch>
