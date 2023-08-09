@@ -45,16 +45,18 @@
 <arg name="erode_obs_size"  default="3.0"/> <!-- make sure >= 1 -->
 <arg name="sdf_th"          default="0.4"/>
 <arg name="local_width"     default="3.0"/>
+<arg name="offset_odom"     default="false"/>
+<arg name="local_pcl"       default="true"/>
 
 
 <node pkg="fast_navigation" type="swift_planner_node" name="swift_planner_node" output="screen" required = "true">
     <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
     <remap from="~goal"      to="/goal_pose"/>
-    <remap from="~map" to="/fiesta/ESDFMap/occ_pc"/>
-    <!-- <remap from="~map" to="/image_map/local_map"/> -->
+    <!-- <remap from="~map" to="/fiesta/ESDFMap/occ_pc"/> -->
+    <remap from="~map" to="/image_map/local_map"/>
     <!-- <remap from="~map" to="/image_map/global_map"/> -->
-<!-- <remap from="~odom" to="/ground_truth/state"/> -->
-    <remap from="~odom" to="/Odometry"/>
+<remap from="~odom" to="/ground_truth/state"/>
+    <!-- <remap from="~odom" to="/Odometry"/> -->
 
     <!-- %%%%%%%%%%%%%% search parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
     <param name="search/dir_grid_m"     value="$(arg dir_grid_m)"/>
@@ -82,7 +84,7 @@
     <param name="map/local_width"       value="$(arg local_width)"/>
     <param name="map/resolution"        value="$(arg xy_resolution)"/>
     <param name="map/mini_dist"         value="0.01"/>
-    <param name="map/local_pcl"         value="false"/>
+    <param name="map/local_pcl"         value="$(arg local_pcl)"/>
     
     <!-- %%%%%%%%%%%%%% planner parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
     <param name="planner/loop_rate"     value="10"/>
@@ -102,14 +104,16 @@
     <param name="planner/opt_seg"       value="4.0"/> 
     <param name="planner/opt_traj"      value="false"/>
     <!-- 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度 -->
-    <param name="planner/persuit_factor"    value="0.2"/>
+    <param name="planner/persuit_factor"    value="0.6"/>
     <!-- reverse_odom for real world SLAM -->
-    <param name="planner/offset_odom"      value="false"/>
+    <param name="planner/offset_odom"      value="$(arg offset_odom)"/>
     <param name="planner/track_ctrl"       value="true"/>
     <!-- skip replan or not -->
     <param name="planner/debug_replan"      value="false"/>
     <!-- 是否使用预先设计的轨迹进行跟踪 用于测试 -->
     <param name="planner/traj_address"      value="$(find fast_navigation)/datas/TRAJ_DATA_SHORT.csv"/>
+    <param name="planner/realpose_address"  value="$(find fast_navigation)/datas/realworld_pose.csv"/>
+    <param name="planner/traj_ration"       value="1.00"/> 
     <param name="planner/pure_tracking"     value="false"/>
     <param name="planner/orign_biasx"       value="-0.5"/>
     <param name="planner/orign_biasy"       value="-0.5"/>
@@ -160,5 +164,12 @@
     <param name="nontrajopt/nlopt_xtol_rel"     value="0.00001"/>
 
 </node>
-
+    <group if="$(arg offset_odom)">
+		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
+            args="0 0 0 0 0 1 0 world planner 100 " />
+    </group>
+    <group unless="$(arg offset_odom)">
+		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
+            args="0 0 0 0 0 0 1 world planner 100 " />
+    </group>
 </launch>

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-08-05
+ * @LastEditTime: 2023-08-08
  * @Description: 
  * @reference: 
  * 
@@ -10,7 +10,7 @@
 #ifndef _NAVIGATION_ASTAR_H
 #define _NAVIGATION_ASTAR_H
 
-
+#include <time.h>
 #include <iostream>
 #include <fstream>
 #include <math.h>
@@ -29,6 +29,7 @@
 #include <tf/transform_datatypes.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
+#include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseArray.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -69,7 +70,7 @@
 //// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double currq,double goalq);
-
+bool writeTrackResult(std::vector<geometry_msgs::Pose> posesvector,const std::string& filename);
 // judge currend odom is near goal pose
 // inline bool nearPose(Vector2d currPose,Vector2d goalPose,double currq,double goalq);
 // double AngleMinDelta(double _start, double _goal);
@@ -155,6 +156,12 @@ class Tracking
     bool CTRL_SWITCH = true;// 控制开关
 
     int _TO_SEG = 0; // 轨迹优化段
+
+    //// real Trajectory &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    clock_t _start_time,_end_time; // 用于计算轨迹跟踪的消耗时间
+    double _track_time; // 用于计算轨迹跟踪的消耗时间
+    std::vector<geometry_msgs::Pose> _real_poses; // 用于存储真实轨迹
+    std::string _realpose_address; // 用于存储真实轨迹的地址
     
     // trajectory param
     int _odom_cnt = 0;
@@ -203,6 +210,8 @@ class Tracking
     bool getReplanState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc,Eigen::Vector3d *goalPose);
     bool getLocalState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel,Eigen::Vector3d* currAcc,Eigen::Vector3d *goalPose);
     bool isReachGoal(Eigen::Vector3d current_odom);
+
+    void showTrackResult(); // 显示轨迹跟踪结果
 };
 
 /***********************************************************************************************************************
@@ -227,6 +236,8 @@ void Tracking::setParam(ros::NodeHandle& nh)
 
     nh.param("planner/track_ctrl", CTRL_SWITCH, true);
 
+    nh.param("planner/realpose_address", _realpose_address, std::string("~/realpose.csv"));
+
     // _persuit_factor 是 persuit 的缩放因子 根据 persuit 的时间步长来缩放速度
     if (_persuit_factor > 2.0) _persuit_factor = 2.0;
     _traj_time_interval = 1.0 / _loop_rate;                     // tracking 的周期
@@ -237,7 +248,7 @@ void Tracking::setParam(ros::NodeHandle& nh)
     _nav_seq_pub        = nh.advertise<nav_msgs::Path>("/nav_seq",1);
     if (_nav_seq_vis_flag) _nav_seq_vis_pub    = nh.advertise<nav_msgs::Path>("/nav_seq_vis",1);
 
-    ROS_INFO("[\033[34mTrackNode\033[0m]nav_seq_vis_pub   : %4d",    _nav_seq_vis_flag);
+    ROS_INFO("[\033[34mTrackNode\033[0m]nav_seq_vis_pub   : %s",    _nav_seq_vis_flag  ? "true" : "false");
     ROS_INFO("[\033[34mTrackNode\033[0m]mpc_horizon       : %2.2f",  _mpcHorizon);
     ROS_INFO("[\033[34mTrackNode\033[0m]traj_time_interval: %2.4f",  _traj_time_interval);
     ROS_INFO("[\033[34mTrackNode\033[0m]mpc_step_interval : %4d",    _mpc_step_interval);
@@ -301,6 +312,10 @@ void Tracking::initPlanner(Eigen::Vector3d new_goal_odom)
         segtrajpoints.clear();
         StatesSegSets.clear();
     }
+    if (!_real_poses.empty()) {
+        _real_poses.clear();
+    }
+    _start_time = ros::Time::now().toNSec();
 }
 
 /***********************************************************************************************************************
@@ -451,7 +466,7 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
     }
     // step 2: 如果不是紧密跟踪，计算当前 odometry 所在的轨迹段和轨迹点
     std::vector<double> dists;
-    for (int idx = _pursuit_time_step - (_time_step_pursuit - PURSET_STEP_BACK_BIAS); idx <= _pursuit_time_step + _mpc_step_interval; idx++)
+    for (int idx = _pursuit_time_step - (_time_step_pursuit - PURSET_STEP_BACK_BIAS); idx <= _pursuit_time_step + _mpc_step_interval * 4; idx++)
     {
         if (idx < 0)
         {
@@ -470,7 +485,7 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
     // 还有一种情况是,_curr_time_step 的点距离odometry太远,这时候也需要重新设置轨迹
     // 找到最近的轨迹点 这里如果_curr_time_step > pqtraj.size()就设为最后一个点
     int min_idx = min_element(dists.begin(), dists.end()) - dists.begin();
-    _curr_time_step = _pursuit_time_step - _time_step_pursuit / 2 + min_idx;
+    _curr_time_step = _pursuit_time_step - (_time_step_pursuit - PURSET_STEP_BACK_BIAS) + min_idx;
     if (_curr_time_step >= static_cast<int>(pqtraj.size()))
     {
         _curr_time_step = static_cast<int>(pqtraj.size()) - 1;
@@ -504,7 +519,7 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
         double _y_vel = _dist_y / (_dist_time_step * _traj_time_interval) * _persuit_factor;
         double _q_vel = _dist_q / (_dist_time_step * _traj_time_interval) * _persuit_factor;
         geometry_msgs::PoseStamped nav_traj_msg;
-        nav_traj_msg.header.frame_id = "world";
+        nav_traj_msg.header.frame_id = "planner";
         for (int idx = 1; idx < _dist_time_step + 1; idx++)
         {
             double _x_ref, _y_ref, _q_ref;
@@ -548,7 +563,7 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
 void Tracking::NavSeqUpdate()
 {
     geometry_msgs::PoseStamped nav_traj_msg;
-    nav_traj_msg.header.frame_id = "world";
+    nav_traj_msg.header.frame_id = "planner";
 
     // 如果轨迹点不够_time_step_interval步长,就从 pursuit_step 开始补充轨迹点
     if (_nav_seq < _mpc_step_interval)
@@ -597,7 +612,7 @@ void Tracking::NavSeqUpdate()
 void Tracking::NavSeqFixed(Eigen::Vector3d TargetPose)
 {
     geometry_msgs::PoseStamped nav_traj_msg;
-    nav_traj_msg.header.frame_id = "world";
+    nav_traj_msg.header.frame_id = "planner";
     if (!_nav_seq_msg.poses.empty())
         _nav_seq_msg.poses.clear();
     // 计算一个从 _current_odom 到 TargetPose 的轨迹 最快刹车? 感觉很难计算这个刹车轨迹
@@ -637,7 +652,7 @@ void Tracking::NavSeqPublish()
 {
     if (_nav_seq_vis_flag){
         geometry_msgs::PoseStamped nav_traj_vis_msg;
-        nav_traj_vis_msg.header.frame_id = "world";
+        nav_traj_vis_msg.header.frame_id = "planner";
         for (int idx = 0; idx < static_cast<int>(_nav_seq_msg.poses.size()); idx++){
             nav_traj_vis_msg.header.stamp = ros::Time::now();
             nav_traj_vis_msg.pose.position.x = _nav_seq_msg.poses.at(idx).pose.position.x;
@@ -647,12 +662,12 @@ void Tracking::NavSeqPublish()
             nav_traj_vis_msg.pose.orientation = tf::createQuaternionMsgFromYaw(_nav_seq_msg.poses.at(idx).pose.position.z);
             _nav_seq_vis_msg.poses.push_back(nav_traj_vis_msg);
         }
-        _nav_seq_vis_msg.header.frame_id = "world";
+        _nav_seq_vis_msg.header.frame_id = "planner";
         _nav_seq_vis_msg.header.stamp = ros::Time::now();
         _nav_seq_vis_pub.publish(_nav_seq_vis_msg);
         _nav_seq_vis_msg.poses.clear();
     }
-    _nav_seq_msg.header.frame_id = "world";
+    _nav_seq_msg.header.frame_id = "planner";
     _nav_seq_msg.header.stamp = ros::Time::now();
     if (udp_switch) {
         udp_bridge.resetsend();
@@ -837,6 +852,19 @@ inline Eigen::Vector2i Tracking::TrajtoIndex(int traj_index)
     return Eigen::Vector2i(_seg_index,_point_index);
 }
 
+void Tracking::showTrackResult() {
+    std::cout << "######################## Tracking Result ########################"<< std::endl;
+    std::cout << "tracking count: " << _tracking_cnt << std::endl;
+    _tracking_cnt = 0;
+    std::cout << "real odometry size: " << _real_poses.size() << std::endl;
+    double _track_time = (double)(_end_time - _start_time) / 10e6; // 用于计算轨迹跟踪的消耗时间
+    std::cout << "tracking time: " << _track_time << "ms" << std::endl;
+    if (!_real_poses.empty()) {
+        writeTrackResult(_real_poses,_realpose_address);
+        _real_poses.clear();
+    }
+}
+
 //判断两个位姿是否相近
 inline bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double currq,double goalq)
 {
@@ -846,6 +874,28 @@ inline bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double cu
     if(dist < DIST_XY && qerr < DIST_Q) falg=true;
     else falg=false;
     return falg;
+}
+
+bool writeTrackResult(std::vector<geometry_msgs::Pose> posesvector,const std::string& filename){
+    std::ofstream file(filename);
+    if (file) {
+        file.close();
+        file.open(filename, std::ios_base::out | std::ios_base::trunc);
+    }
+
+    for (int i = 0; i < posesvector.size(); i++) {
+        geometry_msgs::Pose pose = posesvector[i];
+        double roll, pitch, yaw;
+        tf::Quaternion quat;
+        tf::quaternionMsgToTF(pose.orientation, quat);
+        tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
+        file    << pose.position.x << "," 
+                << pose.position.y << "," 
+                << pose.position.z << "," 
+                << roll << "," << pitch << "," << yaw << "," << std::endl;
+    }
+    file.close();
+    return true;
 }
 
 #endif

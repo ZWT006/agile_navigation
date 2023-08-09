@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-08-05
+ * @LastEditTime: 2023-08-08
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -265,7 +265,9 @@ int main(int argc, char** argv)
         // nh.param("planner/orign_biasy",biasy,0.0);
         // nh.param("planner/orign_biasq",biasq,0.0);
         readcsv.setFileName(traj_address);
-        readcsv.setOrign(0.01);
+        double traj_res = 0.01;
+        nh.param("planner/traj_ration",traj_res,0.01);
+        readcsv.setOrign(traj_res);
         TrackSeg _trackseg;
         cout << BLUE << "====================================================================" << RESET << endl;
         ROS_INFO("[\033[32mPlanNode\033[0m]: read trajectory from =>%s",traj_address.c_str());
@@ -273,10 +275,13 @@ int main(int argc, char** argv)
         {
             ROS_INFO("[\033[32mPlanNode\033[0m]: read trajectory success, size: %ld",_trackseg.pxtraj.size());
             _trackseg.duration = _trackseg.pxtraj.size() * _time_interval;
+            Eigen::Vector3d goalPose; 
+            goalPose << _trackseg.pxtraj.back(),_trackseg.pytraj.back(),_trackseg.pqtraj.back();
+            tracking.initPlanner(goalPose);
             std::vector<TrackSeg> _tracksegsets;
             _tracksegsets.push_back(_trackseg);
             tracking.insertSegTraj(0,&_tracksegsets);
-            tracking._goalPose << _trackseg.pxtraj.back(),_trackseg.pytraj.back(),_trackseg.pqtraj.back();
+            tracking._goalPose = goalPose;
             ROS_INFO("[\033[32mPlanNode\033[0m]: goalPose: [%2.4f,%2.4f,%2.4f]",tracking._goalPose(0),tracking._goalPose(1),tracking._goalPose(2));
             if (_vis_tracking_traj) visTrackingTraj();
         }
@@ -308,7 +313,7 @@ int main(int argc, char** argv)
     ROS_INFO("[\033[34mPlanNode\033[0m]_time_interval: %2.4f",  _time_interval);
     ROS_INFO("[\033[34mPlanNode\033[0m]_optHorizon  : %2.4f",   _optHorizon);
     ROS_INFO("[\033[34mPlanNode\033[0m]_opt_seg     : %6d",     _OPT_SEG);
-    ROS_INFO("[\033[34mPlanNode\033[0m]_REACH_GOAL  : %6d",     _REACH_GOAL);
+    ROS_INFO("[\033[34mPlanNode\033[0m]_REACH_GOAL  : %s",     _REACH_GOAL  ? "true" : "false");
     ROS_INFO("[\033[34mPlanNode\033[0m]_OPT_TRAJ    : %s",     _OPT_TRAJ ? "true" : "false");
     // ROS_INFO("[\033[34mPlanNode\033[0m]planner/time_horizon: %2.4f",        tracking._time_horizon);
     // ROS_INFO("[\033[34mPlanNode\033[0m]planner/traj_time_interval: %2.4f",  tracking._traj_time_interval);
@@ -462,9 +467,12 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
         _NEW_PATH = true;
         _REACH_GOAL = false;
         _TRACKING = true;
-        tracking._goalPose << tracking.pxtraj.back(),tracking.pytraj.back(),tracking.pqtraj.back();
+        Eigen::Vector3d goalPose;
+        goalPose << tracking.pxtraj.back(),tracking.pytraj.back(),tracking.pqtraj.back();
+        tracking._start_time = ros::Time::now().toNSec();
+        tracking._goalPose = goalPose;
         ROS_INFO("[\033[32mPlanNode\033[0m]: goalPose: [%2.4f,%2.4f,%2.4f]",
-                tracking._goalPose(0),tracking._goalPose(1),tracking._goalPose(2));
+            tracking._goalPose(0),tracking._goalPose(1),tracking._goalPose(2));
         if (_vis_tracking_traj) visTrackingTraj();
         return;
     }
@@ -691,6 +699,8 @@ void rcvPointCloudCallback(const sensor_msgs::PointCloud2 & pointcloud_map)
     //// 还是在主循环中进行轨迹检查比较合理呀,中断回调里面最好不要执行太多的操作
 }
 int info_cnt = 0;
+int stance_cnt = 0;
+int last_curr_time_step = 0;
 // 里程计回调函数，负责设置机器人位置;进行轨迹跟踪
 void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg)
 {
@@ -729,6 +739,7 @@ void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg)
     // ####################################################################################
     if (_HAS_PATH && !_REACH_GOAL && _TRACKING){ // 如果有路径,但是没到终点,就进行轨迹跟踪
         tracking._tracking_cnt++;
+        tracking._real_poses.push_back(currodometry->pose.pose);
         if (tracking.isReachGoal(_current_odom)){
             _REACH_GOAL = true;
             ROS_INFO("[\033[32mOdomCallback\033[0m]: reach goal");
@@ -744,6 +755,21 @@ void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg)
             if (info_cnt > 10){
                 info_cnt = 0;
                 ROS_INFO("[\033[32mOdomCallback\033[0m]: tracking idx: %d", tracking._curr_time_step);
+                if (last_curr_time_step == tracking._curr_time_step)
+                    stance_cnt++;
+                else
+                    stance_cnt = 0;
+                last_curr_time_step = tracking._curr_time_step;
+                if (stance_cnt >= 5){
+                    ROS_INFO("[\033[31mOdomCallback\033[0m]: tracking failed");
+                    ROS_INFO("[\033[31mOdomCallback\033[0m]: giveup tracking ,peace and love");
+                    _REACH_GOAL = true;
+                    tracking._end_time = ros::Time::now().toNSec();
+                    tracking.showTrackResult();
+                    tracking._goalPose = _current_odom;
+                    stance_cnt = 0;
+                    last_curr_time_step = 0;
+                }
             }
             // 更新轨迹跟踪的控制序列
             tracking.NavSeqUpdate();
@@ -764,6 +790,10 @@ void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg)
     if (_REACH_GOAL){
         _TRACKING = false;
         tracking.NavSeqFixed(tracking._goalPose);
+        if (tracking._tracking_cnt != 0){
+            tracking._end_time = ros::Time::now().toNSec();
+            tracking.showTrackResult();
+        }
     }
     //DEBUG%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     // tracking.NavSeqFixed(_first_pose);
