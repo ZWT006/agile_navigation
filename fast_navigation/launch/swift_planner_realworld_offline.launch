@@ -108,7 +108,7 @@
     <!-- skip replan or not -->
     <param name="planner/debug_replan"      value="false"/>
     <!-- 是否使用预先设计的轨迹进行跟踪 用于测试 -->
-    <param name="planner/traj_address"      value="$(find fast_navigation)/datas/TRAJ_DATA_LONGMEN.csv"/>
+    <param name="planner/traj_address"      value="$(find fast_navigation)/traj/TRAJ_DATA_LONGMEN.csv"/>
     <param name="planner/realpose_address"  value="$(find fast_navigation)/datas/realworld_pose.csv"/>
     <param name="planner/traj_ration"       value="1.00"/> 
     <param name="planner/pure_tracking"     value="true"/>
