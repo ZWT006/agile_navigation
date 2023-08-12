@@ -17,8 +17,8 @@
 
 <node pkg ="grid_path_searcher" name ="image_map" type ="image_map" output = "screen">
 
-    <remap from="~odom" to="/Odometry"/>
-    <!--<remap from="~odom" to="/ground_truth/state"/>-->
+    <!-- <remap from="~odom" to="/Odometry"/> -->
+    <remap from="~odom" to="/ground_truth/state"/>
 
     <!-- <param name="init_state_x" value="$(arg start_x)"/>
     <param name="init_state_y" value="$(arg start_y)"/> -->

@@ -31,22 +31,22 @@
 <arg name="xy_resolution"   default="0.05"/>
 <!-- <arg name="q_resolution"    default="M_PI*2"/> -->
 <arg name="time_interval"   default="0.01"/>
-<arg name="vel_factor"      default="1.4"/>
-<arg name="ome_factor"      default="1.4"/>
+<arg name="vel_factor"      default="0.6"/>
+<arg name="ome_factor"      default="0.8"/>
 <!-- <arg name="vel_factor"      default="2.0"/>
 <arg name="ome_factor"      default="2.0"/> -->
 <arg name="heur_factor"     default="1.0"/>
 <arg name="weightR"         default="1.0"/>
 <arg name="SAMPLE_RANDOM"   default="true"/>
-<arg name="OSQP_CostOdr"    default="4.0"/>
-<arg name="OSQP_Costwq"     default="1.0"/>
+<arg name="OSQP_CostOdr"    default="3.0"/>
+<arg name="OSQP_Costwq"     default="0.8"/>
 <!-- raw map erode as xy_resolution -->
-<arg name="erode_pcl_size"  default="6.0"/> <!-- make sure >= 1 -->
+<arg name="erode_pcl_size"  default="8.0"/> <!-- make sure >= 1 -->
 <arg name="erode_obs_size"  default="3.0"/> <!-- make sure >= 1 -->
 <arg name="sdf_th"          default="0.4"/>
 <arg name="local_width"     default="3.0"/>
-<arg name="offset_odom"     default="true"/>
-<arg name="local_pcl"       default="false"/>
+<arg name="offset_odom"     default="false"/>
+<arg name="local_pcl"       default="true"/>
 
 
 <node pkg="fast_navigation" type="swift_planner_node" name="swift_planner_node" output="screen" required = "true">
@@ -139,8 +139,8 @@
     <param name="nontrajopt/discredist"     value="0.05"/>
     <param name="nontrajopt/QPC"            value="$(arg OSQP_CostOdr)"/>
     <param name="nontrajopt/wq"             value="$(arg OSQP_Costwq)"/>
-    <param name="nontrajopt/pv_max"         value="2.1"/>
-    <param name="nontrajopt/pa_max"         value="2.1"/>
+    <param name="nontrajopt/pv_max"         value="1.5"/>
+    <param name="nontrajopt/pa_max"         value="1.5"/>
     <param name="nontrajopt/wv_max"         value="2.1"/>
     <param name="nontrajopt/wa_max"         value="2.1"/>
     <!-- <param name="nontrajopt/pv_max"         value="2.8"/>

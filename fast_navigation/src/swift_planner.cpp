@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-08-08
+ * @LastEditTime: 2023-08-12
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -40,8 +40,8 @@ ros::Subscriber _map_sub, _pts_sub, _odom_sub;  // 订阅地图;导航点;里程
 ros::Subscriber _goal_sub;                      // 订阅目标点
 int _map_sub_cnt = 5, _odom_sub_cnt = 5;        // 计数器 判断是否正常sub
 #define SUB_CNT_TH 5                           // 订阅计数器阈值 Hz = 10
-#define REPLAN_CNT_TH 3                         // 重规划计数器阈值
-#define SEARCH_CNT_TH 5                         // 搜索计数器阈值
+#define REPLAN_CNT_TH 5                         // 重规划计数器阈值
+#define SEARCH_CNT_TH 10                         // 搜索计数器阈值
 
 // ros::Publisher _nav_seq_vis_pub;    // 导航点可视化
 ros::Publisher _obsmap_img_pub,_sdfmap_img_pub; // 地图可视化
@@ -739,7 +739,19 @@ void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg)
     // ####################################################################################
     if (_HAS_PATH && !_REACH_GOAL && _TRACKING){ // 如果有路径,但是没到终点,就进行轨迹跟踪
         tracking._tracking_cnt++;
-        tracking._real_poses.push_back(currodometry->pose.pose);
+        geometry_msgs::Pose realPose;
+        realPose = currodometry->pose.pose;
+        double roll, pitch, yaw;
+        tf::Quaternion quat;
+        tf::quaternionMsgToTF(realPose.orientation, quat);
+        tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
+        realPose.orientation.x = roll;
+        realPose.orientation.y = pitch;
+        realPose.orientation.z = yaw;
+        clock_t tracktimeNow = ros::Time::now().toNSec();
+        double tracktimedura = (double)(tracktimeNow - tracking._start_time) / 10e6; // ms
+        realPose.orientation.w = tracktimedura;
+        tracking._real_poses.push_back(realPose);
         if (tracking.isReachGoal(_current_odom)){
             _REACH_GOAL = true;
             ROS_INFO("[\033[32mOdomCallback\033[0m]: reach goal");

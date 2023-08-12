@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-08-08
+ * @LastEditTime: 2023-08-12
  * @Description: 
  * @reference: 
  * 
@@ -263,16 +263,18 @@ void Tracking::setParam(ros::NodeHandle& nh)
     nh.param<int>("timeout", udp_timeout, 2);
     nh.param<int>("loop_rate", loop_rate_hz, 10);
 
-    char ip[64] = {0};
-    udp_bridge.setUDP(local_port,local_ip.c_str());
-    printf(" Local IP: %s, Port: %d\n",
-    inet_ntop(AF_INET, &udp_bridge.addr_local.sin_addr.s_addr, ip, sizeof(ip)),
-    ntohs(udp_bridge.addr_local.sin_port));
+    if (udp_switch) {
+        char ip[64] = {0};
+        udp_bridge.setUDP(local_port,local_ip.c_str());
+        printf(" Local IP: %s, Port: %d\n",
+        inet_ntop(AF_INET, &udp_bridge.addr_local.sin_addr.s_addr, ip, sizeof(ip)),
+        ntohs(udp_bridge.addr_local.sin_port));
 
-    udp_bridge.setserverUDP(dest_port,dest_ip.c_str());
-    printf(" Server IP: %s, Port: %d\n",
-    inet_ntop(AF_INET, &udp_bridge.addr_server.sin_addr.s_addr, ip, sizeof(ip)),
-    ntohs(udp_bridge.addr_server.sin_port));
+        udp_bridge.setserverUDP(dest_port,dest_ip.c_str());
+        printf(" Server IP: %s, Port: %d\n",
+        inet_ntop(AF_INET, &udp_bridge.addr_server.sin_addr.s_addr, ip, sizeof(ip)),
+        ntohs(udp_bridge.addr_server.sin_port));
+    }
 }
 
 /***********************************************************************************************************************
@@ -885,14 +887,14 @@ bool writeTrackResult(std::vector<geometry_msgs::Pose> posesvector,const std::st
 
     for (int i = 0; i < posesvector.size(); i++) {
         geometry_msgs::Pose pose = posesvector[i];
-        double roll, pitch, yaw;
-        tf::Quaternion quat;
-        tf::quaternionMsgToTF(pose.orientation, quat);
-        tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
+        
         file    << pose.position.x << "," 
                 << pose.position.y << "," 
                 << pose.position.z << "," 
-                << roll << "," << pitch << "," << yaw << "," << std::endl;
+                << pose.orientation.x << "," 
+                << pose.orientation.y << "," 
+                << pose.orientation.z << "," 
+                << pose.orientation.w << std::endl;
     }
     file.close();
     return true;

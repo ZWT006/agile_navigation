@@ -113,15 +113,15 @@
     <!-- 是否使用预先设计的轨迹进行跟踪 用于测试 -->
     <!-- <param name="planner/traj_address"      value="$(find fast_navigation)/datas/TRAJ_DATA_SHORT.csv"/> -->
     <!-- TRAJ_DATA_map13_OPT.csv | TRAJ_DATA_map13_OSQP.csv | TRAJ_DATA_map13_OVAL.csv | TRAJ_DATA_map13_PRM.csv -->
-    <param name="planner/traj_address"      value="/media/zwt/UbuntuFiles/datas/Swift/Offline/TRAJ_DATA_map16_OVAL.csv"/>
+    <param name="planner/traj_address"      value="/media/zwt/UbuntuFiles/datas/Swift/Offline/TRAJ_DATA_map18_OVAL.csv"/>
     <param name="planner/realpose_address"  value="$(find fast_navigation)/datas/realworld_pose.csv"/>
-    <param name="planner/traj_ration"       value="0.01"/> 
+    <param name="planner/traj_ration"       value="1.00"/> 
     <param name="planner/pure_tracking"     value="true"/>
     <param name="planner/orign_biasx"       value="-0.5"/>
     <param name="planner/orign_biasy"       value="-0.5"/>
     <param name="planner/orign_biasq"       value="3.1415926"/>
     <!-- %%%%%%%%%%%%%% udp communication %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
-    <param name="udp_switch"        value="true"/>
+    <param name="udp_switch"        value="false"/>
     <param name="local_ip_address"  value="192.168.123.12"/>
     <param name="dest_ip_address"   value="192.168.123.88"/>
     <param name="local_port"        value="2048"/>
@@ -168,7 +168,7 @@
 </node>
     <group if="$(arg offset_odom)">
 		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
-            args="0 0 0 0 0 1 0 world planner 100 " />
+            args="0 0 0 0 0 0 1 world planner 100 " />
     </group>
     <group unless="$(arg offset_odom)">
 		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 

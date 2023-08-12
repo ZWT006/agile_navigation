@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-24
- * @LastEditTime: 2023-08-01
+ * @LastEditTime: 2023-08-12
  * @Description: trajectory optimization
  * @reference: 
  * 
@@ -102,6 +102,7 @@ void NonTrajOpt::initParameter(const OptParas &paras) {
     dist_th    = paras.dist_th; // distance threshold of obstacle   
     ref_vel    = paras.ref_vel; // reference linear velocity
     ref_ome    = paras.ref_ome; // reference angular velocity
+    dyn_rate   = paras.dyn_rate; // dynamic rate
     pv_max     = paras.pv_max * paras.dyn_rate;
     pa_max     = paras.pa_max * paras.dyn_rate;
     wv_max     = paras.wv_max * paras.dyn_rate;
@@ -1127,6 +1128,7 @@ bool NonTrajOpt::OSQPSolveDiv() {
         }
         // step: 3 update the trajectory
         updateTraj();
+        isDynamicFeasible(flag);
     }
     else {
         flag = false;
@@ -1192,6 +1194,8 @@ bool NonTrajOpt::OSQPSolve() {
 
     // step: 3 update the trajectory
     updateTraj();
+
+    isDynamicFeasible(flag);
 
     return flag;
 }
@@ -1332,6 +1336,8 @@ bool NonTrajOpt::NLoptSolve() {
         updateOptAxb();
         // 将求解后的系数放入 Traj 中
         updateTraj();
+
+        isDynamicFeasible(flag);
     }
     return flag;
 }
@@ -1371,17 +1377,17 @@ bool NonTrajOpt::LBFGSSolve() {
         }
     }
 
-    std::cout << "Optx: ";
-    for (int i = 0; i < OptNum; i++) {
-        std::cout << Optx[i] << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "Optx: ";
+    // for (int i = 0; i < OptNum; i++) {
+    //     std::cout << Optx[i] << " ";
+    // }
+    // std::cout << std::endl;
 
-    std::cout << "optx_: " ;
-    for (int i = 0; i < OptNum; i++) {
-        std::cout << optx_[i] << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "optx_: " ;
+    // for (int i = 0; i < OptNum; i++) {
+    //     std::cout << optx_[i] << " ";
+    // }
+    // std::cout << std::endl;
 
     double minObjective;
 
@@ -1404,6 +1410,8 @@ bool NonTrajOpt::LBFGSSolve() {
     updateOptVars(_optxVec);
     updateOptAxb();
     updateTraj();
+
+    isDynamicFeasible(flag);
 
     delete[] optx_;
     flag = true;
@@ -1448,6 +1456,30 @@ inline double NonTrajOpt::getSegPolyGradt(const Eigen::VectorXd &coef,int idx){
              604800.0 * coef(6) * coef(7)*T5(idx) +
              705600.0 * coef(7) * coef(7)*T6(idx);
     return _gradt;
+}
+
+inline void NonTrajOpt::isDynamicFeasible(bool &flag) {
+    Eigen::Vector3d maxvel = Traj.getMaxVel();
+    Eigen::Vector3d maxacc = Traj.getMaxAcc();
+    Eigen::Vector2d linvel = maxvel.head(2);
+    Eigen::Vector2d linacc = maxacc.head(2);
+    double omevel = maxvel(2);
+    double omeacc = maxacc(2);
+    std::cout << "##########################################################################" << std::endl;
+    std::cout << "maxlinvel: " << linvel.transpose() << "; maxomevel: " <<  omevel << std::endl;
+    std::cout << "maxlinacc: " << linacc.transpose() << "; maxomeacc: " <<  omeacc << std::endl;
+    std::cout << "linvelnorm: " << linvel.norm() << "; pv_max: " <<  pv_max/dyn_rate << std::endl;
+    std::cout << "linaccnorm: " << linacc.norm() << "; pa_max: " <<  pa_max/dyn_rate << std::endl;
+    std::cout << "omevel: " << omevel << "; wv_max: " <<  wv_max/dyn_rate << std::endl;
+    std::cout << "omeacc: " << omeacc << "; wa_max: " <<  wa_max/dyn_rate << std::endl;
+    std::cout << "##########################################################################" << std::endl;
+    if (linvel.norm() > pv_max/dyn_rate || linacc.norm() > pa_max/dyn_rate || 
+        abs(omevel) > wv_max/dyn_rate || abs(omeacc)  > wa_max/dyn_rate) {
+        flag = false;
+    }
+    else {
+        flag = true;
+    }
 }
 
 /***************************************************************************************************************

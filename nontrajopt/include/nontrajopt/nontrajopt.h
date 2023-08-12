@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-08-01
+ * @LastEditTime: 2023-08-12
  * @Description: Nonlinear Trajectory Optimization
  * @reference: 
  * 
@@ -144,6 +144,7 @@ class NonTrajOpt
     double dist_th; // distance threshold of obstacle
     double discredist; // distance discretization
     double ref_vel,ref_ome; // reference linear velocity and angular velocity
+    double dyn_rate;
     double pv_max,pa_max,wv_max,wa_max; // max velocity, acceleration,
     double ORIEN_VEL,VERDIT_VEL; // velocity
     double ORIEN_VEL2,VERDIT_VEL2; // velocity^2
@@ -228,6 +229,7 @@ class NonTrajOpt
     inline double getSegPolyCost(const Eigen::VectorXd &coef,int idx);
     inline void getSegPolyGradc(Eigen::VectorXd &coef,int idx);
     inline double getSegPolyGradt(const Eigen::VectorXd &coef,int idx);
+    inline void isDynamicFeasible(bool &flag);
 
     // void calcuSmoCost();     // calculate smoothness cost
     // void calcuObsCost();     // calculate obstacle cost
