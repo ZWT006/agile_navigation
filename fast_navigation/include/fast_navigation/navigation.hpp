@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-08-12
+ * @LastEditTime: 2023-08-15
  * @Description: 
  * @reference: 
  * 
@@ -160,7 +160,9 @@ class Tracking
     //// real Trajectory &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     clock_t _start_time,_end_time; // 用于计算轨迹跟踪的消耗时间
     double _track_time; // 用于计算轨迹跟踪的消耗时间
-    std::vector<geometry_msgs::Pose> _real_poses; // 用于存储真实轨迹
+    std::vector<geometry_msgs::Pose> _real_poses;   // 用于存储真实轨迹
+    std::vector<geometry_msgs::Twist> _real_twists; // 用于存储真实轨迹
+    std::vector<nav_msgs::Odometry> _real_odoms;    // 用于存储真实轨迹
     std::string _realpose_address; // 用于存储真实轨迹的地址
     
     // trajectory param
@@ -858,12 +860,13 @@ void Tracking::showTrackResult() {
     std::cout << "######################## Tracking Result ########################"<< std::endl;
     std::cout << "tracking count: " << _tracking_cnt << std::endl;
     _tracking_cnt = 0;
-    std::cout << "real odometry size: " << _real_poses.size() << std::endl;
+    // std::cout << "real odometry size: " << _real_poses.size() << std::endl;
+    std::cout << "real odometry size: " << _real_odoms.size() << std::endl;
     double _track_time = (double)(_end_time - _start_time) / 10e6; // 用于计算轨迹跟踪的消耗时间
     std::cout << "tracking time: " << _track_time << "ms" << std::endl;
-    if (!_real_poses.empty()) {
-        writeTrackResult(_real_poses,_realpose_address);
-        _real_poses.clear();
+    if (!_real_odoms.empty()) {
+        writeTrackResult(_real_odoms,_realpose_address);
+        _real_odoms.clear();
     }
 }
 
@@ -878,15 +881,17 @@ inline bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double cu
     return falg;
 }
 
-bool writeTrackResult(std::vector<geometry_msgs::Pose> posesvector,const std::string& filename){
+// bool writeTrackResult(std::vector<geometry_msgs::Pose> posesvector,const std::string& filename){
+bool writeTrackResult(std::vector<nav_msgs::Odometry> odomsvector,const std::string& filename){
     std::ofstream file(filename);
     if (file) {
         file.close();
         file.open(filename, std::ios_base::out | std::ios_base::trunc);
     }
 
-    for (int i = 0; i < posesvector.size(); i++) {
-        geometry_msgs::Pose pose = posesvector[i];
+    for (int i = 0; i < odomsvector.size(); i++) {
+        geometry_msgs::Pose pose = odomsvector[i].pose.pose;
+        geometry_msgs::Twist twist = odomsvector[i].twist.twist;
         
         file    << pose.position.x << "," 
                 << pose.position.y << "," 
@@ -894,7 +899,13 @@ bool writeTrackResult(std::vector<geometry_msgs::Pose> posesvector,const std::st
                 << pose.orientation.x << "," 
                 << pose.orientation.y << "," 
                 << pose.orientation.z << "," 
-                << pose.orientation.w << std::endl;
+                << pose.orientation.w << "," 
+                << twist.linear.x << ","
+                << twist.linear.y << ","
+                << twist.linear.z << ","
+                << twist.angular.x << ","
+                << twist.angular.y << ","
+                << twist.angular.z << std::endl;
     }
     file.close();
     return true;

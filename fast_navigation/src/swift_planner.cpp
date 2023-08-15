@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-08-12
+ * @LastEditTime: 2023-08-15
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -751,7 +751,10 @@ void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg)
         clock_t tracktimeNow = ros::Time::now().toNSec();
         double tracktimedura = (double)(tracktimeNow - tracking._start_time) / 10e6; // ms
         realPose.orientation.w = tracktimedura;
-        tracking._real_poses.push_back(realPose);
+        nav_msgs::Odometry realOdom = *currodometry;
+        realOdom.pose.pose = realPose;
+        tracking._real_odoms.push_back(realOdom);
+        // tracking._real_poses.push_back(realPose);
         if (tracking.isReachGoal(_current_odom)){
             _REACH_GOAL = true;
             ROS_INFO("[\033[32mOdomCallback\033[0m]: reach goal");
