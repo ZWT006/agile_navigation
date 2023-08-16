@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-08-15
+ * @LastEditTime: 2023-08-16
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -48,6 +48,7 @@ ros::Publisher _obsmap_img_pub,_sdfmap_img_pub; // 地图可视化
 ros::Publisher _ptraj_vis_pub,_vtraj_vis_pub;   // 轨迹可视化
 ros::Publisher _path_vis_pub,_robot_vis_pub;    // 导航可视化
 ros::Publisher _osqp_vis_pub,_nlopt_vis_pub;    // 优化轨迹可视化
+ros::Publisher _track_vis_pub,_real_vis_pub;    // 跟踪轨迹可视化
 
 ros::Publisher _obs_map_pub;    // 全局障碍物地图
 // 各部分计算的计时 帮助调试,分析代码
@@ -72,6 +73,7 @@ bool _nav_seq_vis_flag = true;
 bool _vis_osqp_traj = false;
 bool _vis_nlopt_traj = false;
 bool _vis_tracking_traj = false;
+bool _vis_real_traj = false;
 double _vis_resolution = 0.02; // 可视化的分辨率
 double _resolution;     // obs map 分辨率
 // 轨迹安全性检查长度分辨率
@@ -150,6 +152,7 @@ bool NavSeqCheck(const nav_msgs::Path *navseq);
 // 可视化函数 ############################################################################################################
 // visulization search trajectory
 void visTrackingTraj();
+void visRealTraj();
 void visLazyPRM();
 void visOSQPTraj();
 void visNLOptTraj();
@@ -182,7 +185,9 @@ int main(int argc, char** argv)
     _path_vis_pub       = nh.advertise<visualization_msgs::MarkerArray>("planner_path_vis",1);
     _osqp_vis_pub       = nh.advertise<visualization_msgs::MarkerArray>("planner_osqp_vis",1);
     _nlopt_vis_pub      = nh.advertise<visualization_msgs::MarkerArray>("planner_nlopt_vis",1);
-    _obsmap_img_pub           = nh.advertise<sensor_msgs::Image>("obs_map_img",1);
+    _track_vis_pub      = nh.advertise<visualization_msgs::MarkerArray>("planner_track_vis",1);
+    _real_vis_pub       = nh.advertise<visualization_msgs::MarkerArray>("planner_real_vis",1);
+    _obsmap_img_pub     = nh.advertise<sensor_msgs::Image>("obs_map_img",1);
     _sdfmap_img_pub     = nh.advertise<sensor_msgs::Image>("sdf_map_img",1);
     _robot_vis_pub      = nh.advertise<visualization_msgs::MarkerArray>("robot_vis",1);
     // _cmd_vel_pub              = nh.advertise<geometry_msgs::Twist>("/cmd_vel",1);
@@ -233,6 +238,7 @@ int main(int argc, char** argv)
     nh.param("planner/vis_osqp_traj", _vis_osqp_traj, false);
     nh.param("planner/vis_nlopt_traj", _vis_nlopt_traj, false);
     nh.param("planner/vis_tracking_traj", _vis_tracking_traj, false);
+    nh.param("planner/vis_real_traj", _vis_real_traj, false);
     // nh.param("planner/time_interval", _time_interval, 0.1); 
     nh.param("planner/optHorizon", _optHorizon, 1.5); 
     // 直接根据 loop_rate 计算每次跟踪的时间间隔
@@ -445,6 +451,12 @@ int main(int argc, char** argv)
             visPtraj();
             visVtraj();
             _vis_traj=false;
+        }
+        if (_vis_tracking_traj){
+            visTrackingTraj();
+        }
+        if (_vis_real_traj) {
+            visRealTraj();
         }
         status = ros::ok();
         rate.sleep();
@@ -1172,6 +1184,8 @@ void csvPtraj()
  */
 void visTrackingTraj()
 {
+    if (tracking.pxtraj.empty())
+        return;
     double _vis_resolution = 0.02;
     visualization_msgs::MarkerArray  LineArray;
     visualization_msgs::Marker       Line;
@@ -1201,8 +1215,49 @@ void visTrackingTraj()
         Line.points.push_back(p);
     }
     LineArray.markers.push_back(Line);    
-    ROS_INFO("[\033[32mPlanNode\033[0m]: visTrackingTraj.size() = %ld", Line.points.size());
-    _path_vis_pub.publish(LineArray);
+    // ROS_INFO("[\033[32mPlanNode\033[0m]: visTrackingTraj.size() = %ld", Line.points.size());
+    _track_vis_pub.publish(LineArray);
+}
+
+/*******************************************************************************************
+ * @description:  可视化 Tracking 的轨迹
+ * @reference: 
+ * @return {*}
+ */
+void visRealTraj()
+{
+    if (tracking._real_odoms.empty())
+        return;
+    double _vis_resolution = 0.02;
+    visualization_msgs::MarkerArray  LineArray;
+    visualization_msgs::Marker       Line;
+    Line.header.frame_id = "planner";
+    Line.header.stamp    = ros::Time::now();
+    Line.ns              = "planner_node/TraLibrary";
+    Line.action          = visualization_msgs::Marker::ADD;
+
+    Line.pose.orientation.w = 1.0;
+    Line.type            = visualization_msgs::Marker::LINE_STRIP;
+    Line.scale.x         = _vis_resolution;
+
+    Line.color.r         = 1.0;
+    Line.color.g         = 0.0;
+    Line.color.b         = 0.0;
+    Line.color.a         = 0.5;
+    Line.id = 33;
+
+    geometry_msgs::Point p;
+    p.z = DEFAULT_HIGH;
+    for (int idx = 0; idx < static_cast<int>(tracking._real_odoms.size()); idx++)
+    {
+        
+        p.x = tracking._real_odoms[idx].pose.pose.position.x;
+        p.y = tracking._real_odoms[idx].pose.pose.position.y;
+        Line.points.push_back(p);
+    }
+    LineArray.markers.push_back(Line);    
+    // ROS_INFO("[\033[32mPlanNode\033[0m]: visTrackingTraj.size() = %ld", Line.points.size());
+    _real_vis_pub.publish(LineArray);
 }
 
 /*******************************************************************************************
@@ -1252,9 +1307,9 @@ void visLazyPRM()
     Line.type            = visualization_msgs::Marker::LINE_STRIP;
     Line.scale.x         = _vis_resolution;
 
-    Line.color.r         = 1.0;
+    Line.color.r         = 0.0;
     Line.color.g         = 0.0;
-    Line.color.b         = 0.0;
+    Line.color.b         = 1.0;
     Line.color.a         = 0.5;
 
     Spheres.pose.orientation.w = 1.0;
@@ -1465,8 +1520,8 @@ void visOSQPTraj()
     Line.scale.x         = _vis_resolution;
 
     Line.color.r         = 0.0;
-    Line.color.g         = 0.0;
-    Line.color.b         = 1.0;
+    Line.color.g         = 1.0;
+    Line.color.b         = 0.0;
     Line.color.a         = 0.5;
 
     Spheres.pose.orientation.w = 1.0;
@@ -1534,8 +1589,8 @@ void visNLOptTraj()
     Line.type            = visualization_msgs::Marker::LINE_STRIP;
     Line.scale.x         = _vis_resolution;
 
-    Line.color.r         = 0.0;
-    Line.color.g         = 1.0;
+    Line.color.r         = 1.0;
+    Line.color.g         = 0.0;
     Line.color.b         = 0.0;
     Line.color.a         = 0.5;
 

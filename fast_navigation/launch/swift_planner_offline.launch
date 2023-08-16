@@ -98,6 +98,7 @@
     <param name="planner/vis_osqp_traj" value="false"/>
     <param name="planner/vis_nlopt_traj" value="false"/>
     <param name="planner/vis_tracking_traj" value="true"/>
+    <param name="planner/vis_real_traj" value="true"/>
 
     <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
     <param name="planner/optHorizon"    value="1.0"/> <!-- 3.0 [s]-->

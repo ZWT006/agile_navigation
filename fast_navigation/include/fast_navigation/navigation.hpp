@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-08-15
+ * @LastEditTime: 2023-08-16
  * @Description: 
  * @reference: 
  * 
@@ -70,7 +70,8 @@
 //// &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double currq,double goalq);
-bool writeTrackResult(std::vector<geometry_msgs::Pose> posesvector,const std::string& filename);
+// bool writeTrackResult(std::vector<geometry_msgs::Pose> posesvector,const std::string& filename);
+bool writeTrackResult(std::vector<nav_msgs::Odometry> posesvector,const std::string& filename);
 // judge currend odom is near goal pose
 // inline bool nearPose(Vector2d currPose,Vector2d goalPose,double currq,double goalq);
 // double AngleMinDelta(double _start, double _goal);
