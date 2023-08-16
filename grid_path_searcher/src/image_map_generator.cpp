@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-03-02
- * @LastEditTime: 2023-07-03
+ * @LastEditTime: 2023-08-16
  * @Description: read picture to generate pointcloudmap
  * @reference: none
  * 
@@ -50,8 +50,11 @@ int pixe_grid,_local_w_grid;
 double _x_size, _y_size, _z_size, _init_x, _init_y, _resolution, _sense_rate;
 double _x_orign, _y_orign, _z_orign;
 double _local_w;
-string _image_address = string("/home/zwt/catkin_ws/src/grid_path_searcher/map/map1.png");;
+string _image_address = string("/home/zwt/catkin_ws/src/grid_path_searcher/map/map1.png");
 
+double _init_orign_x, _init_orign_y;
+
+bool _set_init_state = false;
 bool _has_map  = false;
 bool erode_switch = false;
 
@@ -162,8 +165,11 @@ int main (int argc, char** argv)
    // _odom_sub         = n.subscribe<nav_msgs::Odometry>("/ground_truth/state", 1, odomCallback);
 
 
-   n.param("init_state_x", _init_x,       0.0);
-   n.param("init_state_y", _init_y,       0.0);
+//    n.param("init_state_x", _init_x,       0.0);
+//    n.param("init_state_y", _init_y,       0.0);
+   n.param("map/init_orign",  _set_init_state, false);
+   n.param("map/orign_x",  _init_orign_x, 0.0);
+   n.param("map/orign_y",  _init_orign_y, 0.0);
 
    n.param("map/x_size",  _x_size, 50.0);
    n.param("map/y_size",  _y_size, 50.0);
@@ -316,8 +322,14 @@ void GlobalMapGenerate()
    */
    img_x = map_img.cols;
    img_y = map_img.rows;
-   _x_orign = img_x*0.01/2;
-   _y_orign = img_y*0.01/2;
+   if (_set_init_state) {
+    _x_orign = _init_orign_x;
+    _y_orign = _init_orign_y;
+   }
+   else {
+    _x_orign = img_x*0.01/2;
+    _y_orign = img_y*0.01/2;
+   }
 
    if (DEBUG_BUILD)
    {

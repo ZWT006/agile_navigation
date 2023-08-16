@@ -3,8 +3,8 @@
 <!--stand ros unit m | m/s | rad-->
 <!--map origin default = 1/2 map size-->
 
-<arg name="map_size_x" default="20.0"/>
-<arg name="map_size_y" default="20.0"/>
+<arg name="map_size_x" default="40.0"/>
+<arg name="map_size_y" default="40.0"/>
 <arg name="map_size_z" default=" 1.0"/>
 
 <!-- <arg name="map_orign_x" default="20.0"/>
@@ -53,8 +53,8 @@
     <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
     <remap from="~goal"      to="/goal_pose"/>
     <!-- <remap from="~map" to="/fiesta/ESDFMap/occ_pc"/> -->
-    <!-- <remap from="~map" to="/image_map/local_map"/> -->
-    <remap from="~map" to="/image_map/global_map"/>
+    <remap from="~map" to="/image_map/local_map"/>
+    <!-- <remap from="~map" to="/image_map/global_map"/> -->
 <remap from="~odom" to="/ground_truth/state"/>
     <!-- <remap from="~odom" to="/Odometry"/> -->
 
@@ -87,7 +87,7 @@
     <param name="map/local_pcl"         value="$(arg local_pcl)"/>
     
     <!-- %%%%%%%%%%%%%% planner parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
-    <param name="planner/loop_rate"     value="10"/>
+    <param name="planner/loop_rate"     value="4"/>
     <param name="planner/vis_Robot"     value="true"/>
     <param name="planner/vis_sample"    value="true"/>
     <param name="planner/vis_traj"      value="false"/>

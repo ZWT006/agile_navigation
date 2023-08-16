@@ -779,7 +779,7 @@ void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg)
             ////&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
             // 轨迹跟踪情况的可视化
             info_cnt ++;
-            if (info_cnt > 10){
+            if (info_cnt > _loop_rate){
                 info_cnt = 0;
                 ROS_INFO("[\033[32mOdomCallback\033[0m]: tracking idx: %d", tracking._curr_time_step);
                 if (last_curr_time_step == tracking._curr_time_step)
