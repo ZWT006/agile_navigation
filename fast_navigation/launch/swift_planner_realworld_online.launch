@@ -31,8 +31,8 @@
 <arg name="xy_resolution"   default="0.05"/>
 <!-- <arg name="q_resolution"    default="M_PI*2"/> -->
 <arg name="time_interval"   default="0.01"/>
-<arg name="vel_factor"      default="0.6"/>
-<arg name="ome_factor"      default="0.8"/>
+<arg name="vel_factor"      default="1.4"/>
+<arg name="ome_factor"      default="1.4"/>
 <!-- <arg name="vel_factor"      default="2.0"/>
 <arg name="ome_factor"      default="2.0"/> -->
 <arg name="heur_factor"     default="1.0"/>
@@ -102,7 +102,7 @@
     <param name="planner/opt_seg"       value="4.0"/> 
     <param name="planner/opt_traj"      value="false"/>
     <!-- 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度 -->
-    <param name="planner/persuit_factor"    value="0.2"/>
+    <param name="planner/persuit_factor"    value="0.4"/>
     <!-- reverse_odom for real world SLAM -->
     <param name="planner/offset_odom"      value="$(arg offset_odom)"/>
     <param name="planner/track_ctrl"       value="true"/>
@@ -141,10 +141,10 @@
     <param name="nontrajopt/discredist"     value="0.05"/>
     <param name="nontrajopt/QPC"            value="$(arg OSQP_CostOdr)"/>
     <param name="nontrajopt/wq"             value="$(arg OSQP_Costwq)"/>
-    <param name="nontrajopt/pv_max"         value="1.5"/>
-    <param name="nontrajopt/pa_max"         value="1.5"/>
-    <param name="nontrajopt/wv_max"         value="2.1"/>
-    <param name="nontrajopt/wa_max"         value="2.1"/>
+    <param name="nontrajopt/pv_max"         value="2.1"/>
+    <param name="nontrajopt/pa_max"         value="2.1"/>
+    <param name="nontrajopt/wv_max"         value="2.8"/>
+    <param name="nontrajopt/wa_max"         value="2.8"/>
     <!-- <param name="nontrajopt/pv_max"         value="2.8"/>
     <param name="nontrajopt/pa_max"         value="2.8"/>
     <param name="nontrajopt/wv_max"         value="2.8"/>
@@ -166,7 +166,7 @@
 
     <group if="$(arg offset_odom)">
 		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
-            args="0 0 0 0 0 1 0 world planner 100 " />
+            args="0 0 0 0 0 0 1 world planner 100 " />
     </group>
     <group unless="$(arg offset_odom)">
 		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
