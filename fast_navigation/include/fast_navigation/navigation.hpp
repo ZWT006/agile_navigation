@@ -71,7 +71,6 @@
 
 bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double currq,double goalq);
 // bool writeTrackResult(std::vector<geometry_msgs::Pose> posesvector,const std::string& filename);
-bool writeTrackResult(std::vector<nav_msgs::Odometry> posesvector,const std::string& filename);
 // judge currend odom is near goal pose
 // inline bool nearPose(Vector2d currPose,Vector2d goalPose,double currq,double goalq);
 // double AngleMinDelta(double _start, double _goal);
@@ -165,6 +164,7 @@ class Tracking
     std::vector<geometry_msgs::Twist> _real_twists; // 用于存储真实轨迹
     std::vector<nav_msgs::Odometry> _real_odoms;    // 用于存储真实轨迹
     std::string _realpose_address; // 用于存储真实轨迹的地址
+    std::string _targetpose_address; // 用于存储真实轨迹的地址
     
     // trajectory param
     int _odom_cnt = 0;
@@ -215,6 +215,8 @@ class Tracking
     bool isReachGoal(Eigen::Vector3d current_odom);
 
     void showTrackResult(); // 显示轨迹跟踪结果
+    bool writeTrackResult(std::vector<nav_msgs::Odometry> posesvector,const std::string& filename);
+    bool writeTrackTarget(const std::string& filename);
 };
 
 /***********************************************************************************************************************
@@ -240,6 +242,7 @@ void Tracking::setParam(ros::NodeHandle& nh)
     nh.param("planner/track_ctrl", CTRL_SWITCH, true);
 
     nh.param("planner/realpose_address", _realpose_address, std::string("~/realpose.csv"));
+    nh.param("planner/targetpose_address", _targetpose_address, std::string("~/targetpose.csv"));
 
     // _persuit_factor 是 persuit 的缩放因子 根据 persuit 的时间步长来缩放速度
     if (_persuit_factor > 2.0) _persuit_factor = 2.0;
@@ -869,6 +872,9 @@ void Tracking::showTrackResult() {
         writeTrackResult(_real_odoms,_realpose_address);
         _real_odoms.clear();
     }
+    if (!pxtraj.empty()) {
+        writeTrackTarget(_targetpose_address);
+    }
 }
 
 //判断两个位姿是否相近
@@ -883,7 +889,7 @@ inline bool nearPose(Eigen::Vector2d currPose,Eigen::Vector2d goalPose,double cu
 }
 
 // bool writeTrackResult(std::vector<geometry_msgs::Pose> posesvector,const std::string& filename){
-bool writeTrackResult(std::vector<nav_msgs::Odometry> odomsvector,const std::string& filename){
+bool Tracking::writeTrackResult(std::vector<nav_msgs::Odometry> odomsvector,const std::string& filename){
     std::ofstream file(filename);
     if (file) {
         file.close();
@@ -907,6 +913,26 @@ bool writeTrackResult(std::vector<nav_msgs::Odometry> odomsvector,const std::str
                 << twist.angular.x << ","
                 << twist.angular.y << ","
                 << twist.angular.z << std::endl;
+    }
+    file.close();
+    return true;
+}
+
+bool Tracking::writeTrackTarget(const std::string& filename){
+    std::ofstream file(filename);
+    if (file) {
+        file.close();
+        file.open(filename, std::ios_base::out | std::ios_base::trunc);
+    }
+
+    for (int i = 0; i < pxtraj.size(); i++) {
+        
+        file    << pxtraj[i] << "," 
+                << pytraj[i] << "," 
+                << pqtraj[i] << "," 
+                << vxtraj[i] << "," 
+                << vytraj[i] << "," 
+                << vqtraj[i] << std::endl;
     }
     file.close();
     return true;

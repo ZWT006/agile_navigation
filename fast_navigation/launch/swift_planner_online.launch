@@ -114,6 +114,7 @@
     <!-- 是否使用预先设计的轨迹进行跟踪 用于测试 -->
     <param name="planner/traj_address"      value="$(find fast_navigation)/datas/TRAJ_DATA_SHORT.csv"/>
     <param name="planner/realpose_address"  value="$(find fast_navigation)/datas/realworld_pose.csv"/>
+    <param name="planner/targetpose_address"  value="$(find fast_navigation)/datas/targetworld_traj.csv"/>
     <param name="planner/traj_ration"       value="1.00"/> 
     <param name="planner/pure_tracking"     value="false"/>
     <param name="planner/orign_biasx"       value="-0.5"/>
