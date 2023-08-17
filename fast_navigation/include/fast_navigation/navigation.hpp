@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-08-16
+ * @LastEditTime: 2023-08-17
  * @Description: 
  * @reference: 
  * 
@@ -55,7 +55,7 @@
 
 // max local bias step 这个限度内就正常推进 persuit 前移 
 // 感觉这个参数可以设置的大一点,因为 NMPC 滚动优化的时候会有偏差修正
-#define AMX_BIAS_STEP 2
+#define AMX_BIAS_STEP 3
 
 #define PURSET_STEP_BACK_BIAS 3 // persuit 在轨迹上的定位后退步长
 
@@ -149,6 +149,8 @@ class Tracking
     nav_msgs::Path _nav_seq_msg;    // 控制轨迹序列msgs NMPC的TargetTrajectory
 
     double _persuit_factor;         // 速度缩放因子,调整预瞄步长后缩放速度
+    double _persuit_step_factor;    // 预测步长缩放因子,当前odometry在轨迹上点位判断的预瞄步长
+    int max_bias_step;              // 最大局部偏差步长
     double _refer_vel,_refer_ome;   // 参考速度 线速度 角速度
     // Trajectory
 	bool OBS_FLAG = false;	// 轨迹上是否有障碍物
@@ -238,6 +240,8 @@ void Tracking::setParam(ros::NodeHandle& nh)
 
     nh.param("planner/nav_seq_vis", _nav_seq_vis_flag, true);
     nh.param("planner/persuit_factor", _persuit_factor, 1.0);
+    nh.param("planner/persuit_step_factor", _persuit_step_factor, 1.0);
+    nh.param("planner/max_bias_step", max_bias_step, AMX_BIAS_STEP);
 
     nh.param("planner/track_ctrl", CTRL_SWITCH, true);
 
@@ -322,6 +326,9 @@ void Tracking::initPlanner(Eigen::Vector3d new_goal_odom)
     }
     if (!_real_poses.empty()) {
         _real_poses.clear();
+    }
+    if (!_real_odoms.empty()) {
+        _real_odoms.clear();
     }
     _start_time = ros::Time::now().toNSec();
 }
@@ -474,7 +481,7 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
     }
     // step 2: 如果不是紧密跟踪，计算当前 odometry 所在的轨迹段和轨迹点
     std::vector<double> dists;
-    for (int idx = _pursuit_time_step - (_time_step_pursuit - PURSET_STEP_BACK_BIAS); idx <= _pursuit_time_step + _mpc_step_interval * 4; idx++)
+    for (int idx = _pursuit_time_step - (_time_step_pursuit - PURSET_STEP_BACK_BIAS); idx <= _pursuit_time_step + _mpc_step_interval * _persuit_step_factor; idx++)
     {
         if (idx < 0)
         {
@@ -549,7 +556,7 @@ bool Tracking::OdometryIndex(Eigen::Vector3d odom)
                 break; // 跳出当前for循环
         } // 注意这里的_nav_seq可能不够_time_step_interval步长 只填充了偏离轨迹的部分
     }
-    if (static_cast<int>(_nav_seq_msg.poses.size()) < AMX_BIAS_STEP)  
+    if (static_cast<int>(_nav_seq_msg.poses.size()) < max_bias_step)  
     {
         _pursuit_time_step = _curr_time_step + _time_step_pursuit; // 这里判断一下误差 选择要不要推进跟踪点的前移
         if (_pursuit_time_step >= static_cast<int>(pqtraj.size()))
@@ -870,7 +877,6 @@ void Tracking::showTrackResult() {
     std::cout << "tracking time: " << _track_time << "ms" << std::endl;
     if (!_real_odoms.empty()) {
         writeTrackResult(_real_odoms,_realpose_address);
-        _real_odoms.clear();
     }
     if (!pxtraj.empty()) {
         writeTrackTarget(_targetpose_address);

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-08-16
+ * @LastEditTime: 2023-08-17
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -51,6 +51,9 @@ ros::Publisher _osqp_vis_pub,_nlopt_vis_pub;    // 优化轨迹可视化
 ros::Publisher _track_vis_pub,_real_vis_pub;    // 跟踪轨迹可视化
 
 ros::Publisher _obs_map_pub;    // 全局障碍物地图
+
+std::string obsimg_address;
+
 // 各部分计算的计时 帮助调试,分析代码
 ros::Time _time_opt_start;                // ros 时间
 ros::Time _time_opt_end;                  // ros 时间
@@ -295,6 +298,9 @@ int main(int argc, char** argv)
         cout << BLUE << "====================================================================" << RESET << endl;
     }
     
+
+    nh.param("planner/obsimg_address",obsimg_address,std::string("datas/OBSIMG.png"));
+
     // 坐标系转换相关参数 ################################################################################################################
     // Eigen::Vector3d _pose, _euler;
     // Eigen::Quaterniond _quat;
@@ -793,6 +799,10 @@ void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg)
                     _REACH_GOAL = true;
                     tracking._end_time = ros::Time::now().toNSec();
                     tracking.showTrackResult();
+                    bool success = cv::imwrite(obsimg_address, lazykinoPRM.raw_pcl_map->clone());
+                    if (!success) {
+                        ROS_INFO("[\033[33mOdomCallback\033[0m]: save obsimg faild!");
+                    }
                     tracking._goalPose = _current_odom;
                     stance_cnt = 0;
                     last_curr_time_step = 0;
@@ -820,6 +830,10 @@ void rcvOdomCallback(const nav_msgs::Odometry::Ptr& msg)
         if (tracking._tracking_cnt != 0){
             tracking._end_time = ros::Time::now().toNSec();
             tracking.showTrackResult();
+            bool success = cv::imwrite(obsimg_address, lazykinoPRM.raw_pcl_map->clone());
+            if (!success) {
+                ROS_INFO("[\033[33mOdomCallback\033[0m]: save obsimg faild!");
+            }
         }
     }
     //DEBUG%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
