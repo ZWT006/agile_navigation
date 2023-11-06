@@ -16,7 +16,7 @@
 <arg name="erode_kernel_size" default="3.0"/> <!-- 30.0 -->
 <arg name="erode_switch" default="true"/>
 
-<node pkg ="grid_path_searcher" name ="image_map" type ="image_map" output = "screen">
+<!-- <node pkg ="grid_path_searcher" name ="image_map" type ="image_map" output = "screen"> -->
 
     <!-- <remap from="~odom" to="/Odometry"/> -->
     <remap from="~odom" to="/ground_truth/state"/>
@@ -46,8 +46,8 @@
 
     <param name="sensing/rate" value="10"/>
 
-    <param name="image_address" value="$(find grid_path_searcher)/map/$(arg map_name) "/>
-</node>
+    <!-- <param name="image_address" value="$(find grid_path_searcher)/map/$(arg map_name) "/> -->
+<!-- </node> -->
 
 <node pkg="waypoint_generator" name="waypoint_generator" type="waypoint_generator" output="screen">
     <remap from="~goal" to="/goal"/>

@@ -91,10 +91,15 @@ It's a fast realtime navigation ros package for quadraped robot swift motion in 
 roslaunch legged_unitree_description empty_world.launch
 
 2. export ROBOT_TYPE=a1
+simulation
 roslaunch legged_controllers load_controller.launch cheater:=true
+or realworld
+roslaunch legged_controllers load_controller.launch cheater:=false
 ps:输入步态: flying_trot
 
 3. 开启运动
+roslaunch legged_controllers joy_teleop.launch
+
 rosservice call /controller_manager/switch_controller "start_controllers: ['controllers/legged_controller']
 stop_controllers: ['']
 strictness: 0

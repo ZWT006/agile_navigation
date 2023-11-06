@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-07-29
+ * @LastEditTime: 2023-09-07
  * @Description: 
  * @reference: 
  * 
@@ -246,9 +246,9 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
     // ROS_INFO("[\033[32mLazyKinoPRM\033[0m]parPose is (%f,%f,%f)",parPose[0],parPose[1],parPose[2]);
 
     //########################################################
-    if (iter_num_ < DIR_GRID_M)
-        DIR_GRID = iter_num_;
-    else
+    // if (iter_num_ < DIR_GRID_M)
+    //     DIR_GRID = iter_num_;
+    // else
         DIR_GRID = DIR_GRID_M;
 
     for (int dir_row = -DIR_GRID;dir_row <= DIR_GRID;dir_row++)

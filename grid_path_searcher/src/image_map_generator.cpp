@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-03-02
- * @LastEditTime: 2023-08-16
+ * @LastEditTime: 2023-09-07
  * @Description: read picture to generate pointcloudmap
  * @reference: none
  * 
@@ -256,9 +256,9 @@ void LocalMapGenerate()
    // ROS_DEBUG("map size: -x:%d,+x:%d,-y:%d,+y%d",floor(img_x - _local_w_grid),ceil(img_x + _local_w_grid),floor(img_y - _local_w_grid),ceil(img_y + _local_w_grid));
    for (idx = floor(img_x - _local_w_grid); idx <= ceil(img_x + _local_w_grid); idx = idx + pixe_grid)
    {
-      for (idy = floor(img_y - _local_w_grid); idy < ceil(img_y + _local_w_grid); idy = idy + pixe_grid)
+      for (idy = floor(img_y - _local_w_grid); idy <= ceil(img_y + _local_w_grid); idy = idy + pixe_grid)
       {
-         if( idx < 0 || idy < 0 || idx > map_img.cols || idy > map_img.rows)
+         if( idx <= 0 || idy <= 0 || idx >= map_img.cols || idy >= map_img.rows)
             continue;
          // 如果该点有像素值 就是point, 使用Point()函数访问图像的像素值
          if (map_img.at<uchar>(Point(idx,idy)) == 0)

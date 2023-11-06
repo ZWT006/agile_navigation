@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-08-17
+ * @LastEditTime: 2023-09-06
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -415,6 +415,7 @@ int main(int argc, char** argv)
                         tracking.OBS_FLAG = false;
                         _TRACKING = true;
                         visLazyPRM(); // 可视化搜索轨迹 感觉就是DEBUG的时候用
+                        lazykinoPRM.reset();
                         // 可视化轨迹后再清空搜索列表
                         // ROS_INFO("[\033[34mPlanNode\033[0m]: reset planning done");
                     }

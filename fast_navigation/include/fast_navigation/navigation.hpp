@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-08-17
+ * @LastEditTime: 2023-11-06
  * @Description: 
  * @reference: 
  * 
@@ -48,6 +48,10 @@
 // nearPose judeg threshold
 #define DIST_XY 0.03f
 #define DIST_Q 0.0872646f
+
+// 速度跟踪的实际缩放因子 机器人实际的状态估计速度值好像比较小
+#define VEL_SCALE 0.0f
+#define ANG_SCALE 0.0f
 
 // robot visulaization param
 //unitree A1 robot size
@@ -682,6 +686,20 @@ void Tracking::NavSeqPublish()
         _nav_seq_vis_pub.publish(_nav_seq_vis_msg);
         _nav_seq_vis_msg.poses.clear();
     }
+    for (int idx=0;idx<_nav_seq_msg.poses.size();idx++)
+    {
+        // V_I 转化到 V_B
+        // double _dot_q = _nav_seq_msg.poses.at(idx).pose.position.z;
+        // double _xvel = _nav_seq_msg.poses.at(idx).pose.orientation.x;
+        // double _yvel = _nav_seq_msg.poses.at(idx).pose.orientation.y;
+        // _nav_seq_msg.poses.at(idx).pose.orientation.x = _yvel * sin(_dot_q) + _xvel * cos(_dot_q);
+        // _nav_seq_msg.poses.at(idx).pose.orientation.y = _yvel * cos(_dot_q) - _xvel * sin(_dot_q);
+
+        // 速度根据状态估计做缩放 
+        _nav_seq_msg.poses.at(idx).pose.orientation.x = _nav_seq_msg.poses.at(idx).pose.orientation.x * VEL_SCALE;
+        _nav_seq_msg.poses.at(idx).pose.orientation.y = _nav_seq_msg.poses.at(idx).pose.orientation.y * VEL_SCALE;
+        _nav_seq_msg.poses.at(idx).pose.orientation.z = _nav_seq_msg.poses.at(idx).pose.orientation.z * ANG_SCALE;
+    }
     _nav_seq_msg.header.frame_id = "planner";
     _nav_seq_msg.header.stamp = ros::Time::now();
     if (udp_switch) {
@@ -748,7 +766,8 @@ bool Tracking::getReplanState(Eigen::Vector3d* currPose,Eigen::Vector3d* currVel
     bool flag = false;
     if ( _search_traj_index < static_cast<int>(pxtraj.size())){
         (*currPose) = Eigen::Vector3d(pxtraj.at(_search_traj_index),pytraj.at(_search_traj_index),pqtraj.at(_search_traj_index));
-        (*currVel)  = Eigen::Vector3d(vxtraj.at(_search_traj_index),vytraj.at(_search_traj_index),vqtraj.at(_search_traj_index));
+        // (*currVel)  = Eigen::Vector3d(vxtraj.at(_search_traj_index),vytraj.at(_search_traj_index),vqtraj.at(_search_traj_index));
+        (*currVel)  = Eigen::Vector3d(0,0,0);
         (*currAcc)  = Eigen::Vector3d(0,0,0);
         (*goalPose) = _goal_odom;
         flag = true;
