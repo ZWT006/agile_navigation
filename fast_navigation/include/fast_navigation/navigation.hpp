@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-11-06
+ * @LastEditTime: 2023-11-07
  * @Description: 
  * @reference: 
  * 
@@ -203,7 +203,8 @@ class Tracking
     void setParam(ros::NodeHandle& nh); // 设置参数
     void initPlanner(Eigen::Vector3d new_goal_odom);
     // void ReachGoal(); // 到达目标点
-    bool insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets); // 从重规划段插入新轨迹
+    bool replaceSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets); // 从重规划段插入新轨迹 (轨迹段数改变)
+    bool insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets); // 替换优化的轨迹段 (轨迹段数不变)
     bool popOptSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets); // 从tracksegsets中弹出待优化轨迹
     bool OdometryIndex(Eigen::Vector3d odom); // 计算当前 odometry 所在的轨迹段和轨迹点, 如果跟踪紧密返回true，如果偏差较大返回false
     void NavSeqUpdate();    // 更新导航控制轨迹序列
@@ -336,9 +337,96 @@ void Tracking::initPlanner(Eigen::Vector3d new_goal_odom)
     }
     _start_time = ros::Time::now().toNSec();
 }
+/***********************************************************************************************************************
+ * @description: replace new trajectory from replan segment at seg_index
+ * @reference: 
+ * @param {int} seg_index
+ * @param {vector<TrackSeg>} *tracksegsets : new trajectory
+ * @return {bool} flag : if insert success return true else return false
+ */
+bool Tracking::replaceSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
+{
+    int _seg_num = tracksegsets->size(); // 替换轨迹的段数
+    int _pre_traj_num = 0;
+    int _new_traj_num = 0;
+    int _erase_seg_num = 0;
+    bool flag = true;
+    // step 1: 计算当前 seg_index 前的轨迹点数
+    if (seg_index > static_cast<int>(segtrajpoints.size())){
+        ROS_ERROR("[\033[34mTrackNode\033[0m]seg_index is out of range");
+        flag = false;
+        return flag;
+    }
+    if (segtrajpoints.empty()){
+        _pre_traj_num = 0;
+    }
+    else{
+        for (int idx = 0; idx < seg_index && idx < static_cast<int>(segtrajpoints.size()); idx++){
+            _pre_traj_num += segtrajpoints.at(idx);
+        }
+    }
+    // step 2: 计算替换段的轨迹点数
+    if (seg_index <= static_cast<int>(segtrajpoints.size())){ // 在原有轨迹的长度范围内计算总的点数
+        
+        for (int idx = seg_index; idx < static_cast<int>(segtrajpoints.size()); idx++){
+            _new_traj_num += segtrajpoints.at(idx);
+            _erase_seg_num ++;
+        }
+        // erase() 函数会改变容器的大小
+        segtrajpoints.erase(segtrajpoints.begin() + seg_index, segtrajpoints.begin() + seg_index + _erase_seg_num);
+        StatesSegSets.erase(StatesSegSets.begin() + seg_index, StatesSegSets.begin() + seg_index + _erase_seg_num);
+    }
+    // step 3: 将插入段的原本轨迹清除
+    if (_pre_traj_num + _new_traj_num > static_cast<int>(pxtraj.size())){
+        ROS_ERROR("[\033[34mTrackNode\033[0m]pre_traj_num + new_traj_num is out of range");
+        flag = false;
+        return flag;
+    }
+    if (_new_traj_num > 0) {
+        pxtraj.erase(pxtraj.begin() + _pre_traj_num, pxtraj.begin() + _pre_traj_num + _new_traj_num);
+        pytraj.erase(pytraj.begin() + _pre_traj_num, pytraj.begin() + _pre_traj_num + _new_traj_num);
+        pqtraj.erase(pqtraj.begin() + _pre_traj_num, pqtraj.begin() + _pre_traj_num + _new_traj_num);
+        vxtraj.erase(vxtraj.begin() + _pre_traj_num, vxtraj.begin() + _pre_traj_num + _new_traj_num);
+        vytraj.erase(vytraj.begin() + _pre_traj_num, vytraj.begin() + _pre_traj_num + _new_traj_num);
+        vqtraj.erase(vqtraj.begin() + _pre_traj_num, vqtraj.begin() + _pre_traj_num + _new_traj_num);
+    }    
+    // step 4: 将优化段的新轨迹插入跟踪轨迹
+    std::vector<double> _new_pxtraj,_new_pytraj,_new_pqtraj;
+    std::vector<double> _new_vxtraj,_new_vytraj,_new_vqtraj;
+    std::vector<int> _new_segtrajpoints;
+    std::vector<TrackSeg> _new_StatesSegSets;
+    for (int idx = 0;idx < _seg_num;idx++)
+    {
+        TrackSeg _new_trackseg;
+        _new_pxtraj.insert(_new_pxtraj.end(),tracksegsets->at(idx).pxtraj.begin(),tracksegsets->at(idx).pxtraj.end());
+        _new_pytraj.insert(_new_pytraj.end(),tracksegsets->at(idx).pytraj.begin(),tracksegsets->at(idx).pytraj.end());
+        _new_pqtraj.insert(_new_pqtraj.end(),tracksegsets->at(idx).pqtraj.begin(),tracksegsets->at(idx).pqtraj.end());
+        _new_vxtraj.insert(_new_vxtraj.end(),tracksegsets->at(idx).vxtraj.begin(),tracksegsets->at(idx).vxtraj.end());
+        _new_vytraj.insert(_new_vytraj.end(),tracksegsets->at(idx).vytraj.begin(),tracksegsets->at(idx).vytraj.end());
+        _new_vqtraj.insert(_new_vqtraj.end(),tracksegsets->at(idx).vqtraj.begin(),tracksegsets->at(idx).vqtraj.end());
+        _new_segtrajpoints.push_back(tracksegsets->at(idx).pxtraj.size());
+        _new_trackseg.duration = tracksegsets->at(idx).duration;
+        _new_trackseg.startState = tracksegsets->at(idx).startState;
+        _new_trackseg.endState = tracksegsets->at(idx).endState;
+        _new_trackseg.xcoeff = tracksegsets->at(idx).xcoeff;
+        _new_trackseg.ycoeff = tracksegsets->at(idx).ycoeff;
+        _new_trackseg.qcoeff = tracksegsets->at(idx).qcoeff;
+        _new_StatesSegSets.push_back(_new_trackseg);
+    }
+    pxtraj.insert(pxtraj.begin() + _pre_traj_num , _new_pxtraj.begin(), _new_pxtraj.end());
+    pytraj.insert(pytraj.begin() + _pre_traj_num , _new_pytraj.begin(), _new_pytraj.end());
+    pqtraj.insert(pqtraj.begin() + _pre_traj_num , _new_pqtraj.begin(), _new_pqtraj.end());
+    vxtraj.insert(vxtraj.begin() + _pre_traj_num , _new_vxtraj.begin(), _new_vxtraj.end());
+    vytraj.insert(vytraj.begin() + _pre_traj_num , _new_vytraj.begin(), _new_vytraj.end());
+    vqtraj.insert(vqtraj.begin() + _pre_traj_num , _new_vqtraj.begin(), _new_vqtraj.end());
+    segtrajpoints.insert(segtrajpoints.begin() + seg_index , _new_segtrajpoints.begin(), _new_segtrajpoints.end());
+    StatesSegSets.insert(StatesSegSets.begin() + seg_index , _new_StatesSegSets.begin(), _new_StatesSegSets.end());
+    ROS_DEBUG("[\033[34mTrackNode\033[0m] insertSegTraj: seg_num: %d, traj_num: %ld",_seg_num,_new_pxtraj.size());
+    return flag;
+}
 
 /***********************************************************************************************************************
- * @description: insert new trajectory from replan segment at seg_index
+ * @description: insert new trajectory from optimization segment at seg_index
  * @reference: 
  * @param {int} seg_index
  * @param {vector<TrackSeg>} *tracksegsets : new trajectory
@@ -346,7 +434,7 @@ void Tracking::initPlanner(Eigen::Vector3d new_goal_odom)
  */
 bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
 {
-    int _seg_num = tracksegsets->size();
+    int _seg_num = tracksegsets->size(); // 插入轨迹的段数
     int _pre_traj_num = 0;
     int _new_traj_num = 0;
     int _erase_seg_num = 0;
@@ -372,6 +460,7 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
             _new_traj_num += segtrajpoints.at(idx);
             _erase_seg_num ++;
         }
+        // erase() 函数会改变容器的大小
         segtrajpoints.erase(segtrajpoints.begin() + seg_index, segtrajpoints.begin() + seg_index + _erase_seg_num);
         StatesSegSets.erase(StatesSegSets.begin() + seg_index, StatesSegSets.begin() + seg_index + _erase_seg_num);
     }
@@ -388,7 +477,7 @@ bool Tracking::insertSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
         vxtraj.erase(vxtraj.begin() + _pre_traj_num, vxtraj.begin() + _pre_traj_num + _new_traj_num);
         vytraj.erase(vytraj.begin() + _pre_traj_num, vytraj.begin() + _pre_traj_num + _new_traj_num);
         vqtraj.erase(vqtraj.begin() + _pre_traj_num, vqtraj.begin() + _pre_traj_num + _new_traj_num);
-    }
+    }   
     // step 4: 将优化段的新轨迹插入跟踪轨迹
     std::vector<double> _new_pxtraj,_new_pytraj,_new_pqtraj;
     std::vector<double> _new_vxtraj,_new_vytraj,_new_vqtraj;

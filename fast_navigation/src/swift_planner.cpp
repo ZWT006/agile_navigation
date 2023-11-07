@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-09-06
+ * @LastEditTime: 2023-11-07
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -15,10 +15,17 @@
 #include <nontrajopt/nontrajopt.h>
 #include <fast_navigation/navigation.hpp>
 #include <fast_navigation/readwritecsv.hpp>
+
+//Debug############################## 
 // // for visualization
 // #include "matplotlibcpp.h"
 // // 绘图函数
 // namespace plt = matplotlibcpp;
+#define FLYING_TH 0.5f
+bool isTrajFlying(std::vector<TrackSeg> &_TrackSeg);
+bool isTrajFlying(std::vector<double> &_pxtraj,std::vector<double> &_pytraj);
+
+//END Debug ##############################  
 
 using namespace std;
 using namespace Eigen;
@@ -409,8 +416,16 @@ int main(int argc, char** argv)
                         else
                             SearchSegPush();
                         
+                        //DEUBG
+                        isTrajFlying(searchTraj);
+                        
                         ROS_INFO("[\033[32mPlanNode\033[0m]searchindex:%d,search traj size:%ld",tracking._search_seg_index,searchTraj.size());
-                        tracking.insertSegTraj(tracking._search_seg_index,&searchTraj);
+                        // 应该是发现问题了 这里重规划后的轨迹不能以插入的形式放入待跟踪的轨迹列表中 应该要全部替换掉才行 因为轨迹段数会改变
+                        tracking.replaceSegTraj(tracking._search_seg_index,&searchTraj);
+                        
+                        //DEBUG
+                        isTrajFlying(tracking.pxtraj,tracking.pytraj);
+
                         ROS_INFO("[\033[32mPlanNode\033[0m]: replan success");
                         tracking.OBS_FLAG = false;
                         _TRACKING = true;
@@ -624,7 +639,12 @@ void rcvWaypointsCallback(const nav_msgs::Path &wp)
             }
             else
                 SearchSegPush();
-            tracking.insertSegTraj(0,&searchTraj);
+
+            isTrajFlying(searchTraj);
+
+            tracking.replaceSegTraj(0,&searchTraj);
+
+            isTrajFlying(tracking.pxtraj,tracking.pytraj);
         }
         else {
             ROS_INFO("[\033[31mPlanNode\033[0m]: search trajectory failed");
@@ -924,20 +944,33 @@ bool SearchSegPush()
         // _trackseg.xcoeff = Eigen::Map<Eigen::VectorXd>(lazykinoPRM.pathstateSets[idx].xpcoeff.data(), lazykinoPRM.pathstateSets[idx].xpcoeff.size());
         // _trackseg.ycoeff = Eigen::Map<Eigen::VectorXd>(lazykinoPRM.pathstateSets[idx].ypcoeff.data(), lazykinoPRM.pathstateSets[idx].ypcoeff.size());
         // _trackseg.qcoeff = Eigen::Map<Eigen::VectorXd>(lazykinoPRM.pathstateSets[idx].qpcoeff.data(), lazykinoPRM.pathstateSets[idx].qpcoeff.size());
-        _trackseg.xcoeff.resize(8);
-        _trackseg.ycoeff.resize(8);
-        _trackseg.qcoeff.resize(8);
-        int coeff_size;
-        int copy_size;
-        coeff_size = _xcoeff.size();
-        copy_size = min(coeff_size, 8);
-        _trackseg.xcoeff.head(copy_size) = _xcoeff.head(copy_size);
-        coeff_size = _ycoeff.size();
-        copy_size = min(coeff_size, 8);
-        _trackseg.ycoeff.head(copy_size) = _ycoeff.head(copy_size);
-        coeff_size = _qcoeff.size();
-        copy_size = min(coeff_size, 8);
-        _trackseg.qcoeff.head(copy_size) = _qcoeff.head(copy_size);
+        // _trackseg.xcoeff.resize(8);
+        // _trackseg.ycoeff.resize(8);
+        // _trackseg.qcoeff.resize(8);
+        /* 这里按理来说是 lazykinoPRM.pathstateSets[idx].pcoeff 的长度是6呀,没必要再resize一次
+        但是在搜索阶段 多项式的阶数是不一样的 这部分感觉也不太可能影响TrackTraj的跟踪轨迹呀 而且很明显
+        的是 搜索轨迹显示出来是没一点问题的*/
+        // if (_xcoeff.size()!=6 || _ycoeff.size()!=6 || _qcoeff.size()!=6) {
+        //     ROS_INFO("[\033[31mPlanNode\033[0m]: SearchSegPush coeff length error");
+        //     return false;
+        // }
+        // _trackseg.xcoeff.head(6) = _xcoeff.head(6);
+        // _trackseg.ycoeff.head(6) = _ycoeff.head(6);
+        // _trackseg.qcoeff.head(6) = _qcoeff.head(6);
+
+        //###############################################################################################################
+        // int coeff_size;
+        // int copy_size;
+        // coeff_size = _xcoeff.size();
+        // copy_size = min(coeff_size, 8);
+        // _trackseg.xcoeff.head(copy_size) = _xcoeff.head(copy_size);
+        // coeff_size = _ycoeff.size();
+        // copy_size = min(coeff_size, 8);
+        // _trackseg.ycoeff.head(copy_size) = _ycoeff.head(copy_size);
+        // coeff_size = _qcoeff.size();
+        // copy_size = min(coeff_size, 8);
+        // _trackseg.qcoeff.head(copy_size) = _qcoeff.head(copy_size);
+        //###############################################################################################################
 
         // std::cout << "xcoeff: " << _trackseg.xcoeff << std::endl;
         // std::cout << "ycoeff: " << _trackseg.ycoeff << std::endl;
@@ -1223,8 +1256,8 @@ void visTrackingTraj()
     p.z = DEFAULT_HIGH;
     for (int idx = 0; idx < static_cast<int>(tracking.pxtraj.size()); idx+=5)
     {
-        if (idx >= static_cast<int>(tracking.pxtraj.size()))
-            break;
+        // if (idx >= static_cast<int>(tracking.pxtraj.size()))
+        //     break;
         p.x = tracking.pxtraj[idx];
         p.y = tracking.pytraj[idx];
         Line.points.push_back(p);
@@ -1785,6 +1818,53 @@ void visRobot(const nav_msgs::Odometry::Ptr& msg)
     LineArray.markers.push_back(Spheres);
 
     _robot_vis_pub.publish(LineArray);
+}
+
+//########################################################################################
+//Debug 功能函数
+bool isTrajFlying(std::vector<TrackSeg> &_TrackSeg)
+{
+    if (_TrackSeg.empty())
+        return false;
+    for (int idx = 0; idx < static_cast<int>(_TrackSeg.size()); idx++)
+    {
+        for (int idy = 1; idy < static_cast<int> (_TrackSeg.at(idx).pxtraj.size()); idy++)
+        {
+            if (abs(_TrackSeg.at(idx).pxtraj.at(idy) - _TrackSeg.at(idx).pxtraj.at(idy-1)) > FLYING_TH 
+             || abs(_TrackSeg.at(idx).pytraj.at(idy) - _TrackSeg.at(idx).pytraj.at(idy-1)) > FLYING_TH)
+            {
+                ROS_INFO("\033[31mDebugCheck Searching\033[0m: Traj[%d,%d] is flying!", idx,idy);
+                while(true)
+                {
+                    sleep(10);
+                }
+                return true;
+            }
+        }
+    }
+    ROS_INFO("\033[34mDebugCheck Searching\033[0m: Traj is FlyingCheck over");
+    return false;
+}
+
+bool isTrajFlying(std::vector<double> &_pxtraj,std::vector<double> &_pytraj)
+{
+    if (_pxtraj.empty() || _pytraj.empty())
+        return false;
+    for (int idy = 1; idy < static_cast<int>(_pxtraj.size()); idy++ )
+    {
+        if (abs(_pxtraj.at(idy) - _pxtraj.at(idy-1)) > FLYING_TH 
+         || abs(_pytraj.at(idy) - _pytraj.at(idy-1)) > FLYING_TH)
+        {
+            ROS_INFO("\033[31mDebugCheck Tracking\033[0m: Traj[%d] is flying! Traj Length[%d]", idy,static_cast<int>(_pxtraj.size()));
+            while(true)
+            {
+                sleep(10);
+            }
+            return true;
+        }    
+    }
+    ROS_INFO("\033[34mDebugCheck Tracking\033[0m: Traj is FlyingCheck over");
+    return false;
 }
 
 /********************************************************************************/

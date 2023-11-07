@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-07-29
+ * @LastEditTime: 2023-11-07
  * @Description: 
  * @reference: 
  * 
@@ -138,6 +138,7 @@ struct NodeState
     bool collision_check = false; // True -> no collision, False -> collision
     bool dynamic_flag;    // False -> not optimal in TraLibrary, True -> not optimal in TraLibrary,
 
+    // [0]是最高位 最后一位是常数项
     std::vector<double> xpcoeff; //x polynomial coeffs
     std::vector<double> ypcoeff; //y polynomial coeffs
     std::vector<double> qpcoeff; //q polynomial coeffs

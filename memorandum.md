@@ -8,8 +8,9 @@
 - [x] 离线轨迹的可视化
 - [ ] 如何解决跟踪误差偏大造成失控翻车
 - [ ] 坐标系的转化 SLAM <=> Robot
-- [ ] 手动输入 Goal (非GUI输入)
+- [x] 手动输入 Goal (非GUI输入)
 - [x] 精简代码结构和功能 以完成基础功能为主
+- [ ] 路径末端出现异常轨迹
 
 #### Replanning
 思路：先检查当前Odometry是否安全/根据当前odometry计算1s的轨迹是否安全，危险直接停机；判断当前pose在期望轨迹上的位置，并检查之后的轨迹是否安全，从不安全的Segment开始，重新search，填补到期望轨迹向量中。要将lazykinoprm中的pathStateSets和fast_navigation分离开来，fast_navigation要有自己的一套waypoint数据。
@@ -20,7 +21,9 @@
 ### lazykinoprm
 - [x] `TrajectoryCheck` 单纯轨迹的位置安全性检查
 - [x] `PathStatesSetCheck` 轨迹/路点的安全检查并记录检查状态
-
+- [x] `TrackingTraj`轨迹在末端出现异常段，重复指向终点:轨迹的更新只考虑了插入，没有考虑重规划后要替换更新重规划点后的所有轨迹
+- [ ] `mazeworld`多次规划路径杂乱
+- [ ] 搜索的起始点需要考虑开始的`q`，不然在重规划的时候会有大转折
 
 ### nontrajopt
 - [x] Polynomial Trajectory as `segment.hpp`
@@ -57,7 +60,7 @@ The problem seems to be non-convex
 - [ ] `NLoptSolve()` Debug
 - [x] edf map Debug
 - [ ] 奇异矩阵的线性最小二乘解
-- [ ] MATLAB 对比一下是不是一直都是满秩的
+- [x] MATLAB 对比一下是不是一直都是满秩的: C++中的矩阵秩下降得非常厉害
 ### BUGs
 #### Big!!!
 - [x] start swift planner 第一个数据会有一个(0,0,0)的期望，让机器人猛地一顿  
@@ -86,8 +89,7 @@ The problem seems to be non-convex
 - [x] timestate 序列变成可调,由轨迹跟踪的`nav_seq`控制
 
 ### NMPC
-- [ ] Oval Constrain: 添加线速度与方向角的椭圆形约束
-- [ ] Velocity Penalty: 添加机器人线速度与角速度的安全性代价约束
+- [x] Velocity Penalty: 添加机器人线速度与角速度的安全性代价约束
 
 ## UDP
 - [x] udp send ros msg

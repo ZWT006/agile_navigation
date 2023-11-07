@@ -20,14 +20,14 @@
 <arg name="start_vy" default=" 0.0"/>
 <arg name="start_vz" default=" 0.0"/>
 
-<arg name="dir_grid_m"      default="3.0"/>
+<arg name="dir_grid_m"      default="5.0"/>
 <arg name="iter_num_max"    default="1200"/>
 <arg name="xy_sample_size"  default="0.4"/>
 <!-- <arg name="q_sample_size"   default="M_PI*2"/> -->
 <arg name="xy_bais"         default="0.2"/>
 <!-- c_angle_ = xy_sample_size_ /M_PI * 1.2 -->
 <!-- c_angle_ = 0.2/ 0.152 / 0.0782-->
-<arg name="c_angle"         default="0.01"/> 
+<arg name="c_angle"         default="0.078"/> 
 <arg name="xy_resolution"   default="0.05"/>
 <!-- <arg name="q_resolution"    default="M_PI*2"/> -->
 <arg name="time_interval"   default="0.01"/>
