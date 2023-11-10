@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-11-07
+ * @LastEditTime: 2023-11-08
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -1371,7 +1371,7 @@ void visLazyPRM()
     Spheres.color.g         = 0.0;
     Spheres.color.b         = 1.0;
 
-    ESpheres.pose.orientation.w = 1.0;
+    ESpheres.pose.orientation.w = 1.0; // 红色是已经拓展过的节点
     ESpheres.type            = visualization_msgs::Marker::SPHERE_LIST;
     ESpheres.scale.x         = _vis_resolution*3;
     ESpheres.scale.y         = _vis_resolution*3;
@@ -1382,7 +1382,7 @@ void visLazyPRM()
     ESpheres.color.g         = 0.0;
     ESpheres.color.b         = 0.0;
 
-    OSpheres.pose.orientation.w = 1.0;
+    OSpheres.pose.orientation.w = 1.0; // 绿色是搜索过的节点(不一定被拓展过)
     OSpheres.type            = visualization_msgs::Marker::SPHERE_LIST;
     OSpheres.scale.x         = _vis_resolution*3;
     OSpheres.scale.y         = _vis_resolution*3;

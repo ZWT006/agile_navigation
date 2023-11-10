@@ -27,7 +27,7 @@
 <arg name="xy_bais"         default="0.3"/>
 <!-- c_angle_ = xy_sample_size_ /M_PI * 1.2 -->
 <!-- c_angle_ = 0.2/ 0.152 / 0.0782-->
-<arg name="c_angle"         default="0.15"/> 
+<arg name="c_angle"         default="0.2"/> 
 <arg name="xy_resolution"   default="0.05"/>
 <!-- <arg name="q_resolution"    default="M_PI*2"/> -->
 <arg name="time_interval"   default="0.01"/>
@@ -55,8 +55,8 @@
     <remap from="~waypoints" to="/waypoint_generator/waypoints"/>
     <remap from="~goal"      to="/goal_pose"/>
     <!-- <remap from="~map" to="/fiesta/ESDFMap/occ_pc"/> -->
-    <remap from="~map" to="/image_map/local_map"/>
-    <!-- <remap from="~map" to="/image_map/global_map"/> -->
+    <!-- <remap from="~map" to="/image_map/local_map"/> -->
+    <remap from="~map" to="/image_map/global_map"/>
     <remap from="~odom" to="/ground_truth/state"/>
     <!-- <remap from="~odom" to="/odom"/> -->
     <!-- <remap from="~odom" to="/Odometry"/> -->

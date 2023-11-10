@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-05-04
+ * @LastEditTime: 2023-11-08
  * @Description: 
  * @reference: 
  * 
@@ -58,10 +58,12 @@ void OpenList::insert(AstarNodePtr _node_new,AstarNodePtr _node_pare,NodeState _
     if(fnCostSets[new_listidx] > _node_new->fnCost)
     {
       EraseFnlist(new_listidx);
-      InsertFnlist(_node_new->fnCost, _node_new->listidx);
+      std::cout << "_node_new->listidx = " << _node_new->listidx << std::endl;
+      InsertFnlist(_node_new->fnCost, new_listidx);
       node_pose[new_listidx] = _node_new->pose;
       node_index[new_listidx] = _node_new->index;
-      node_listidx[new_listidx] = list_length;
+      // 这里有问题 不应该更新已有节点的索引了 应该保持原有的不变
+      node_listidx[new_listidx] = new_listidx;
       nodestateSets[new_listidx] = _node_state;
       pathCostSets[new_listidx] = _node_new->pathCost;
       parent_listidx[new_listidx] = _node_pare->listidx;

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-05-04
+ * @LastEditTime: 2023-11-08
  * @Description: 
  * @reference: 
  * 
@@ -85,7 +85,7 @@ void OpenList::insert(NodeStatePtr _node_pare,NodeStatePtr _node_new)
       InsertFnlist(_node_new->fncost, new_listidx);
       node_pose[new_listidx] = _node_new->CurrGridNodePtr->pose;
       node_index[new_listidx] = _node_new->CurrGridNodePtr->index;
-      node_listidx[new_listidx] = list_length;
+      node_listidx[new_listidx] = new_listidx;
       // nodestateSets[new_listidx] = _node_state;
       nodestateSets[new_listidx] = *_node_new;
       pathCostSets[new_listidx] = _node_new->pathcost;
@@ -107,6 +107,15 @@ void OpenList::reset()
   fnlist.clear();
   fnCostSets.clear();
   list_length = 0;
+}
+
+//Debug
+void OpenList::printnodelistidx()
+{
+    for (int idx = 0; idx < list_length; idx++)
+    {
+      cout << "node_listidx[" << idx << "]="<< node_listidx[idx] << endl;
+    }
 }
 // //return the min angle delta 
 // double LazyPRM::AngleMinDelta(Eigen::Vector3d _start, Eigen::Vector3d _goal)

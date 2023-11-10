@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-07-26
+ * @LastEditTime: 2023-11-08
  * @Description: 
  * @reference: 
  * 
@@ -24,7 +24,7 @@
 #include <lazykinoprm/GridNode.h>
 #include <lazykinoprm/State.h>
 
-#define NONOPEN 99999
+#define NONOPEN 99999999
 
 //TODO: remove this SearchNode Struct
 //A star graph search node
@@ -138,7 +138,7 @@ public:
   // void insert(SearchNode _node_new, SearchNode _node_pare, NodeState _node_state);
   // void insert(SearchNodePtr _node_new, SearchNodePtr _node_pare, NodeState _node_state);
   void insert(NodeStatePtr _node_pare,NodeStatePtr _node_new);
-  
+  void printnodelistidx(); // 不过这个好像没用 node_listidx
   void reset();
 // TODO
   OpenList()

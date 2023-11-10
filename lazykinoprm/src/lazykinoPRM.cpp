@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-09-07
+ * @LastEditTime: 2023-11-08
  * @Description: 
  * @reference: 
  * 
@@ -142,7 +142,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
         }
       }
     }
-    // 3.5: 找到点距离Goal最近想可行点
+    // 3.5: 找到点距离Goal最近的可行点
     // 找到距离最小的元素
     if (neighbor_nodes_dist.size() == 0)
     {
@@ -249,7 +249,11 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
     // if (iter_num_ < DIR_GRID_M)
     //     DIR_GRID = iter_num_;
     // else
-        DIR_GRID = DIR_GRID_M;
+    DIR_GRID = DIR_GRID_M;
+
+    // DEBUG
+    int expend_serch_num = 0,expend_skip_num = 0,expend_num = 0;
+	int print_count = 0;
 
     for (int dir_row = -DIR_GRID;dir_row <= DIR_GRID;dir_row++)
     {
@@ -266,14 +270,20 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
           if (dir_row == 0 && dir_col == 0)
             continue;
           //3.3:check if the node is in the close list
+
+          expend_num ++;
+          
           int new_row = parnodeindex(0) + dir_row;
           int new_col = parnodeindex(1) + dir_col;
           int new_dep = dir_dep;
           if (new_row < 0 || new_row >= MAX_POSE_MAP_X ||
-            new_col < 0 || new_col >= MAX_POSE_MAP_Y ||
-            new_dep < 0 || new_dep >= MAX_POSE_MAP_D)
+              new_col < 0 || new_col >= MAX_POSE_MAP_Y ||
+              new_dep < 0 || new_dep >= MAX_POSE_MAP_D)
             //超出pose_map边界,就跳过
-            continue;
+            {
+                expend_skip_num ++;
+                continue;
+            }
           if (pose_map[new_row][new_col][new_dep] == NULL)
             {// 这里应该不可能出现无法索引的node
               ROS_ERROR("[\033[34mSearchNode\033[0m]pose_map[new_row%d][new_col%d][new_dep%d] == NULL",new_row,new_col,new_dep);
@@ -315,6 +325,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
           //3.5:check if the node is in the close list or is invalid
           if (astarcloselist.isCloseList(newGridNodePtr))
           {
+			expend_skip_num ++;
             abandon_node_num_++;
             continue;
           }
@@ -322,6 +333,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
           bool feasible = isFatObstacleFree(newGridNodePtr->pose);
           if (!feasible)
           {
+			expend_skip_num ++;
             newGridNodePtr->setType(Invalid);
             abandon_node_num_++;
             continue;
@@ -343,6 +355,18 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
           obvpmid.SolveMiniAccInputAcc(&parNodeState,&newNodeState);
           goal_cost = getHeuristic(newPose,PointGoal,&newNodeState);
           collision_flag = getPathCost(&parNodeState,&newNodeState);       
+          //Debug Print Search Cost
+		  print_count ++;
+		  expend_serch_num ++;
+		//   if (print_count >= 5)
+		//   {
+		// 	print_count = 0;
+		// 	cout << "Search Cost:" << "goal_cost=" << goal_cost << "; heur_cost=" << newNodeState.heurcost 
+		// 		 << "; angledelta=" << newNodeState.angledelta << "; angle_cost=" << newNodeState.angle_cost  
+		// 		 << "; distance=" << newNodeState.distance << "; pathlength=" << newNodeState.trajectory_length 
+		// 		 << "; path_cost=" << newNodeState.pathcost << endl;
+		//   }
+
           // ROS_INFO("[\033[32mLazyKinoPRM\033[0m]collision_flag = %d",collision_flag);
           if (collision_flag)
           {
@@ -351,7 +375,9 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
           }
         }
       }
-    }
+    } // end expend the node
+    //Debug Print Expend Information
+    cout << "Expend Num: " << expend_num << " skip: " << expend_skip_num << " search: " << expend_serch_num << endl;
     /* code */
   }
   //##################################################################################################################
@@ -379,6 +405,8 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
       pathstateSets.push_back(nodestate);
       list_idx = nodestate.Parenodelistindex;
     }
+	//DEBUG 
+	// astaropenlist.printnodelistidx();
     //reverse the path
     reverse(pathstateSets.begin(),pathstateSets.end());
     // 感觉没必要计算出具体的轨迹点存储,貌似这样会占用很多内存且用处感觉也不大 影响: PathStateSetsCheck() 函数的运行时间
@@ -540,6 +568,8 @@ inline bool LazyKinoPRM::getPathCost(NodeStatePtr _parnodestate,NodeStatePtr _cu
   angcost = pow(angdelta,2)*c_angle_;
   _curnodestate->trajectory_length = pathlength;
   _curnodestate->angle_cost = angcost;
+  //DEBUG 这里考虑使用欧式距离做cost
+//   _curnodestate->pathcost = _parnodestate->pathcost + _curnodestate->distance + angcost;
   _curnodestate->pathcost = _parnodestate->pathcost + pathlength + angcost;
 ////   all waypoints path cost
   	// print_count++;

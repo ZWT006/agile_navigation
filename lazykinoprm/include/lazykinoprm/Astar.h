@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-04-04
+ * @LastEditTime: 2023-11-08
  * @Description: 
  * @reference: 
  * 
@@ -31,7 +31,7 @@
 using namespace std;
 using namespace Eigen;
 
-#define NONOPEN 9999
+#define NONOPEN 99999999
 
 //A star graph search node
 struct AstarNode;
@@ -58,7 +58,7 @@ protected:
   uint32_t list_length;               // open list length
   vector<Eigen::Vector3d> node_pose;  // node pose list
   vector<Eigen::Vector3i> node_index; // node index list
-  vector<uint32_t> node_listidx;      // node index in openlist for for quick indexing
+  vector<uint32_t> node_listidx;      // node index in openlist for for quick indexing 每个插入OpenList的节点都有一个唯一的序数listidx与之对应
   // vector<Eigen::Vector3i> parent_index; //parent index list
   vector<uint32_t> parent_listidx; // parent node index in openlist for for quick indexing
   vector<double> pathCostSets;     // openlist fn score list
