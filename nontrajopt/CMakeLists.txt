@@ -19,14 +19,14 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS system)
 find_package(PCL REQUIRED)
 find_package(OsqpEigen REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 ## COMPONENTS Development is required for Python3_INCLUDE_DIRS and Python3_LIBRARIES
 ## 在寻找python3的时候,一般都还得找到python3的开发包,否则会找不到Python3_INCLUDE_DIRS和Python3_LIBRARIES
-# find_package(Python3 REQUIRED COMPONENTS Development)
+find_package(Python3 REQUIRED COMPONENTS Development)
 set(CMAKE_PREFIX_PATH "/usr/local/lib/cmake/nlopt/" ${CMAKE_PREFIX_PATH})
 find_package(NLopt REQUIRED) # 没啥卵用 还是得靠后边的include_directories
 # if(NLopt_FOUND)
@@ -69,7 +69,7 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
   ${PCL_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
-#   ${Python3_INCLUDE_DIRS}
+  ${Python3_INCLUDE_DIRS}
   ${nlopt_INCLUDE_DIRS}
 )
 
@@ -113,15 +113,15 @@ target_link_libraries(nontrajopt
 #                         ${PROJECT_NAME}
 #                         ${catkin_LIBRARIES})
 # endif()
-# add_executable(nontraj_test test/nontraj_test.cpp)
-# target_link_libraries(nontraj_test 
-#                       ${PROJECT_NAME}
-#                       ${catkin_LIBRARIES}
-#                       ${OpenCV_LIBRARIES}
-#                       gtest
-#                       OsqpEigen::OsqpEigen
-#                       ${Python3_LIBRARIES}
-#                       nlopt)
+add_executable(nontraj_test test/nontraj_test.cpp)
+target_link_libraries(nontraj_test 
+                      ${PROJECT_NAME}
+                      ${catkin_LIBRARIES}
+                      ${OpenCV_LIBRARIES}
+                      gtest
+                      OsqpEigen::OsqpEigen
+                      ${Python3_LIBRARIES}
+                      nlopt)
 
 # add_executable(nlopt_TO test/nlopt_TO.cpp)
 # target_link_libraries(nlopt_TO 

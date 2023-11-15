@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-20
- * @LastEditTime: 2023-07-26
+ * @LastEditTime: 2023-11-10
  * @Description: 
  * @reference: 
  * 
@@ -29,8 +29,8 @@ EigenCSV eigen_csv;
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
 
-    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NonlinearSolver";
-    testing::GTEST_FLAG(filter) = "NonTrajOptTest.NonlinearLongSolver";
+    testing::GTEST_FLAG(filter) = "NonTrajOptTest.NonlinearSolver";
+    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NonlinearLongSolver";
     return RUN_ALL_TESTS();
 }
 

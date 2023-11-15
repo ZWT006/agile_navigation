@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-07
- * @LastEditTime: 2023-08-01
+ * @LastEditTime: 2023-11-15
  * @Description: trajectory optimization class test
  * @reference: 
  * 
@@ -30,9 +30,9 @@ int main(int argc, char **argv) {
     // ros::init (argc,argv, "tester" );
     // ros::NodeHandle nh;
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NontrajOptClass";
-    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
+    testing::GTEST_FLAG(filter) = "NonTrajOptTest.NLoptSolver";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.LBFGSSolver";
-    testing::GTEST_FLAG(filter) = "NonTrajOptTest.OSQPSolve";
+    // testing::GTEST_FLAG(filter) = "NonTrajOptTest.OSQPSolve";
     // testing::GTEST_FLAG(filter) = "NonTrajOptTest.CostGradDebug";
     return RUN_ALL_TESTS();
 }
@@ -333,7 +333,8 @@ TEST(NonTrajOptTest, NLoptSolver) {
     nontrajopt.setEDFMap(12,8,0.01,0.01);
 
     // 读取地图
-    nontrajopt.readEDFMap("/home/zwt/motion_ws/src/navigation/grid_path_searcher/map/map10.png",0);
+    // nontrajopt.readEDFMap("/home/zwt/motion_ws/src/navigation/grid_path_searcher/map/map10.png",0);
+    nontrajopt.readEDFMap("/home/zwt/motion_ws/src/navigation/grid_path_searcher/map/map13.png",0);
 
     std::cout << std::boolalpha << "SMO_SWITCH: " << nontrajopt.SMO_SWITCH << std::endl;
     std::cout << std::boolalpha << "OBS_SWITCH: " << nontrajopt.OBS_SWITCH << std::endl;
