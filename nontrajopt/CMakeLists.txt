@@ -1,10 +1,11 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5.2)
 project(nontrajopt)
 
-# SET(CMAKE_BUILD_TYPE "Debug")
-SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
+SET(CMAKE_BUILD_TYPE "Debug")
+# SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
 set(CMAKE_CXX_FLAGS "-std=c++14 ${CMAKE_CXX_FLAGS} -O3 -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-dev")
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -65,6 +66,8 @@ include_directories(
   /usr/local/include/osqp
   SYSTEM
   include
+  ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/include/fast_navigation
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
   ${PCL_INCLUDE_DIRS}
@@ -114,6 +117,7 @@ target_link_libraries(nontrajopt
 #                         ${catkin_LIBRARIES})
 # endif()
 add_executable(nontraj_test test/nontraj_test.cpp)
+                            # src/nontrajopt.cc)
 target_link_libraries(nontraj_test 
                       ${PROJECT_NAME}
                       ${catkin_LIBRARIES}

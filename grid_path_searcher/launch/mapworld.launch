@@ -29,7 +29,7 @@
     <arg name="start_vy" default=" 0.2"/>
     <arg name="start_vz" default=" 0.0"/>
 
-    <arg name="map_name" default="map5.png"/>
+    <arg name="map_name" default="map11.png"/>
 
     <arg name="erode_kernel_size" default="30.0"/>
     <arg name="erode_switch" default="true"/>
@@ -86,11 +86,13 @@
         <remap from="~goal" to="/goal"/>
         <param name="waypoint_type" value="manual-lonely-waypoint"/>
     </node>
+    <!-- swift_rviz.rviz -->
+    <node name="img_rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/planner_test.rviz"/>
 
-    <node name="img_rviz" pkg="rviz" type="rviz" args="-d $(find grid_path_searcher)/launch/rviz_config/image.rviz"/>
-
-    <!-- <node pkg="tf" type="static_transform_publisher" name="tf_world_to_map" 
-        args="0 0 0 0 0 0 1 odom world 100 " /> -->
+    <node pkg="tf" type="static_transform_publisher" name="tf_world_to_map" 
+        args="0 0 0 0 0 0 1 odom world 100 " />
+    <node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
+        args="0 0 0 0 0 0 1 world planner 100 " />
     <!--static_transform_publisher x y z yaw pitch roll frame_id child_frame_id-->
     <!--static_transform_publisher x y z qx qy qz qw frame_id child_frame_id-->
 </launch>

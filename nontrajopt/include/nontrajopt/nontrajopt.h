@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-05
- * @LastEditTime: 2023-08-12
+ * @LastEditTime: 2023-12-04
  * @Description: Nonlinear Trajectory Optimization
  * @reference: 
  * 
@@ -35,9 +35,10 @@
 #define INIT_TIME 0.6
 #define COEFFS_UPPER_BOUND 500.0
 #define COEFFS_LOWER_BOUND -500.0
-#define TIME_TAU_UPPER_BOUND 1.6
-#define TIME_TAU_LOWER_BOUND -3.0
-
+#define TIME_TAU_UPPER_BOUND 2.4
+#define TIME_TAU_LOWER_BOUND -0.3 // exp(-0.3) = 0.74; exp(-0.5) = 0.61; exp(-0.8) = 0.45; exp(-0.9) = 0.41;
+#define EQ_OFFSET 24 // Ax=b中的A矩阵构建增广矩阵的时候，插入单位阵的偏移量；使其插入位置在线性相关列对应的行
+#define TIME_END_FACTOR 1.0 // 优化时间序列首位的倍数
 
 enum OPT_METHOD {
     LBFGS_RAW,
@@ -65,6 +66,7 @@ struct OptParas {
     bool OVA_SWITCH;
 
     double coeff_bound;
+    double time_bottom;
 
     bool TIME_OPTIMIZATION;  // time optimization
     bool REDUCE_ORDER;
@@ -78,6 +80,7 @@ struct OptParas {
     int    nlopt_max_iteration_num_;  // stopping criteria that can be used
     double nlopt_max_iteration_time_;  // stopping criteria that can be used
     double nlopt_xtol_rel_;  // stopping criteria that can be used
+    double nlopt_ftol_rel_;  // stopping criteria that can be used
     // int    nlopt_max_iteration_num_;  // stopping criteria that can be used
     // double nlopt_max_iteration_time_;  // stopping criteria that can be used
     // int    nlopt_max_iteration_num_;  // stopping criteria that can be used
@@ -92,6 +95,37 @@ struct OptParas {
     OptParas(){};
     ~OptParas(){};
 };
+
+/**
+ * @description: calculate M-P inverse
+ * @reference: https://blog.csdn.net/qq_34935373/article/details/107560470
+ * @param {MatrixXd } A
+ * @return {MatrixXd } X
+ */
+Eigen::MatrixXd Eigenpinv(Eigen::MatrixXd  A)
+{
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    double  pinvtoler = 1.e-8; //tolerance
+    int row = A.rows();
+    int col = A.cols();
+    int k = std::min(row,col);
+    Eigen::MatrixXd X = Eigen::MatrixXd::Zero(col,row);
+    Eigen::MatrixXd singularValues_inv = svd.singularValues();//奇异值
+    Eigen::MatrixXd singularValues_inv_mat = Eigen::MatrixXd::Zero(col, row);
+    for (long i = 0; i<k; ++i) {
+        if (singularValues_inv(i) > pinvtoler)
+            singularValues_inv(i) = 1.0 / singularValues_inv(i);
+        else singularValues_inv(i) = 0;
+    }
+    for (long i = 0; i < k; ++i) 
+    {
+        singularValues_inv_mat(i, i) = singularValues_inv(i);
+    }
+    X=(svd.matrixV())*(singularValues_inv_mat)*(svd.matrixU().transpose());
+ 
+    return X;
+ 
+}
 
 /*****************************************************************************************************
 //// @brief Nonlinear Trajectory Optimization
@@ -122,8 +156,14 @@ class NonTrajOpt
 
     Eigen::VectorXd Vect; // time vector dimensions = N
     Eigen::VectorXd Equb; // 由 waypoints 构建的原始等式约束的右边项 dimensions = EquDim
+
+    //// Debug Temp
+    Eigen::MatrixXd MatABef;
+    Eigen::VectorXd VecbBef;
+
     // $Ax=b$ and $x$ is the coefficients of the trajectory
-    private://##############################################################################################################
+    // private://##############################################################################################################
+    public://Debug
     // cost, gradient and weight 
     Eigen::VectorXd smogd;
     Eigen::VectorXd obsgd;
@@ -151,9 +191,11 @@ class NonTrajOpt
     double OVAL_TH; // oval cost threshold
 
     double coeff_bound;
+    double time_bottom;
     int    nlopt_max_iteration_num_;  // stopping criteria that can be used
     double nlopt_max_iteration_time_;  // stopping criteria that can be used
     double nlopt_xtol_rel_;  // stopping criteria that can be used
+    double nlopt_ftol_rel_;  // stopping criteria that can be used
 
     bool SMO_SWITCH;
     bool OBS_SWITCH;
@@ -299,9 +341,9 @@ class NonTrajOpt
                        const Eigen::Matrix<double, 3, 3> &_startStates, const Eigen::Matrix<double, 3, 3> &_endStates);
     bool pushWaypoints(const std::vector<Eigen::Vector3d> &_waypoints, const std::vector<double> &_initT,
                        const Eigen::Matrix<double, 3, 3> &_startStates, const Eigen::Matrix<double, 3, 3> &_endStates);
-    inline void setEDFMap( const double map_size_x, const double map_size_y, 
+    void setEDFMap( const double map_size_x, const double map_size_y, 
                     const double map_resolution, const double mini_dist);
-    inline bool readEDFMap(const std::string &filename,const int kernel_size); // read edf map
+    bool readEDFMap(const std::string &filename,const int kernel_size); // read edf map
     bool updateEDFMap(const cv::Mat &img); // update edf map
     bool updateEDFMap(const cv::Mat* img); // update edf map
     

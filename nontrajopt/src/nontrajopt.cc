@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-24
- * @LastEditTime: 2023-08-12
+ * @LastEditTime: 2023-12-04
  * @Description: trajectory optimization
  * @reference: 
  * 
@@ -10,6 +10,8 @@
 
 #include "nontrajopt/nontrajopt.h"
 
+// #### debug
+#define SHOW_CSOT_SWITCH true
 
 // ##############################################################################################################
 // private inline auxiliary functions############################################################################
@@ -42,7 +44,7 @@ inline Eigen::MatrixXd NonTrajOpt::getCoeffCons(const double t) {
 // External calls key functions #################################################################################
 // ##############################################################################################################
 void NonTrajOpt::setParam(ros::NodeHandle &nh,OptParas &paras) {
-    nh.param("nontrajopt/lambda_smo", paras.lambda_smo, 0.0);
+    nh.param("nontrajopt/lambda_smo", paras.lambda_smo, 1.0);
     nh.param("nontrajopt/lambda_obs", paras.lambda_obs, 0.0);
     nh.param("nontrajopt/lambda_dyn", paras.lambda_dyn, 0.0);
     nh.param("nontrajopt/lambda_tim", paras.lambda_tim, 0.0);
@@ -61,8 +63,8 @@ void NonTrajOpt::setParam(ros::NodeHandle &nh,OptParas &paras) {
     nh.param("nontrajopt/wa_max", paras.wa_max, 2.0);
     nh.param("nontrajopt/dyn_rate", paras.dyn_rate, 1.0);
     nh.param("nontrajopt/OVAL_TH", paras.OVAL_TH, 0.8);
-    nh.param("nontrajopt/ORIEN_VEL", paras.ORIEN_VEL, 2.0);
-    nh.param("nontrajopt/VERDIT_VEL", paras.VERDIT_VEL, 1.0);
+    nh.param("nontrajopt/ORIEN_VEL", paras.ORIEN_VEL, 2.4);
+    nh.param("nontrajopt/VERDIT_VEL", paras.VERDIT_VEL, 1.2);
     nh.param("nontrajopt/coeff_bound", paras.coeff_bound, 500.0);
     nh.param("nontrajopt/TIME_OPTIMIZATION", paras.TIME_OPTIMIZATION, false);
     nh.param("nontrajopt/REDUCE_ORDER", paras.REDUCE_ORDER, false);
@@ -70,7 +72,8 @@ void NonTrajOpt::setParam(ros::NodeHandle &nh,OptParas &paras) {
     nh.param("nontrajopt/INIT_OPT_VALUE", paras.INIT_OPT_VALUE, false);
     nh.param("nontrajopt/nlopt_max_iteration_num", paras.nlopt_max_iteration_num_, 100);
     nh.param("nontrajopt/nlopt_max_iteration_time", paras.nlopt_max_iteration_time_, 0.1);
-    nh.param("nontrajopt/nlopt_xtol_rel", paras.nlopt_xtol_rel_,1e-4);
+    nh.param("nontrajopt/nlopt_xtol_rel", paras.nlopt_xtol_rel_,1e-6);
+    nh.param("nontrajopt/nlopt_ftol_rel", paras.nlopt_ftol_rel_,1e-6);
 
     nh.param("nontrajopt/wq", paras.wq, 0.8);
     nh.param("search/vel_factor", paras.ref_vel, 1.0);
@@ -95,8 +98,7 @@ void NonTrajOpt::initParameter(const OptParas &paras) {
     TIM_SWITCH = paras.TIM_SWITCH;
     OVA_SWITCH = paras.OVA_SWITCH;
 
-    QPC        = paras.QPC; // cost function order
-    nlopt_xtol_rel_  = paras.nlopt_xtol_rel_; // relative tolerance on optimization variables
+    QPC        = paras.QPC; // cost function order of OSQP Problem
     
     wq         = paras.wq; // weight of state.q coefficients 
     dist_th    = paras.dist_th; // distance threshold of obstacle   
@@ -121,11 +123,14 @@ void NonTrajOpt::initParameter(const OptParas &paras) {
     INIT_OPT_VALUE = paras.INIT_OPT_VALUE;   // use search to init nonlinear optimization
 
     coeff_bound = paras.coeff_bound; // bound of coefficients
+    time_bottom = 0.8;
 
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     // Optimization Solver Parameters
     nlopt_max_iteration_num_ = paras.nlopt_max_iteration_num_;
     nlopt_max_iteration_time_ = paras.nlopt_max_iteration_time_;
+    nlopt_ftol_rel_ = paras.nlopt_ftol_rel_;
+    nlopt_xtol_rel_ = paras.nlopt_xtol_rel_;
     setEDFMap(paras.map_width,paras.map_height,paras.map_resolution,paras.mini_dist);
 
     O = 8; // 7th = 8 coefficients
@@ -234,13 +239,27 @@ bool NonTrajOpt::setWaypoints(const std::vector<Eigen::Vector3d> &_waypoints,
     // std::cout << "Smooth Vecyaw: " << VecyawSmooth.transpose() << std::endl;
     Vecyaw = VecyawSmooth;
     //// Step 2: reference time 参考优化时间计算 ###########################################################
+    std::cout << "OSQPopt->qdist: ";
     for (int idx = 0; idx < N; idx++) {
         Eigen::Vector2d xypos_s = Initwaypoints.col(idx).head(2);
         Eigen::Vector2d xypos_e = Initwaypoints.col(idx+1).head(2);
         Eigen::Vector2d xypos = xypos_e - xypos_s;
         double xy_dist = xypos.norm();
         double q_dist = angles::shortest_angular_distance(Vecyaw(idx),Vecyaw(idx+1));
-        InitT(idx) = std::max(xy_dist/ref_vel,q_dist/ref_ome);
+        InitT(idx) = std::max(xy_dist/ref_vel,abs(q_dist/ref_ome));
+        std::cout << q_dist << "; ";
+        // std::cout << "seg = " << idx << "; xy_dist: " << xy_dist << "; q_dist: " << q_dist 
+        //         << "; xy-time: " << xy_dist/ref_vel << "; q-time" << q_dist/ref_ome << std::endl;
+    }
+    std::cout << std::endl;
+    //// Step 2.5 : reference time 在收尾增加处理 ###########################################################
+    InitT(0) = InitT(0) * (1.0 + TIME_END_FACTOR * std::max(std::abs(StartStates.block(0,1,2,1).norm()-ref_vel)/ref_vel,
+                                                            std::abs(StartStates(2,1)-ref_ome)/ref_ome));
+    InitT(N-1) = InitT(N-1) * (1.0 + TIME_END_FACTOR * std::max(std::abs(EndStates.block(0,1,2,1).norm()-ref_vel)/ref_vel,
+                                                            std::abs(EndStates(2,1)-ref_ome)/ref_ome));
+    //// Step 2.6 : time 的底线处理 最小时间需要 >= time_bottom
+    for (int idx = 0; idx < N; idx++) {
+        if (InitT(idx) < time_bottom) InitT(idx) = time_bottom;
     }
     //// Step 3: yaw 角的数值连续性处理 用于数值优化 #########################################################
     // std::cout << "shortest distance: " << 0.0 << " ";
@@ -383,8 +402,8 @@ inline void NonTrajOpt::updateOptVars(const Eigen::VectorXd &_optvar) {
         Optc = Optx.head(MatDim);
 }
 
-inline void NonTrajOpt::setEDFMap( const double map_size_x, const double map_size_y, 
-                    const double map_resolution, const double mini_dist) {
+void NonTrajOpt::setEDFMap( const double map_size_x, const double map_size_y, 
+                            const double map_resolution, const double mini_dist) {
     edfmap.setMapParam(map_size_x, map_size_y, map_resolution, mini_dist);
 }
 
@@ -404,7 +423,7 @@ bool NonTrajOpt::updateEDFMap(const cv::Mat* img) {
     edfmap.setMap(img);
     return true;
 }
-inline bool NonTrajOpt::readEDFMap(const std::string &filename,const int kernel_size) {
+bool NonTrajOpt::readEDFMap(const std::string &filename,const int kernel_size) {
     bool flag = false;
     if (filename.empty()) {
         std::cout << "edf map is empty" << std::endl;
@@ -481,10 +500,10 @@ void NonTrajOpt::reset(const int &pieceNum) {
     optFlag.resize(MatDim,false);
     ////TODO: 可以在 reset() 的时候就初始化 isOpt 和 noOpt 两个向量 后边少一点点计算量
     int dof_num = 0; //NOTE: 感觉这里的 第二和第三个循环的顺序不影响问题求解 但是不太好
-    for (int id_seg = 0; id_seg < N  && dof_num < OptDof; id_seg++) { // N segments
-        for (int id_dim = 0; id_dim < D && dof_num < OptDof; id_dim++) { // 3 dimensions
-            for (int id_ord = E +1 ; id_ord < O && dof_num < OptDof; id_ord++) { // 5~7 orders
-                int id_num = id_seg*O*D + id_dim*O + id_ord;
+    for (int id_seg = 0; id_seg < N-1 ; id_seg++) { // N segments 
+        for (int id_dim = 0; id_dim < D ; id_dim++) { // 3 dimensions
+            for (int id_ord = E + 1 ; id_ord < O ; id_ord++) { // 5~7 orders
+                int id_num = id_seg*O*D + id_dim*O + id_ord + EQ_OFFSET;
                 optFlag[id_num] = true;
                 dof_num++;
             }
@@ -564,14 +583,14 @@ void NonTrajOpt::updateOptAxb() {
 
     //// update OptDof equality constraints
     int dof_num = 0; //NOTE: 感觉这里的 第二和第三个循环的顺序不影响问题求解 但是不太好
-    for (int id_seg = 0; id_seg < N  && dof_num < OptDof; id_seg++) { // N segments
-        for (int id_dim = 0; id_dim < D && dof_num < OptDof; id_dim++) { // 3 dimensions
-            for (int id_ord = E +1 ; id_ord < O && dof_num < OptDof; id_ord++) { // 5~7 orders
-                int id_num = id_seg*O*D + id_dim*O + id_ord;
+    for (int id_seg = 0; id_seg < N-1 ; id_seg++) { // N segments
+        for (int id_dim = 0; id_dim < D ; id_dim++) { // 3 dimensions
+            for (int id_ord = E + 1 ; id_ord < O ; id_ord++) { // 5~7 orders
+                int id_num = id_seg*O*D + id_dim*O + id_ord + EQ_OFFSET;
                 Eigen::VectorXd tempRow = Eigen::VectorXd::Zero(MatDim);
                 tempRow(id_num) = 1.0;
                 TempAeqRE.row(id_num) = tempRow.transpose();
-                TempbeqRE(id_num) = Optx(dof_num);
+                TempbeqRE(id_num) = Optx(dof_num); // Optc 好像是一样的效果?
                 dof_num++;
             }
         }
@@ -606,39 +625,49 @@ void NonTrajOpt::updateOptAxb() {
     // 线性方程组能够 正常求解且与MATLAB结果一致
     ////TODO: 这里求解线性方程组可能会有问题
     int rank = TempAeqRE.fullPivLu().rank();
+    std::cout << "Aeq Rank: " << rank << "; MatDim: " << MatDim << std::endl;
     // 将 TempAeq 和 Tempbeq 赋值给 MatABS 和 Vecb
     MatA = TempAeqRE;
     Vecb = TempbeqRE;
+    MatABef = TempAeq;
+    VecbBef = Tempbeq;
     //// 最小二乘求解线性方程组 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    Eigen::SparseQR<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>> solver;
+    //// 正规阵法 Ax=b; A^{T}Ax = A^{T}b
+    Vecx = (TempAeqRE.transpose() * TempAeqRE).ldlt().solve(TempAeqRE.transpose() * TempbeqRE);
+    //// M-P inv Maybe the best but slowest ################################
+    // Vecx = Eigenpinv(TempAeqRE)*Vecb;
+    // Eigen::SparseQR<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>> solver;
     // 设置求解器的参数（可选）
-    solver.setPivotThreshold(1e-6); // 设置主元选取阈值，默认为1e-6
-
-    if (rank < MatDim) {
-        // std::cout << YELLOW << "Write TempAeqRANK.csv" << RESET << std::endl;
-        // std::cout << "Time Vector raw :" << Optt.transpose() << std::endl;
-        // std::cout << "Time Vector exp :" << Vect.transpose() << std::endl;
-        // eigenCSV.WriteMatrix(TempAeqRE,"/home/zwt/Documents/TempAeqRANK.csv");
-        // eigenCSV.WriteVector(TempbeqRE,"/home/zwt/Documents/TempbeqRANK.csv");
-        // std::cout << std::endl;
-        // std::cout << YELLOW << "God damn it! TempAeqRE rand :" << rank <<" < " << MatDim << " is singular!" << RESET << std::endl;
-        std::cout << YELLOW << "Aeq * Vecx = beq rand :" << rank <<" < " << MatDim << " is singular!" << RESET << std::endl;
-        Vecx = TempAeqRE.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(TempbeqRE);
-        // Vecx = TempAeqRE.fullPivLu().solve(TempbeqRE);
-        // Eigen::SparseMatrix<double> A = TempAeqRE.sparseView();
-        // solver.compute(A);
-        // if (solver.info() != Eigen::Success) {
-        //     std::cout << "sad SparseQR faild ....." << std::endl;
-        // }
-        // Vecx = solver.solve(TempbeqRE); // 使用求解器求解线性方程组
-    }
-    else {
-        Vecx = TempAeqRE.fullPivLu().solve(TempbeqRE);
-    // std::cout << "Vecx sizes: " << Vecx.rows() << " " << Vecx.cols() << std::endl;
-    // std::cout << "Vecx: " << Vecx.transpose() << std::endl;
-    }
-
+    // solver.setPivotThreshold(1e-6); // 设置主元选取阈值，默认为1e-6
     
+    //// Debug MP-pinv
+    // Vecx = TempAeqRE.fullPivLu().solve(TempbeqRE);
+    
+
+    // if (rank < MatDim) {
+    //     // std::cout << YELLOW << "Write TempAeqRANK.csv" << RESET << std::endl;
+    //     // std::cout << "Time Vector raw :" << Optt.transpose() << std::endl;
+    //     // std::cout << "Time Vector exp :" << Vect.transpose() << std::endl;
+    //     // eigenCSV.WriteMatrix(TempAeqRE,"/home/zwt/Documents/TempAeqRANK.csv");
+    //     // eigenCSV.WriteVector(TempbeqRE,"/home/zwt/Documents/TempbeqRANK.csv");
+    //     // std::cout << std::endl;
+    //     // std::cout << YELLOW << "God damn it! TempAeqRE rand :" << rank <<" < " << MatDim << " is singular!" << RESET << std::endl;
+    //     std::cout << YELLOW << "Aeq * Vecx = beq rand :" << rank <<" < " << MatDim << " is singular!" << RESET << std::endl;
+    //     // Vecx = TempAeqRE.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(TempbeqRE);
+    //     Vecx = TempAeqRE.fullPivLu().solve(TempbeqRE);
+    //     // Eigen::SparseMatrix<double> A = TempAeqRE.sparseView();
+    //     // solver.compute(A);
+    //     // if (solver.info() != Eigen::Success) {
+    //     //     std::cout << "sad SparseQR faild ....." << std::endl;
+    //     // }
+    //     // Vecx = solver.solve(TempbeqRE); // 使用求解器求解线性方程组
+    // }
+    // else {
+    //     Vecx = TempAeqRE.fullPivLu().solve(TempbeqRE);
+    // // std::cout << "Vecx sizes: " << Vecx.rows() << " " << Vecx.cols() << std::endl;
+    // // std::cout << "Vecx: " << Vecx.transpose() << std::endl;
+    // }
+
 }
 
 inline void NonTrajOpt::updateTraj() {
@@ -651,8 +680,12 @@ inline void NonTrajOpt::updateTraj() {
                     Vecx.segment(i*O*D+2*O, O).transpose();
         coeffMats.push_back(coeffMat);
     }
-    std::vector<double> times(initT.data(), initT.data() + initT.size());
+    std::vector<double> times(Vect.data(), Vect.data() + Vect.size()); // 更新traj使用的时间 Vect
+    // std::vector<double> times(initT.data(), initT.data() + initT.size());
     std::vector<int> discs(discNums.data(), discNums.data() + discNums.size());
+    // std::cout << "times size: " << times.size() << "; discs size: " << discNums.size() << "; coeffMats: " << coeffMats.size() << std::endl;
+    // std::cout << "times   : " << Vect.transpose() << std::endl;
+    // std::cout << "discNums: " << discNums.transpose() << std::endl;
     Traj.resetTraj(times, discs, coeffMats);
     Traj.updateTraj(); // update coefficients, time and state vectors of trajectory
 }
@@ -797,22 +830,22 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
 
     OPTptr->iter_num++;
 
-    // std::cout << BLUE << "NLopt iter_num: " << RESET << "["<<OPTptr->iter_num <<"] ";//<< std::endl;
+    std::cout << BLUE << "NLopt iter_num: " << RESET << "["<<OPTptr->iter_num <<"] ";//<< std::endl;
     // std::cout << "opt coefs: " ;
     // for (int i = 0; i < OPTptr->OptDof; i++) {
     //     std::cout << optx[i] << " ";
     // }
     // std::cout << std::endl;
-    // if (OPTptr->TIME_OPTIMIZATION) {
-    //     double opt_time = 0;
-    //     std::cout << "opt times: " ;
-    //     for (int i = 0; i < OPTptr->N; i++) {
-    //         opt_time = optx[OPTptr->OptDof+i];
-    //         // std::cout << "exp(" << opt_time << ")=" << std::exp(opt_time) <<" ";
-    //         std::cout << std::exp(opt_time) <<" ";
-    //     }
-    //     std::cout << std::endl;
-    // }
+    if (OPTptr->TIME_OPTIMIZATION) {
+        double opt_time = 0;
+        std::cout << "opt times: " ;
+        for (int i = 0; i < OPTptr->N; i++) {
+            opt_time = optx[OPTptr->OptDof+i];
+            // std::cout << "exp(" << opt_time << ")=" << std::exp(opt_time) <<"; ";
+            std::cout << std::exp(opt_time) <<" ";
+        }
+        std::cout << std::endl;
+    }
 
     grad.resize(OPTptr->OptNum);
     std::fill(grad.begin(), grad.end(), 0.0);
@@ -844,7 +877,7 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
         if (OPTptr->TIME_OPTIMIZATION)
             _grad.tail(OPTptr->N) += gradt;
         
-        // std::cout << " smoCost: " << smoCost * OPTptr->lambda_smo;
+        if (SHOW_CSOT_SWITCH) std::cout << " smoCost: " << smoCost * OPTptr->lambda_smo;
 
     }
     if (OPTptr->OBS_SWITCH) {
@@ -860,7 +893,7 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
         if (OPTptr->TIME_OPTIMIZATION)
             _grad.tail(OPTptr->N) += gradt;
         
-        // std::cout << " obsCost: " << obsCost * OPTptr->lambda_obs;
+        if (SHOW_CSOT_SWITCH) std::cout << " obsCost: " << obsCost * OPTptr->lambda_obs;
 
     }
     if (OPTptr->DYN_SWITCH) {
@@ -876,7 +909,7 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
         if (OPTptr->TIME_OPTIMIZATION)
             _grad.tail(OPTptr->N) += gradt;
 
-        // std::cout << " dynCost: " << dynCost * OPTptr->lambda_dyn;
+        if (SHOW_CSOT_SWITCH) std::cout << " dynCost: " << dynCost * OPTptr->lambda_dyn;
 
     }
     if (OPTptr->TIM_SWITCH) {
@@ -892,7 +925,7 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
         if (OPTptr->TIME_OPTIMIZATION)
             _grad.tail(OPTptr->N) += gradt;
 
-        // std::cout << " timCost: " << timCost * OPTptr->lambda_tim;
+        if (SHOW_CSOT_SWITCH) std::cout << " timCost: " << timCost * OPTptr->lambda_tim;
         
     }
     if (OPTptr->OVA_SWITCH) {
@@ -908,9 +941,10 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
         if (OPTptr->TIME_OPTIMIZATION)
             _grad.tail(OPTptr->N) += gradt;
 
-        // std::cout << " ovaCost: " << ovaCost * OPTptr->lambda_ova;
+        if (SHOW_CSOT_SWITCH) std::cout << " ovaCost: " << ovaCost * OPTptr->lambda_ova;
     }
-    // std::cout << " Cost: " << Cost << std::endl;
+
+    if (SHOW_CSOT_SWITCH) std::cout << " Cost: " << Cost << std::endl;
     // 将 Eigen::VectorXd _grad 赋值给 std::vector<double> grad
     grad.assign(_grad.data(), _grad.data() + _grad.size());
 
@@ -924,7 +958,7 @@ double NonTrajOpt::LBFGSobjection(void* ptrObj,const double* optx,double* grad,c
     double Cost = 0.0;
 
     OPTptr->iter_num++;
-    std::cout << BLUE << "NLopt iter_num: " << RESET <<OPTptr->iter_num << std::endl;
+    std::cout << BLUE << "LBFGS iter_num: " << RESET <<OPTptr->iter_num << std::endl;
 
     std::fill(grad, grad + n, 0.0);
     Eigen::VectorXd _optx = Eigen::Map<const Eigen::VectorXd>(optx, n);
@@ -1162,6 +1196,7 @@ bool NonTrajOpt::OSQPSolve() {
     solver.settings()->setWarmStart(true);
 
     // set the initial data of the QP solver
+    // Ax < b
     solver.data()->setNumberOfVariables(MatDim);
     solver.data()->setNumberOfConstraints(EquDim);
     if(!solver.data()->setHessianMatrix(Hessian_sparse)) return flag;
@@ -1204,6 +1239,11 @@ bool NonTrajOpt::OSQPSolve() {
 bool NonTrajOpt::NLoptSolve() {
     bool flag = false;
     nlopt::opt opt(nlopt::algorithm::LD_TNEWTON_PRECOND_RESTART, OptNum);
+    // NLOPT_LD_LBFGS 
+    // NLOPT_LD_TNEWTON_PRECOND_RESTART
+    // NLOPT_LD_TNEWTON_PRECOND
+    // NLOPT_LD_TNEWTON
+    // NLOPT_LD_VAR1
     // // ❗❗❗ NLoptobjection 必须返回 static double 类型的值 且该类型只能声明时候有，定义函数的时候就不能写 static 了
     opt.set_min_objective(NonTrajOpt::NLoptobjection, this);
 
@@ -1219,6 +1259,7 @@ bool NonTrajOpt::NLoptSolve() {
     Eigen::VectorXd initc = Eigen::VectorXd::Constant(OptDof,INIT_COEFFS);
     Eigen::VectorXd initt = Eigen::VectorXd::Constant(N,INIT_TIME_TAU);
 
+    opt.set_ftol_rel(nlopt_ftol_rel_);
     opt.set_xtol_rel(nlopt_xtol_rel_);
     opt.set_maxeval(nlopt_max_iteration_num_);
     opt.set_maxtime(nlopt_max_iteration_time_);
@@ -1255,6 +1296,12 @@ bool NonTrajOpt::NLoptSolve() {
             std::copy(initt.data(), initt.data() + N, NLoptx.end() - N); // 将Timex的值赋给NLoptx的末尾Tnum个元素
         }
     }
+
+    std::cout << "init NLoptx: " ;
+    for (const auto& element : NLoptx) {
+        std::cout << element << " ";
+    }
+    std::cout << std::endl;
 
     auto nlopt_time_start = std::chrono::high_resolution_clock::now();
     try {
@@ -1352,11 +1399,11 @@ bool NonTrajOpt::LBFGSSolve() {
     lbfgs_params.mem_size = 32;
     lbfgs_params.g_epsilon = 0.0;
     lbfgs_params.past = 3;
-    lbfgs_params.delta = 1e-4;
+    lbfgs_params.delta = 1e-6;  //1e-4
     lbfgs_params.max_iterations = 0;
-    lbfgs_params.max_linesearch = 60; //default 60
+    lbfgs_params.max_linesearch = 240; //default 60
     // lbfgs_params.min_step = 1e-16;
-    lbfgs_params.xtol = 1e-4;
+    lbfgs_params.xtol = 1e-5; //1e-4
     lbfgs_params.line_search_type = 0;
 
     double* optx_;
@@ -1475,10 +1522,10 @@ inline void NonTrajOpt::isDynamicFeasible(bool &flag) {
     std::cout << "##########################################################################" << std::endl;
     if (linvel.norm() > pv_max/dyn_rate || linacc.norm() > pa_max/dyn_rate || 
         abs(omevel) > wv_max/dyn_rate || abs(omeacc)  > wa_max/dyn_rate) {
-        flag = false;
+        // flag = false;
     }
     else {
-        flag = true;
+        // flag = true;
     }
 }
 

@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.0.2)
 project(fast_navigation)
 
 # set debug mode
-# SET(CMAKE_BUILD_TYPE "Debug")
-SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
+SET(CMAKE_BUILD_TYPE "Debug")
+# SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -std=c++14")
@@ -27,7 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
-# find_package(Python3 REQUIRED COMPONENTS Development)
+find_package(Python3 REQUIRED COMPONENTS Development)
 
 
 ###################################
@@ -62,7 +62,7 @@ include_directories(
   ${Eigen3_INCLUDE_DIRS} 
   ${PCL_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
-#   ${Python3_INCLUDE_DIRS}
+  ${Python3_INCLUDE_DIRS}
 )
 
 
@@ -70,6 +70,7 @@ include_directories(
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/fast_navigation.cpp
 # )
+##################################################
 add_executable( fast_planner_node 
     src/fast_planner.cpp
     # src/LazyKinoPRM.cpp
@@ -78,30 +79,37 @@ add_executable( fast_planner_node
     # src/SampleOBVP.cpp
     # src/GridNode.cpp
     )
-
 target_link_libraries(fast_planner_node 
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
     ${OpenCV_LIBS})
 
-    
+##################################################    
 add_executable( swift_planner_node 
     src/swift_planner.cpp
     )
-
 target_link_libraries(swift_planner_node 
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
     # ${Python3_LIBRARIES}
     ${OpenCV_LIBS})
 
+##################################################
 add_executable( pub_goalpose 
     src/pub_goalpose.cpp
 )
-
 target_link_libraries(pub_goalpose 
     ${catkin_LIBRARIES})
 
+##################################################
+add_executable( planning_test 
+    test/planning_test.cpp
+)
+target_link_libraries(planning_test 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${Python3_LIBRARIES}
+    ${OpenCV_LIBS})
 
 #############
 ## Testing ##

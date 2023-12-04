@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-16
- * @LastEditTime: 2023-07-24
+ * @LastEditTime: 2023-11-28
  * @Description: polynomial trajectory segment
  * @reference: 
  * 
@@ -564,8 +564,18 @@ class Trajectory {
         int N = std::min(durs.size(), cMats.size());
         if (!pieces.empty()) pieces.clear();
             pieces.reserve(N);
+        // pieces.erase()
+        // pieces.resize(N);
+        // std::cout << "pieces capacity is " << pieces.capacity() << std::endl;
+        // std::cout << "pieces size is " << pieces.size() << "; N is " << N << std::endl;
+        // std::cout << "times size: " << durs.size() 
+        //           << "; discs size: " << disNums.size() 
+        //           << "; coeffMats: " << cMats.size() << std::endl;
         for (int i = 0; i < N; i++) {
             pieces.emplace_back(durs[i], disNums[i], cMats[i]);
+            // pieces.push_back(Piece(durs[i], disNums[i], cMats[i]));
+            // pieces[i]=Piece(durs[i], disNums[i], cMats[i]);
+            // std::cout << "piece " << i << " is reset; pieces size = " << pieces.size() << std::endl;
         }
         return true;
     }
