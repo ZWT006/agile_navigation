@@ -88,7 +88,7 @@
 
         <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
         <param name="planner/optHorizon"    value="1.0"/> <!-- 3.0 [s]-->
-        <param name="planner/opt_seg"       value="4.0"/> 
+        <param name="planner/opt_seg"       value="5.0"/> 
         <param name="planner/opt_traj"      value="true"/>
         <!-- 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度 -->
         <param name="planner/persuit_factor"    value="0.8"/>

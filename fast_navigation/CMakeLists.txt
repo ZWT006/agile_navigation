@@ -71,18 +71,18 @@ include_directories(
 #   src/${PROJECT_NAME}/fast_navigation.cpp
 # )
 ##################################################
-add_executable( fast_planner_node 
-    src/fast_planner.cpp
-    # src/LazyKinoPRM.cpp
-    # src/LazyPRM.cpp
-    # src/Polynomial.cpp
-    # src/SampleOBVP.cpp
-    # src/GridNode.cpp
-    )
-target_link_libraries(fast_planner_node 
-    ${catkin_LIBRARIES}
-    ${PCL_LIBRARIES}
-    ${OpenCV_LIBS})
+# add_executable( fast_planner_node 
+#     src/fast_planner.cpp
+#     # src/LazyKinoPRM.cpp
+#     # src/LazyPRM.cpp
+#     # src/Polynomial.cpp
+#     # src/SampleOBVP.cpp
+#     # src/GridNode.cpp
+#     )
+# target_link_libraries(fast_planner_node 
+#     ${catkin_LIBRARIES}
+#     ${PCL_LIBRARIES}
+#     ${OpenCV_LIBS})
 
 ##################################################    
 add_executable( swift_planner_node 

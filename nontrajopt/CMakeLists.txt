@@ -116,16 +116,16 @@ target_link_libraries(nontrajopt
 #                         ${PROJECT_NAME}
 #                         ${catkin_LIBRARIES})
 # endif()
-add_executable(nontraj_test test/nontraj_test.cpp)
-                            # src/nontrajopt.cc)
-target_link_libraries(nontraj_test 
-                      ${PROJECT_NAME}
-                      ${catkin_LIBRARIES}
-                      ${OpenCV_LIBRARIES}
-                      gtest
-                      OsqpEigen::OsqpEigen
-                      ${Python3_LIBRARIES}
-                      nlopt)
+# add_executable(nontraj_test test/nontraj_test.cpp)
+#                             # src/nontrajopt.cc)
+# target_link_libraries(nontraj_test 
+#                       ${PROJECT_NAME}
+#                       ${catkin_LIBRARIES}
+#                       ${OpenCV_LIBRARIES}
+#                       gtest
+#                       OsqpEigen::OsqpEigen
+#                       ${Python3_LIBRARIES}
+#                       nlopt)
 
 # add_executable(nlopt_TO test/nlopt_TO.cpp)
 # target_link_libraries(nlopt_TO 

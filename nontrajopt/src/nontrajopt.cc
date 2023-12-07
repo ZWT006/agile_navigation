@@ -313,7 +313,7 @@ bool NonTrajOpt::setWaypoints(const std::vector<Eigen::Vector3d> &_waypoints,
  * @return {bool} flag of success
  */
 bool NonTrajOpt::pushWaypoints(const std::vector<Eigen::Vector3d> &_waypoints, const std::vector<double> &_initT,
-    const Eigen::Matrix<double, 3, 3> &_startStates, const Eigen::Matrix<double, 3, 3> &_endStates) {
+    const Eigen::Matrix<double, 3, 4> &_startStates, const Eigen::Matrix<double, 3, 4> &_endStates) {
     if ( _waypoints.size() - N != 1 || _initT.size() - N != 0) {
         return false;
     }
@@ -322,9 +322,11 @@ bool NonTrajOpt::pushWaypoints(const std::vector<Eigen::Vector3d> &_waypoints, c
     Eigen::VectorXd Vecyaw = Eigen::VectorXd::Zero(_waypoints.size());
     Eigen::VectorXd InitT = Eigen::Map<const Eigen::VectorXd>(_initT.data(), _initT.size());
     Eigen::Matrix<double, 3, 4> StartStates = Eigen::Matrix<double, 3, 4>::Zero();
-    StartStates.block(0,0,3,3) = _startStates;
+    // StartStates.block(0,0,3,3) = _startStates;
+    StartStates = _startStates;
     Eigen::Matrix<double, 3, 4> EndStates = Eigen::Matrix<double, 3, 4>::Zero();
-    EndStates.block(0,0,3,3) = _endStates;
+    // EndStates.block(0,0,3,3) = _endStates;
+    EndStates = _endStates;
     for (int idx = 0; idx < N + 1 ; idx++) {
         Initwaypoints.col(idx) = _waypoints[idx];
     //// Step 0: yaw 角归一化到 [-pi pi] ##################################################################

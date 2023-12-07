@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-12-04
+ * @LastEditTime: 2023-12-07
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -249,13 +249,6 @@ int main(int argc, char** argv)
     nh.param("planner/opt_traj",_OPT_TRAJ,false);
     nh.param("search/xy_sample_size", xy_sample_size_, 0.4);
     _OPT_SEG = int(_opt_seg);
-    // if (_OPT_SEG > 0){ // 根据采样区间和参考速度计算优化长度
-        // double sample_grid_time = xy_sample_size_ / tracking._refer_vel;
-        // std::cout << "sample_grid_time: " << sample_grid_time << " xy_sample_size: " << xy_sample_size_ << " refer_vel: " << tracking._refer_vel << std::endl;
-        // _OPT_SEG = int(std::ceil(_optHorizon / sample_grid_time * OPT_FACTOR)); // 优化轨迹的段数
-        // std::cout << "opt_seg: " << _OPT_SEG << " opt" << std::endl;
-
-    // }
     tracking._TO_SEG = _OPT_SEG;
     nh.param("planner/offset_odom", _OFFESET_ODOM, false);
     // 读取给定轨迹并跟踪 ################################################################################################################
@@ -265,9 +258,6 @@ int main(int argc, char** argv)
     nh.param("planner/traj_address",traj_address,std::string("datas/TRAJ_DATA_LONG.csv"));
     // FileName: TRAJ_DATA_LONG.csv | TRAJ_DATA_SHORT.csv
     if (_PURE_TRACKING) {
-        // nh.param("planner/orign_biasx",biasx,0.0);
-        // nh.param("planner/orign_biasy",biasy,0.0);
-        // nh.param("planner/orign_biasq",biasq,0.0);
         readcsv.setFileName(traj_address);
         double traj_res = 0.01;
         nh.param("planner/traj_ration",traj_res,0.01);
@@ -337,19 +327,7 @@ int main(int argc, char** argv)
         // step.2 pointcloud callback   update obs map
         // step.3 odom callback         track trajectory
         ros::spinOnce();
-        // _map_sub_cnt++;
-        // if (_map_sub_cnt > SUB_CNT_TH) {
-        //     // _HAS_MAP = false;
-        //     ROS_INFO("[\033[31mPlanNode\033[0m]: !!! don't receive map !!!");
-        //     _map_sub_cnt = 5;
-        // }
-        // _odom_sub_cnt++;
-        // if (_odom_sub_cnt > SUB_CNT_TH) {
-        //     // _HAS_ODOM = false;
-        //     ROS_INFO("[\033[31mPlanNode\033[0m]: !!! don't receive odom !!!");
-        //     _odom_sub_cnt = 5;
-        // }
-        
+
         // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         // 如果纯跟踪预定义轨迹,就不需要规划了 直接跳过规划 &
         if (_PURE_TRACKING || _DEBUG_REPLAN) goto JMUP_REPLAM; //&&&&&
@@ -969,9 +947,11 @@ bool OSQPSegPush()
         _trackseg.startState.col(0) = OSQPopt.Traj[idx].getPos(0.0); 
         _trackseg.startState.col(1) = OSQPopt.Traj[idx].getVel(0.0);
         _trackseg.startState.col(2) = OSQPopt.Traj[idx].getAcc(0.0);
+        _trackseg.startState.col(3) = OSQPopt.Traj[idx].getJer(0.0);
         _trackseg.endState.col(0) = OSQPopt.Traj[idx].getPos(_duration);
         _trackseg.endState.col(1) = OSQPopt.Traj[idx].getVel(_duration);
         _trackseg.endState.col(2) = OSQPopt.Traj[idx].getAcc(_duration);
+        _trackseg.endState.col(3) = OSQPopt.Traj[idx].getJer(_duration);
         // &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         _trackseg.xcoeff = OSQPopt.Traj[idx].getCoeffMat().row(0).transpose();
         _trackseg.ycoeff = OSQPopt.Traj[idx].getCoeffMat().row(1).transpose();
@@ -1115,7 +1095,8 @@ bool NLoptSegPush()
     _coeff_init.resize(piece_num * 24); // dimensions * order + time = 3 * 8 + 1 = 25
     std::vector<Eigen::Vector3d> _waypoints;
     std::vector<double> _initt;
-    Eigen::Matrix<double, 3, 3> _startStates, _endStates;
+    Eigen::Matrix<double, 3, 4> _startStates, _endStates;
+    // _startStates = nloptTraj.front().startState.block(0,0,3,3);
     _startStates = nloptTraj.front().startState;
     _waypoints.push_back(nloptTraj[0].startState.col(0));
     for (int idx = 0; idx < piece_num; idx++) {
@@ -1128,10 +1109,13 @@ bool NLoptSegPush()
         // std::cout << "ycoeff: " << nloptTraj[idx].ycoeff.transpose() << std::endl;
         // std::cout << "qcoeff: " << nloptTraj[idx].qcoeff.transpose() << std::endl;
     }
+    // _endStates = nloptTraj.back().endState.block(0,0,3,3);
     _endStates = nloptTraj.back().endState;
-    //// Acc set as zero
-    // _startStates.col(2) = _startStates.col(2) * 0.0;
-    // _endStates.col(2) = _endStates.col(2) * 0.0;
+    std::cout << "nloptTraj startState: " << std::endl;
+    std::cout << nloptTraj.front().startState << std::endl;
+    std::cout << "nloptTraj endState: " << std::endl;
+    std::cout << nloptTraj.back().endState << std::endl;
+
     //// nlopt local optimization set waypoints without any modification
     if(!NLoptopt.pushWaypoints(_waypoints,_initt,_startStates, _endStates)){
         ROS_WARN("[\033[31mPlannerNode\033[0m]: NLopt pushWaypoints failed!");
@@ -1222,6 +1206,8 @@ bool NLoptSegPush()
 
     // int piece_num = NLoptopt.Traj.getPieceNum();
     // step: 2 优化后的轨迹段 push 到 nloptTraj 列表
+    if (!nloptTraj.empty())
+        nloptTraj.clear();
     for (int idx = 0; idx < piece_num; idx++) {
         TrackSeg _trackseg;
         double _duration = NLoptopt.Traj[idx].getDuration();
@@ -1253,7 +1239,7 @@ bool NLoptSegPush()
     std::cout << "opt Init time: " << NLoptopt.initT.transpose() << std::endl;
     std::cout << "NLoptopt time: " << NLoptopt.Vect.transpose() << std::endl;
     ROS_INFO("[\033[32mPlanNode\033[0m]: NLoptopt trajectory time: %2.4f", trajectory_time);
-
+    ROS_INFO("[\033[32mPlanNode\033[0m]: NLoptopt trajectory size: %ld", nloptTraj.size());
     return true;
 }
 

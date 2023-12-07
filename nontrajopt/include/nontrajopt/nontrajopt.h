@@ -340,7 +340,7 @@ class NonTrajOpt
     bool setWaypoints(const std::vector<Eigen::Vector3d> &_waypoints, 
                        const Eigen::Matrix<double, 3, 3> &_startStates, const Eigen::Matrix<double, 3, 3> &_endStates);
     bool pushWaypoints(const std::vector<Eigen::Vector3d> &_waypoints, const std::vector<double> &_initT,
-                       const Eigen::Matrix<double, 3, 3> &_startStates, const Eigen::Matrix<double, 3, 3> &_endStates);
+                       const Eigen::Matrix<double, 3, 4> &_startStates, const Eigen::Matrix<double, 3, 4> &_endStates);
     void setEDFMap( const double map_size_x, const double map_size_y, 
                     const double map_resolution, const double mini_dist);
     bool readEDFMap(const std::string &filename,const int kernel_size); // read edf map

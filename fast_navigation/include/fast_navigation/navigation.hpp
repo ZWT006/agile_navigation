@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-11-06
+ * @LastEditTime: 2023-12-04
  * @Description: 
  * @reference: 
  * 
@@ -91,8 +91,8 @@ typedef TrackSeg* TrackSegPtr;
 struct TrackSeg
 {
     double duration;
-    Eigen::Matrix<double, 3, 3> startState = Eigen::Matrix3Xd::Zero(3,3);
-    Eigen::Matrix<double, 3, 3> endState = Eigen::Matrix3Xd::Zero(3,3);
+    Eigen::Matrix<double, 3, 4> startState = Eigen::Matrix3Xd::Zero(3,4);
+    Eigen::Matrix<double, 3, 4> endState   = Eigen::Matrix3Xd::Zero(3,4);
     // std::vector<double> xcoeff;
     // std::vector<double> ycoeff;
     // std::vector<double> qcoeff;

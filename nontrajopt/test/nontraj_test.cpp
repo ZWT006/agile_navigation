@@ -1598,13 +1598,15 @@ TEST(NonTrajOptTest, OSQPSolve) {
     EXPECT_EQ(_initCoeff.size(), nontrajopt.MatDim);
 
     std::vector<Eigen::Vector3d> _waypoints_vec;
-    Eigen::Matrix<double, 3, 3> _endStates_vec,_startStates_vec;
+    Eigen::Matrix<double, 3, 4> _endStates_vec,_startStates_vec;
     for (int idx = 0; idx < n_seg + 1; idx++) {
         _waypoints_vec.push_back(_waypoints.col(idx));
     }
     std::cout << "waypoints.size = " << _waypoints_vec.size() << std::endl;
-    _startStates_vec = _startStates.block(0,0,3,3);
-    _endStates_vec = _endStates.block(0,0,3,3);
+    // _startStates_vec = _startStates.block(0,0,3,3);
+    // _endStates_vec = _endStates.block(0,0,3,3);
+    _startStates_vec = _startStates;
+    _endStates_vec = _endStates;
     nontrajopt.setWaypoints(_waypoints_vec, _startStates_vec, _endStates_vec);
 
     nontrajopt.Vecx = _initCoeff;
