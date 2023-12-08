@@ -22,17 +22,17 @@
 
 <arg name="dir_grid_m"      default="3.0"/>
 <arg name="iter_num_max"    default="1200"/>
-<arg name="xy_sample_size"  default="0.6"/>
+<arg name="xy_sample_size"  default="0.4"/>
 <!-- <arg name="q_sample_size"   default="M_PI*2"/> -->
-<arg name="xy_bais"         default="0.3"/>
+<arg name="xy_bais"         default="0.2"/>
 <!-- c_angle_ = xy_sample_size_ /M_PI * 1.2 -->
 <!-- c_angle_ = 0.2/ 0.152 / 0.0782-->
-<arg name="c_angle"         default="0.0"/> 
+<arg name="c_angle"         default="0.06"/> 
 <arg name="xy_resolution"   default="0.05"/>
 <!-- <arg name="q_resolution"    default="M_PI*2"/> -->
 <arg name="time_interval"   default="0.01"/>
 <arg name="vel_factor"      default="1.2"/>
-<arg name="ome_factor"      default="0.8"/>
+<arg name="ome_factor"      default="1.2"/>
 <!-- <arg name="vel_factor"      default="0.6"/>
 <arg name="ome_factor"      default="0.8"/> -->
 <!-- <arg name="vel_factor"      default="2.0"/>
@@ -43,8 +43,8 @@
 <arg name="OSQP_CostOdr"    default="3.0"/>
 <arg name="OSQP_Costwq"     default="0.8"/>
 <!-- raw map erode as xy_resolution -->
-<arg name="erode_pcl_size"  default="18.0"/> <!-- make sure >= 1 -->
-<arg name="erode_obs_size"  default="3.0"/> <!-- make sure >= 1 -->
+<arg name="erode_pcl_size"  default="3.0"/> <!-- make sure >= 1 -->
+<arg name="erode_obs_size"  default="12.0"/> <!-- make sure >= 1 -->
 <arg name="sdf_th"          default="0.4"/>
 <arg name="local_width"     default="6.0"/>
 <arg name="offset_odom"     default="false"/>
@@ -106,7 +106,7 @@
     <param name="planner/mpcHorizon"    value="1.0"/> <!-- 1.0 [s]-->
     <param name="planner/optHorizon"    value="1.0"/> <!-- 3.0 [s]-->
     <param name="planner/opt_seg"       value="4.0"/> 
-    <param name="planner/opt_traj"      value="false"/>
+    <param name="planner/opt_traj"      value="true"/>
     <!-- 小于0就不优化 | 等于0就是全优化 | 大于0就是根据采样区间和参考速度计算优化长度 -->
     <param name="planner/persuit_factor"    value="0.8"/>
     <param name="planner/persuit_step_factor"    value="1.5"/>
@@ -133,7 +133,7 @@
     <param name="local_port"        value="2048"/>
     <param name="dest_port"         value="1024"/>
     <param name="timeout"           value="2"/>
-    <param name="loop_rate"         value="10"/>
+    <param name="loop_rate"         value="0.1"/>
 
     <!-- %%%%%%%%%%%%%% optimization parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% -->
     <param name="nontrajopt/lambda_smo"     value="0.1"/>
@@ -142,9 +142,9 @@
     <param name="nontrajopt/OBS_SWITCH"     value="true"/>
     <param name="nontrajopt/lambda_dyn"     value="10.0"/>
     <param name="nontrajopt/DYN_SWITCH"     value="true"/>
-    <param name="nontrajopt/lambda_tim"     value="1000.0"/>
+    <param name="nontrajopt/lambda_tim"     value="100.0"/>
     <param name="nontrajopt/TIM_SWITCH"     value="true"/>
-    <param name="nontrajopt/lambda_ova"     value="10.0"/>
+    <param name="nontrajopt/lambda_ova"     value="1.0"/>
     <param name="nontrajopt/OVA_SWITCH"     value="true"/>
     <param name="nontrajopt/dist_th"        value="0.5"/>
     <param name="nontrajopt/discredist"     value="0.05"/>
@@ -162,22 +162,23 @@
     <param name="nontrajopt/OVAL_TH"        value="0.8"/>
     <param name="nontrajopt/ORIEN_VEL"      value="2.0"/>
     <param name="nontrajopt/VERDIT_VEL"     value="1.0"/>
-    <param name="nontrajopt/coeff_bound"    value="8000.0"/>
+    <param name="nontrajopt/coeff_bound"    value="500.0"/>
     <param name="nontrajopt/TIME_OPTIMIZATION" value="true"/>
     <param name="nontrajopt/REDUCE_ORDER"      value="true"/>
     <param name="nontrajopt/BOUND_OPTIMIZATION" value="true"/>
     <param name="nontrajopt/INIT_OPT_VALUE"    value="true"/>
     <param name="nontrajopt/nlopt_max_iteration_num" value="200"/>
-    <param name="nontrajopt/nlopt_max_iteration_time" value="0.1"/>
-    <param name="nontrajopt/nlopt_xtol_rel"     value="0.00001"/>
+    <param name="nontrajopt/nlopt_max_iteration_time" value="10"/>
+    <param name="nontrajopt/nlopt_xtol_rel"     value="0.00000001"/>  <!-- 1e-8 -->
+    <param name="nontrajopt/nlopt_ftol_rel"     value="0.00000001"/>
 
 </node>
-    <group if="$(arg offset_odom)">
+    <!-- <group if="$(arg offset_odom)">
 		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
             args="0 0 0 0 0 0 1 world planner 100 " />
     </group>
     <group unless="$(arg offset_odom)">
 		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
             args="0 0 0 0 0 0 1 world planner 100 " />
-    </group>
+    </group> -->
 </launch>

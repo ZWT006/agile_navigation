@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-13
- * @LastEditTime: 2023-11-07
+ * @LastEditTime: 2023-12-07
  * @Description: 
  * @reference: 
  * 
@@ -91,8 +91,8 @@ typedef TrackSeg* TrackSegPtr;
 struct TrackSeg
 {
     double duration;
-    Eigen::Matrix<double, 3, 3> startState = Eigen::Matrix3Xd::Zero(3,3);
-    Eigen::Matrix<double, 3, 3> endState = Eigen::Matrix3Xd::Zero(3,3);
+    Eigen::Matrix<double, 3, 4> startState = Eigen::Matrix3Xd::Zero(3,4);
+    Eigen::Matrix<double, 3, 4> endState   = Eigen::Matrix3Xd::Zero(3,4);
     // std::vector<double> xcoeff;
     // std::vector<double> ycoeff;
     // std::vector<double> qcoeff;
@@ -421,7 +421,7 @@ bool Tracking::replaceSegTraj(int seg_index,std::vector<TrackSeg> *tracksegsets)
     vqtraj.insert(vqtraj.begin() + _pre_traj_num , _new_vqtraj.begin(), _new_vqtraj.end());
     segtrajpoints.insert(segtrajpoints.begin() + seg_index , _new_segtrajpoints.begin(), _new_segtrajpoints.end());
     StatesSegSets.insert(StatesSegSets.begin() + seg_index , _new_StatesSegSets.begin(), _new_StatesSegSets.end());
-    ROS_DEBUG("[\033[34mTrackNode\033[0m] insertSegTraj: seg_num: %d, traj_num: %ld",_seg_num,_new_pxtraj.size());
+    ROS_DEBUG("[\033[34mTrackNode\033[0m] replaceSegTraj: seg_num: %d, traj_num: %ld",_seg_num,_new_pxtraj.size());
     return flag;
 }
 

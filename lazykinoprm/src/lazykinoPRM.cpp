@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-04-03
- * @LastEditTime: 2023-11-08
+ * @LastEditTime: 2023-12-07
  * @Description: 
  * @reference: 
  * 
@@ -377,7 +377,7 @@ bool LazyKinoPRM::search(Eigen::Vector3d start_pos, Eigen::Vector3d start_vel,
       }
     } // end expend the node
     //Debug Print Expend Information
-    cout << "Expend Num: " << expend_num << " skip: " << expend_skip_num << " search: " << expend_serch_num << endl;
+    // cout << "Expend Num: " << expend_num << " skip: " << expend_skip_num << " search: " << expend_serch_num << endl;
     /* code */
   }
   //##################################################################################################################

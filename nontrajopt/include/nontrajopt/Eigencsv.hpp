@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-12
- * @LastEditTime: 2023-07-18
+ * @LastEditTime: 2023-11-27
  * @Description: Eigen 的 Matrix/Vector 与 csv 文件的转换
  * @reference: 
  * 
@@ -99,6 +99,7 @@ public:
         return true;
     }
     bool ReadMatrix(Eigen::MatrixXd& mat, const std::string& _filename) {
+        std::cout << _filename << std::endl;
         std::ifstream file(_filename);
         if (!file.is_open()) {
             std::cout << "Open file failed!" << std::endl;

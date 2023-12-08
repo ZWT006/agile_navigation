@@ -25,6 +25,7 @@
 - [ ] `mazeworld`多次规划路径杂乱
 - [ ] 搜索的起始点需要考虑开始的`q`，不然在重规划的时候会有大转折
 
+
 ### nontrajopt
 - [x] Polynomial Trajectory as `segment.hpp`
 - [x] 优化问题降维需要构建一个线性方程组$Ax=b$并且求解，其中的系数矩阵$A$是一个带状矩阵,确定这个矩阵的上下界`lowerBd`和`upperBd`,可以使用带状矩阵的LU分解快速求解方程组
@@ -81,6 +82,7 @@ The problem seems to be non-convex
 ### FIESTA
 - [x] Local Height PCL Update => `local_update` bool flag
 - [x] ESDF Update Switch => `esdf_update` bool flag
+- [ ] global map update for planning?
 
 ## legged control
 - [x] merge low state publish & nav seq subscribe
