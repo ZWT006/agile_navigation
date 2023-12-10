@@ -35,15 +35,32 @@
 - [x] 参考时间计算以及初末时间缩放 没啥用不要
 - [x] QP优化和NLopt优化如何区分 全局 QP + 局部 NLopt
 
+#### Cost & Grad
+**MATLAB**
+|Cost Name| Cost |Gradient c | Gradient t |
+|:-------:| :----: |:---------: |:----------:|
+|Smooth   | `xyq`cost | gradc | gradt  |
+|Dynamic  | `v`cost+`a`cost | `v`gradc+`a`gradc  | `v`gradt+`a`gradt |
+|Obstacle | `p`cost | `x`gradc+`y`gradc |  `x`gradt+`y`gradt=0 |
+|Oval     | (`xy`v+`q`p)cost | gradc |  gradt |
+
+**C++**
+|Cost Name| Cost |Gradient c |  Gradient t |
+|:-------:| :----: |:---------:| :----------:|
+|Smooth | true | true | true |
+|Dynamic| true | true | true |
+|Obstacle|true | true | true | 
+|Oval   | true | true | true | 
+
 #### OSQP Solver
 - [x] updateQ,updateAeqbeq Debug
 - [x] ERROR: non-convex 这可怎么办呢，这咋解呀  
 搞定了，是$Q$矩阵算错了，自己写的C++代码的问题
-```
-ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
-ERROR in osqp_setup: KKT matrix factorization.
-The problem seems to be non-convex
-```
+    ```
+    ERROR in LDL_factor: Error in KKT matrix LDL factorization when computing the nonzero elements. The problem seems to be non-convex
+    ERROR in osqp_setup: KKT matrix factorization.
+    The problem seems to be non-convex
+    ```
 - [x] ~~add waypoints states inequality constraints~~ 还是不要的好 效果差
 - [x] maybe 可以把求解的输出给关了
 - [x] OSQP的解有时候也不好，但是可以很明显看出来是 系数非常大 可以加个判断系数太大就重搜索

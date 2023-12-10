@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-12-08
+ * @LastEditTime: 2023-12-10
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -1113,10 +1113,14 @@ bool NLoptSegPush()
     }
     // _endStates = nloptTraj.back().endState.block(0,0,3,3);
     _endStates = nloptTraj.back().endState;
-    std::cout << "nloptTraj startState: " << std::endl;
-    std::cout << nloptTraj.front().startState << std::endl;
-    std::cout << "nloptTraj endState: " << std::endl;
-    std::cout << nloptTraj.back().endState << std::endl;
+    // std::cout << "waypoints: " << std::endl;
+    // std::cout << _waypoints << std::endl;
+    // std::cout << "nloptTraj startState: " << std::endl;
+    // std::cout << nloptTraj.front().startState << std::endl;
+    // std::cout << "nloptTraj endState: " << std::endl;
+    // std::cout << nloptTraj.back().endState << std::endl;
+
+    Eigen::VectorXd _initCoeff = _coeff_init;
 
     //// nlopt local optimization set waypoints without any modification
     NLoptopt.initWaypoints(_waypoints,_initt,_startStates, _endStates);
@@ -1142,6 +1146,52 @@ bool NLoptSegPush()
     //#### 优化前保存初始轨迹
     NLoptopt.updateOptAxb();
     NLoptopt.updateTraj();
+
+    Eigen::VectorXd _coeffbias =  _initCoeff - NLoptopt.Vecx;
+    Eigen::VectorXd::Index Maxcol,Mincol;
+    std::cout << "initCoeff " << "Max: " << _initCoeff.maxCoeff() << "; Min: " << _initCoeff.minCoeff() << std::endl;
+    std::cout << "Vecx      " << "Max: " << NLoptopt.Vecx.maxCoeff() << "; Min: " << NLoptopt.Vecx.minCoeff() << std::endl;
+    // std::cout << "_coeffbias: " << std::endl;
+    // std::cout << _coeffbias.transpose() << std::endl;
+    _coeffbias.maxCoeff(&Maxcol);
+    _coeffbias.minCoeff(&Mincol);
+    std::cout << "_coeffbias.norm(): " << _coeffbias.norm() 
+                << "; MaxCol:" << Maxcol << "; MaxBias:" << _coeffbias.maxCoeff() 
+                << "; MinCol:" << Mincol << "; MinBias:" << _coeffbias.minCoeff() 
+                << std::endl;
+    
+    Eigen::VectorXd _Rebeqbias,_beqbias;
+    _Rebeqbias = NLoptopt.Vecb - NLoptopt.MatA * NLoptopt.Vecx;
+    _Rebeqbias.maxCoeff(&Maxcol);
+    _Rebeqbias.minCoeff(&Mincol);
+    std::cout << "Rebeq Vecx bias.norm(): " << _Rebeqbias.norm() 
+                << "; MaxCol:" << Maxcol << "; MaxBias:" << _Rebeqbias.maxCoeff() 
+                << "; MinCol:" << Mincol << "; MinBias:" << _Rebeqbias.minCoeff() 
+                << std::endl;
+    _Rebeqbias = NLoptopt.Vecb - NLoptopt.MatA * _initCoeff;
+    _Rebeqbias.maxCoeff(&Maxcol);
+    _Rebeqbias.minCoeff(&Mincol);
+    std::cout << "Rebeq init bias.norm(): " << _Rebeqbias.norm() 
+                << "; MaxCol:" << Maxcol << "; MaxBias:" << _Rebeqbias.maxCoeff() 
+                << "; MinCol:" << Mincol << "; MinBias:" << _Rebeqbias.minCoeff() 
+                << std::endl;
+
+    _beqbias = NLoptopt.VecbBef - NLoptopt.MatABef * NLoptopt.Vecx;
+    _beqbias.maxCoeff(&Maxcol);
+    _beqbias.minCoeff(&Mincol);
+    std::cout << "beq Vecx bias.norm(): " << _beqbias.norm() 
+                << "; MaxCol:" << Maxcol << "; MaxBias:" << _beqbias.maxCoeff() 
+                << "; MinCol:" << Mincol << "; MinBias:" << _beqbias.minCoeff() 
+                << std::endl;
+    _beqbias = NLoptopt.VecbBef - NLoptopt.MatABef * _initCoeff;
+    _beqbias.maxCoeff(&Maxcol);
+    _beqbias.minCoeff(&Mincol);
+    std::cout << "beq init bias.norm(): " << _beqbias.norm() 
+                << "; MaxCol:" << Maxcol << "; MaxBias:" << _beqbias.maxCoeff() 
+                << "; MinCol:" << Mincol << "; MinBias:" << _beqbias.minCoeff() 
+                << std::endl;
+
+
     double dt = 0.01;
     double allT = NLoptopt.Traj.getTotalDuration();
     int num = allT / dt;

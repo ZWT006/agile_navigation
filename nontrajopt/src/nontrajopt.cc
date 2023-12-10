@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-24
- * @LastEditTime: 2023-12-08
+ * @LastEditTime: 2023-12-10
  * @Description: trajectory optimization
  * @reference: 
  * 
@@ -627,14 +627,14 @@ void NonTrajOpt::updateOptAxb() {
     // 线性方程组能够 正常求解且与MATLAB结果一致
     ////TODO: 这里求解线性方程组可能会有问题
     int rank = TempAeqRE.fullPivLu().rank();
-    std::cout << "Aeq Rank: " << rank << "; MatDim: " << MatDim << std::endl;
+    // std::cout << "Aeq Rank: " << rank << "; MatDim: " << MatDim << std::endl;
     // 将 TempAeq 和 Tempbeq 赋值给 MatABS 和 Vecb
     MatA = TempAeqRE;
     Vecb = TempbeqRE;
     MatABef = TempAeq;
     VecbBef = Tempbeq;
     //// 最小二乘求解线性方程组 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    //// 正规阵法 Ax=b; A^{T}Ax = A^{T}b
+    //// 正规阵法 Normal Matrix Ax=b; A^{T}Ax = A^{T}b
     Vecx = (TempAeqRE.transpose() * TempAeqRE).ldlt().solve(TempAeqRE.transpose() * TempbeqRE);
     //// M-P inv Maybe the best but slowest ################################
     // Vecx = Eigenpinv(TempAeqRE)*TempbeqRE;
@@ -832,23 +832,23 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
 
     OPTptr->iter_num++;
 
-    std::cout << BLUE << "NLopt iter_num: " << RESET << "["<<OPTptr->iter_num <<"] ";//<< std::endl;
+    // std::cout << BLUE << "NLopt iter_num: " << RESET << "["<<OPTptr->iter_num <<"] ";//<< std::endl;
     // std::cout << "opt coefs: " ;
     // for (int i = 0; i < OPTptr->OptDof; i++) {
     //     std::cout << optx[i] << " ";
     // }
     // std::cout << std::endl;
 
-    if (OPTptr->TIME_OPTIMIZATION) {
-        double opt_time = 0;
-        std::cout << "opt times: " ;
-        for (int i = 0; i < OPTptr->N; i++) {
-            opt_time = optx[OPTptr->OptDof+i];
-            // std::cout << "exp(" << opt_time << ")=" << std::exp(opt_time) <<"; ";
-            std::cout << std::exp(opt_time) <<" ";
-        }
-        std::cout << std::endl;
-    }
+    // if (OPTptr->TIME_OPTIMIZATION) {
+    //     double opt_time = 0;
+    //     std::cout << "opt times: " ;
+    //     for (int i = 0; i < OPTptr->N; i++) {
+    //         opt_time = optx[OPTptr->OptDof+i];
+    //         // std::cout << "exp(" << opt_time << ")=" << std::exp(opt_time) <<"; ";
+    //         std::cout << std::exp(opt_time) <<" ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     grad.resize(OPTptr->OptNum);
     std::fill(grad.begin(), grad.end(), 0.0);
@@ -918,7 +918,7 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
         if (OPTptr->TIME_OPTIMIZATION)
             _grad.tail(OPTptr->N) += gradt;
         
-        if (SHOW_CSOT_SWITCH) std::cout << " smoCost: " << smoCost * OPTptr->lambda_smo;
+        // if (SHOW_CSOT_SWITCH) std::cout << " smoCost: " << smoCost * OPTptr->lambda_smo;
 
     }
     if (OPTptr->OBS_SWITCH) {
@@ -934,7 +934,7 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
         if (OPTptr->TIME_OPTIMIZATION)
             _grad.tail(OPTptr->N) += gradt;
         
-        if (SHOW_CSOT_SWITCH) std::cout << " obsCost: " << obsCost * OPTptr->lambda_obs;
+        // if (SHOW_CSOT_SWITCH) std::cout << " obsCost: " << obsCost * OPTptr->lambda_obs;
 
     }
     if (OPTptr->DYN_SWITCH) {
@@ -950,7 +950,7 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
         if (OPTptr->TIME_OPTIMIZATION)
             _grad.tail(OPTptr->N) += gradt;
 
-        if (SHOW_CSOT_SWITCH) std::cout << " dynCost: " << dynCost * OPTptr->lambda_dyn;
+        // if (SHOW_CSOT_SWITCH) std::cout << " dynCost: " << dynCost * OPTptr->lambda_dyn;
 
     }
     if (OPTptr->TIM_SWITCH) {
@@ -966,7 +966,7 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
         if (OPTptr->TIME_OPTIMIZATION)
             _grad.tail(OPTptr->N) += gradt;
 
-        if (SHOW_CSOT_SWITCH) std::cout << " timCost: " << timCost * OPTptr->lambda_tim;
+        // if (SHOW_CSOT_SWITCH) std::cout << " timCost: " << timCost * OPTptr->lambda_tim;
         
     }
     if (OPTptr->OVA_SWITCH) {
@@ -982,10 +982,10 @@ double NonTrajOpt::NLoptobjection(const std::vector<double>& optx, std::vector<d
         if (OPTptr->TIME_OPTIMIZATION)
             _grad.tail(OPTptr->N) += gradt;
 
-        if (SHOW_CSOT_SWITCH) std::cout << " ovaCost: " << ovaCost * OPTptr->lambda_ova;
+        // if (SHOW_CSOT_SWITCH) std::cout << " ovaCost: " << ovaCost * OPTptr->lambda_ova;
     }
 
-    if (SHOW_CSOT_SWITCH) std::cout << " Cost: " << Cost << std::endl;
+    // if (SHOW_CSOT_SWITCH) std::cout << " Cost: " << Cost << std::endl;
     // 将 Eigen::VectorXd _grad 赋值给 std::vector<double> grad
     grad.assign(_grad.data(), _grad.data() + _grad.size());
     // std::memcpy(grad, _grad.data(), OPTptr->N * sizeof(double));
@@ -1277,12 +1277,17 @@ bool NonTrajOpt::OSQPSolve() {
 // NLopt Function
 bool NonTrajOpt::NLoptSolve() {
     bool flag = false;
-    nlopt::opt opt(nlopt::algorithm::LD_TNEWTON_PRECOND_RESTART, OptNum);
-    // NLOPT_LD_LBFGS 
-    // NLOPT_LD_TNEWTON_PRECOND_RESTART
-    // NLOPT_LD_TNEWTON_PRECOND
-    // NLOPT_LD_TNEWTON
-    // NLOPT_LD_VAR1
+    nlopt::opt opt(nlopt::algorithm::LD_MMA, OptNum);
+    // LN_BOBYQA
+    // LN_COBYLA
+    // LD_CCSAQ fine!
+    // LD_MMA   fine!
+    // NLOPT_ LD_LBFGS_NOCEDAL
+    // NLOPT_ LD_LBFGS 
+    // NLOPT_ LD_TNEWTON_PRECOND_RESTART
+    // NLOPT_ LD_TNEWTON_PRECOND
+    // NLOPT_ LD_TNEWTON
+    // NLOPT_ LD_VAR1
     // // ❗❗❗ NLoptobjection 必须返回 static double 类型的值 且该类型只能声明时候有，定义函数的时候就不能写 static 了
     opt.set_min_objective(NonTrajOpt::NLoptobjection, this);
 
@@ -1343,21 +1348,21 @@ bool NonTrajOpt::NLoptSolve() {
     // }
     // std::cout << std::endl;
     //// Trajectory State
-    std::cout << "Waypoints :" << std::endl;
-    std::cout << Waypoints << std::endl;
-    std::cout << "Init T :" << std::endl;
-    std::cout << initT.transpose() << std::endl;
-    std::cout << "Start State" << std::endl;
-    std::cout << StartStates << std::endl;
-    std::cout << "End State" << std::endl;
-    std::cout << EndStates << std::endl;
+    // std::cout << "Waypoints :" << std::endl;
+    // std::cout << Waypoints << std::endl;
+    // std::cout << "Init T :" << std::endl;
+    // std::cout << initT.transpose() << std::endl;
+    // std::cout << "Start State" << std::endl;
+    // std::cout << StartStates << std::endl;
+    // std::cout << "End State" << std::endl;
+    // std::cout << EndStates << std::endl;
 
     auto nlopt_time_start = std::chrono::high_resolution_clock::now();
     try {
 
         nlopt::result result = opt.optimize(NLoptx, minf);
         std::cout << "[\033[34mOptimization\033[0m]: nlopt solver" << std::endl;
-        std::cout << "NLopt iter: " << iter_num << std::endl;
+        std::cout << "NLopt iter: " << iter_num;
 
         //// Time clock &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
         auto nlopt_time_end = std::chrono::high_resolution_clock::now();
@@ -1366,7 +1371,7 @@ bool NonTrajOpt::NLoptSolve() {
         // auto nlopt_time_duration_us = std::chrono::duration_cast<std::chrono::microseconds>(nlopt_time_end - nlopt_time_start);
         // auto nlopt_time_duration_s = std::chrono::duration_cast<std::chrono::seconds>(nlopt_time_end - nlopt_time_start);
         // std::cout << "NLopt time: " << nlopt_time_duration_us.count() << " us" << std::endl;
-        std::cout << "NLopt time: " << nlopt_time_duration_ms.count() << " ms" << std::endl;
+        std::cout << "; NLopt time: " << nlopt_time_duration_ms.count() << " ms" << std::endl;
         // std::cout << "NLopt time: " << nlopt_time_duration_s.count() << " s" << std::endl;
         // std::cout << "NLopt minf: " << minf << std::endl;
         //// Debug result flag 
@@ -1821,12 +1826,12 @@ void NonTrajOpt::calcuDynCost(double &Cost,Eigen::VectorXd &gradc, Eigen::Vector
             // gdidx++;
         }
         Cost += velCost + accCost;
-        // gradc.segment(idx*O*D, O)       = xvgrad;// + xagrad;
-        // gradc.segment(idx*O*D+O, O)     = yvgrad;// + yagrad;
-        // gradc.segment(idx*O*D+2*O, O)   = qvgrad;// + qagrad;
-        gradc.segment(idx*O*D, O)       = xvgrad + xagrad;
-        gradc.segment(idx*O*D+O, O)     = yvgrad + yagrad;
-        gradc.segment(idx*O*D+2*O, O)   = qvgrad + qagrad;
+        gradc.segment(idx*O*D, O)       = xvgrad;// + xagrad;
+        gradc.segment(idx*O*D+O, O)     = yvgrad;// + yagrad;
+        gradc.segment(idx*O*D+2*O, O)   = qvgrad;// + qagrad;
+        // gradc.segment(idx*O*D, O)       = xvgrad + xagrad;
+        // gradc.segment(idx*O*D+O, O)     = yvgrad + yagrad;
+        // gradc.segment(idx*O*D+2*O, O)   = qvgrad + qagrad;
         gradt(idx) = velgradt + accgradt;
     }
 }

@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-07
- * @LastEditTime: 2023-12-08
+ * @LastEditTime: 2023-12-10
  * @Description: trajectory optimization class test
  * @reference: 
  * 
@@ -231,7 +231,7 @@ TEST(NonTrajOptTest, NontrajOptClass) {
 // std::string dataAddress = "/media/zwt/UbuntuFiles/datas/Swift/Debug2NLopt/SegOpt/";
 std::string dataAddress = "/media/zwt/UbuntuFiles/datas/Swift/Debug2NLopt/DEF";
 int n_seg = 8;
-std::string dataname = "1-9";
+std::string dataname = "9-17";
 
 TEST(NonTrajOptTest, NLoptSolver) {
     NonTrajOpt nontrajopt;
@@ -509,6 +509,7 @@ TEST(NonTrajOptTest, NLoptSolver) {
     }
     solve_time_end = std::chrono::high_resolution_clock::now();
     solve_time_duration_us = std::chrono::duration_cast<std::chrono::microseconds>(solve_time_end - solve_time_start);
+    _coeffbias =  _initCoeff - Vecx;
     _Rebeqbias = Rebeq - ReAeq*Vecx;
     _beqbias   = beq - Aeq*Vecx;
     std::cout << "DEC    solve [" << nontrajopt.MatDim <<  "] Dims time: " << solve_time_duration_us.count()/CNT_TH << " us " 
