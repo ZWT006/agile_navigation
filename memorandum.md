@@ -10,7 +10,8 @@
 - [ ] 坐标系的转化 SLAM <=> Robot
 - [x] 手动输入 Goal (非GUI输入)
 - [x] 精简代码结构和功能 以完成基础功能为主
-- [ ] 路径末端出现异常轨迹
+- [x] 路径末端出现异常轨迹
+- [ ] 清理代码工程，删除各种测试代码
 
 #### Replanning
 思路：先检查当前Odometry是否安全/根据当前odometry计算1s的轨迹是否安全，危险直接停机；判断当前pose在期望轨迹上的位置，并检查之后的轨迹是否安全，从不安全的Segment开始，重新search，填补到期望轨迹向量中。要将lazykinoprm中的pathStateSets和fast_navigation分离开来，fast_navigation要有自己的一套waypoint数据。

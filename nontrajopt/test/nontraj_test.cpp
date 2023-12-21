@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-07
- * @LastEditTime: 2023-12-10
+ * @LastEditTime: 2023-12-21
  * @Description: trajectory optimization class test
  * @reference: 
  * 
@@ -18,9 +18,7 @@
 #include <opencv2/opencv.hpp>
 
 
-// #include <nontrajopt/nontrajopt.hpp>
 #include <nontrajopt/nontrajopt.h>
-// #include <nontrajopt/nontrajoptclass.h>
 namespace plt = matplotlibcpp;
 
 // using namespace NonTrajOptSpace;
