@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.0.2)
 project(fast_navigation)
 
 # set debug mode
-SET(CMAKE_BUILD_TYPE "Debug")
-# SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
+# SET(CMAKE_BUILD_TYPE "Debug")
+SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -std=c++14")

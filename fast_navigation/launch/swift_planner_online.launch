@@ -46,7 +46,7 @@
 <arg name="erode_pcl_size"  default="3.0"/> <!-- make sure >= 1 -->
 <arg name="erode_obs_size"  default="10.0"/> <!-- make sure >= 1 -->
 <arg name="sdf_th"          default="0.4"/>
-<arg name="local_width"     default="6.0"/>
+<arg name="local_width"     default="4.0"/>
 <arg name="offset_odom"     default="false"/>
 <arg name="local_pcl"       default="true"/>
 
@@ -168,7 +168,7 @@
     <param name="nontrajopt/BOUND_OPTIMIZATION" value="true"/>
     <param name="nontrajopt/INIT_OPT_VALUE"    value="true"/>
     <param name="nontrajopt/nlopt_max_iteration_num" value="200"/>
-    <param name="nontrajopt/nlopt_max_iteration_time" value="0.1"/>
+    <param name="nontrajopt/nlopt_max_iteration_time" value="0.09"/>
     <param name="nontrajopt/nlopt_xtol_rel"     value="0.00000001"/>  <!-- 1e-8 -->
     <param name="nontrajopt/nlopt_ftol_rel"     value="0.00000001"/>
 

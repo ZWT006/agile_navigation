@@ -72,7 +72,7 @@
         <param name="map/orign_y_size" value="$(arg map_orign_y)"/>
         <param name="map/orign_z_size" value="$(arg map_orign_z)"/>
 
-        <param name="map/local_w" value="6"/>
+        <param name="map/local_w" value="4"/>
         <param name="map/resolution" value="0.05"/>
         <param name="map/erode_kernel_size" value="$(arg erode_kernel_size)" />
         <param name="map/erode_switch" value="$(arg erode_switch)" />

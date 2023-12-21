@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-07-24
- * @LastEditTime: 2023-12-10
+ * @LastEditTime: 2023-12-21
  * @Description: trajectory optimization
  * @reference: 
  * 
@@ -1566,14 +1566,14 @@ inline void NonTrajOpt::isDynamicFeasible(bool &flag) {
     Eigen::Vector2d linacc = maxacc.head(2);
     double omevel = maxvel(2);
     double omeacc = maxacc(2);
-    std::cout << "##########################################################################" << std::endl;
-    std::cout << "maxlinvel: " << linvel.transpose() << "; maxomevel: " <<  omevel << std::endl;
-    std::cout << "maxlinacc: " << linacc.transpose() << "; maxomeacc: " <<  omeacc << std::endl;
-    std::cout << "linvelnorm: " << linvel.norm() << "; pv_max: " <<  pv_max/dyn_rate << std::endl;
-    std::cout << "linaccnorm: " << linacc.norm() << "; pa_max: " <<  pa_max/dyn_rate << std::endl;
-    std::cout << "omevel: " << omevel << "; wv_max: " <<  wv_max/dyn_rate << std::endl;
-    std::cout << "omeacc: " << omeacc << "; wa_max: " <<  wa_max/dyn_rate << std::endl;
-    std::cout << "##########################################################################" << std::endl;
+    // std::cout << "##########################################################################" << std::endl;
+    // std::cout << "maxlinvel: " << linvel.transpose() << "; maxomevel: " <<  omevel << std::endl;
+    // std::cout << "maxlinacc: " << linacc.transpose() << "; maxomeacc: " <<  omeacc << std::endl;
+    // std::cout << "linvelnorm: " << linvel.norm() << "; pv_max: " <<  pv_max/dyn_rate << std::endl;
+    // std::cout << "linaccnorm: " << linacc.norm() << "; pa_max: " <<  pa_max/dyn_rate << std::endl;
+    // std::cout << "omevel: " << omevel << "; wv_max: " <<  wv_max/dyn_rate << std::endl;
+    // std::cout << "omeacc: " << omeacc << "; wa_max: " <<  wa_max/dyn_rate << std::endl;
+    // std::cout << "##########################################################################" << std::endl;
     if (linvel.norm() > pv_max/dyn_rate || linacc.norm() > pa_max/dyn_rate || 
         abs(omevel) > wv_max/dyn_rate || abs(omeacc)  > wa_max/dyn_rate) {
         flag = false;

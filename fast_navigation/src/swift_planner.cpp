@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-12-10
+ * @LastEditTime: 2023-12-21
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -1232,7 +1232,7 @@ void visRealTraj()
  */
 void visLazyPRM()
 {
-    double _vis_resolution = 0.04;
+    double _vis_resolution = 0.02;
     visualization_msgs::MarkerArray  LineArray;
     visualization_msgs::Marker       Line;
     visualization_msgs::Marker       Spheres;
@@ -1295,9 +1295,9 @@ void visLazyPRM()
     ESpheres.scale.z         = _vis_resolution*3;
 
     ESpheres.color.a         = 0.4;
-    ESpheres.color.r         = 1.0;
+    ESpheres.color.r         = 0.0;
     ESpheres.color.g         = 0.0;
-    ESpheres.color.b         = 0.0;
+    ESpheres.color.b         = 1.0;
 
     OSpheres.pose.orientation.w = 1.0; // 绿色是搜索过的节点(不一定被拓展过)
     OSpheres.type            = visualization_msgs::Marker::SPHERE_LIST;
@@ -1470,7 +1470,7 @@ void visLazyPRM()
  */
 void visOSQPTraj()
 {
-    double _vis_resolution = 0.02;
+    double _vis_resolution = 0.03;
     visualization_msgs::MarkerArray  LineArray;
     visualization_msgs::Marker       Line;
     visualization_msgs::Marker       Spheres;
@@ -1484,8 +1484,8 @@ void visOSQPTraj()
     Line.type            = visualization_msgs::Marker::LINE_STRIP;
     Line.scale.x         = _vis_resolution;
 
-    Line.color.r         = 0.0;
-    Line.color.g         = 1.0;
+    Line.color.r         = 1.0;
+    Line.color.g         = 0.0;
     Line.color.b         = 0.0;
     Line.color.a         = 0.5;
 
@@ -1540,7 +1540,7 @@ void visOSQPTraj()
  */
 void visNLoptTraj()
 {
-    double _vis_resolution = 0.02;
+    double _vis_resolution = 0.04;
     visualization_msgs::MarkerArray  LineArray;
     visualization_msgs::Marker       Line;
     visualization_msgs::Marker       Spheres;
@@ -1554,8 +1554,8 @@ void visNLoptTraj()
     Line.type            = visualization_msgs::Marker::LINE_STRIP;
     Line.scale.x         = _vis_resolution;
 
-    Line.color.r         = 1.0;
-    Line.color.g         = 0.0;
+    Line.color.r         = 0.0;
+    Line.color.g         = 1.0;
     Line.color.b         = 0.0;
     Line.color.a         = 0.5;
 

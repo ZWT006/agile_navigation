@@ -1,0 +1,12 @@
+# vscode
+.vscode/
+# fiesta and sdfmap is not important in swaft navigation
+fiesta/
+esdfmap/
+FIESTA/
+# picture files
+*.png
+!/grid_path_searcher/map/*.png
+# trajectory data
+/fast_navigation/data/*.csv
+/fast_navigation/traj
