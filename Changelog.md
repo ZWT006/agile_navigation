@@ -22,3 +22,11 @@ roslaunch fast_navigation fast_planner.launch
 `45b49e2`: **pref** swift tracking offline trajectory
 2023/12/10
 `cc383be`: **fix** swift navigation fix solve bug
+
+2023/12/21
+`fb38a63`: **pref** all project for release
+可以实现稳定的轨迹非线性优化，整个`swift_navigation`实现预期的完整功能
+1. 在线规划接收局部地图，并更新2D障碍图和SDF地图
+2. 在2D障碍物地图的基础上使用`lazykinoprm`搜索轨迹
+3. 在搜索轨迹的基础上使用`nontrajopt`优化轨迹
+4. 根据当前`odometry`计算Horizon内的轨迹传递给MPC跟踪

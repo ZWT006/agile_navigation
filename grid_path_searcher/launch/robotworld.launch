@@ -20,11 +20,7 @@
 
     <!-- <remap from="~odom" to="/Odometry"/> -->
     <remap from="~odom" to="/ground_truth/state"/>
-
-    <!-- <param name="init_state_x" value="$(arg start_x)"/>
-    <param name="init_state_y" value="$(arg start_y)"/> -->
     
-
     <!-- size 和 orign 的设置无效,会根据导入地图的大小自行计算 -->
     <param name="map/init_orign" value="$(arg init_orign)" />
     <param name="map/orign_x" value="$(arg map_orign_x)" />

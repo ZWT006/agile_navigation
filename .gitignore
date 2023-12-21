@@ -6,7 +6,7 @@ esdfmap/
 FIESTA/
 # picture files
 *.png
-!/grid_path_searcher/map/*.png
+!grid_path_searcher/map/*.png
 # trajectory data
-/fast_navigation/data/*.csv
-/fast_navigation/traj
+fast_navigation/datas/*.csv
+fast_navigation/traj/
