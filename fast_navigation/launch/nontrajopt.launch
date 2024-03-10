@@ -1,8 +1,0 @@
-<launch>
-
-    <node pkg="nontrajopt" type="nontraj_test" name="nontraj_test" output="screen" required = "true">
-    </node>
-    <!-- <node pkg="fast_navigation" type="pub_goalpose" name="pub_goalpose" output="screen"
-        args="1.0 1.0 45.0">
-    </node> -->
-</launch>

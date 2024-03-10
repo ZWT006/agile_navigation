@@ -102,6 +102,13 @@ target_link_libraries(pub_goalpose
     ${catkin_LIBRARIES})
 
 ##################################################
+add_executable( fake_robot 
+    src/fake_robot.cpp
+)
+target_link_libraries(fake_robot 
+    ${catkin_LIBRARIES})
+
+##################################################
 add_executable( planning_test 
     test/planning_test.cpp
 )
