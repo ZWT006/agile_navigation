@@ -1,7 +1,7 @@
 /*
  * @Author: wentao zhang && zwt190315@163.com
  * @Date: 2023-06-23
- * @LastEditTime: 2023-12-21
+ * @LastEditTime: 2024-03-15
  * @Description: swaft planner for fast real time navigation 
  * @reference: 
  * 
@@ -1590,7 +1590,7 @@ void visNLoptTraj()
 void visObsMap()
 {
     pcl::PointXYZ pt_image;
-    const cv::Mat* obsimg = lazykinoPRM.getFatMap();
+    const cv::Mat* obsimg = lazykinoPRM.getObsMap();
     if (obsimg == nullptr)
         return;
     sensor_msgs::PointCloud2 _obs_map_pcl_msg; // 全局障碍物点云

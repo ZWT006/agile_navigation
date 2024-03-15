@@ -173,12 +173,4 @@
     <param name="nontrajopt/nlopt_ftol_rel"     value="0.00000001"/>
 
 </node>
-    <!-- <group if="$(arg offset_odom)">
-		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
-            args="0 0 0 0 0 0 1 world planner 100 " />
-    </group>
-    <group unless="$(arg offset_odom)">
-		<node pkg="tf" type="static_transform_publisher" name="tf_planner_to_world" 
-            args="0 0 0 0 0 0 1 world planner 100 " />
-    </group> -->
 </launch>

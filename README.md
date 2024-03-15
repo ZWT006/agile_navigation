@@ -3,15 +3,17 @@
 ## Introduction
 Huazhong University of Science and Technology - School of Artificial Intelligence and Automation - Coralab Lab, ROS package for *Agile and Safe Trajectory Planning for Quadruped Navigation with Motion Anisotropy Awareness*
 
+
 ## Framework
-**Key Function**:The entire real-time navigation implementation, including: coarse path search, segmented trajectory optimization, trajectory tracking;
-`fast_navigation`:包含整个导航框架,进行整个导航工程的全部管理
-`lazykinoprm`:Kinodynamic Trajectory Generation
-`nontrajopt`:Nonlinear Trajectory Optimization
-**Auxiliary Functions**:visualization of rviz, acquisition of navigation target points and other auxiliary functions, the following packages use open source code and partially modification.
-`grid_path_search`:https://github.com/chunyang-zhang/grid_path_searcher/
-`rviz_plugins`:
-`waypoint_generator`:https://github.com/epan-utbm/waypoint_generator
+![System Overview](/doc//SystemOverView.jpg)
+**Key Function**:The entire real-time navigation implementation, including: coarse path search, segmented trajectory optimization, trajectory tracking.  
+`fast_navigation`:Navigation Manage  
+`lazykinoprm`:Kinodynamic Trajectory Generation  
+`nontrajopt`:Nonlinear Trajectory Optimization  
+**Auxiliary Functions**:visualization of rviz, acquisition of navigation target points and other auxiliary functions, the following packages use open source code and partially modification.  
+`grid_path_search`:https://github.com/chunyang-zhang/grid_path_searcher/  
+`rviz_plugins`:  
+`waypoint_generator`:https://github.com/epan-utbm/waypoint_generator  
 
 
 ## Install
@@ -43,7 +45,7 @@ In addition to the source code of this project, there are a number of sub-functi
     make
     sudo make install
     ```
-4. Install by source code `nlopt`：[NLopt Documentation](https://nlopt.readthedocs.io/en/latest/)，versioin `2.7.1`，NOTE** Using the command `sudo apt-get install libnlopt.dev` may result in error.
+4. Install by source code `nlopt`：[NLopt Documentation](https://nlopt.readthedocs.io/en/latest/)，versioin `2.7.1`，**NOTE** Using the command `sudo apt-get install libnlopt.dev` may result in error.
     ```
     git clone --recursive -b v2.7.1 https://github.com/stevengj/nlopt.git
     cd nlopt
